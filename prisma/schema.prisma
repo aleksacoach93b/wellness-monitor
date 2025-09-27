@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime?
+  email       String?  @unique
+  phone       String?
+  image       String?  // URL to player photo
+  password    String   // Password based on initials (e.g., "AB" for Aleksa Boskovic)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  responses   Response[]
+  
+  @@map("players")
+}
+
+model Survey {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String   // Simple admin identifier for now
+  
+  questions   Question[]
+  responses   Response[]
+  
+  @@map("surveys")
+}
+
+model Question {
+  id          String   @id @default(cuid())
+  surveyId    String
+  text        String
+  type        QuestionType
+  options     String?  // JSON string for multiple choice options
+  required    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  
+  survey      Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  answers     Answer[]
+  
+  @@map("questions")
+}
+
+model Response {
+  id          String   @id @default(cuid())
+  surveyId    String
+  playerId    String?  // Link to registered player
+  playerName  String?  // Optional player identifier (for anonymous responses)
+  playerEmail String?  // Optional player email (for anonymous responses)
+  submittedAt DateTime @default(now())
+  
+  survey      Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  player      Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  answers     Answer[]
+  
+  @@map("responses")
+}
+
+model Answer {
+  id         String @id @default(cuid())
+  responseId String
+  questionId String
+  value      String // Store answer as string (can be JSON for complex answers)
+  
+  response   Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@unique([responseId, questionId])
+  @@map("answers")
+}
+
+enum QuestionType {
+  TEXT
+  NUMBER
+  EMAIL
+  SELECT
+  MULTIPLE_SELECT
+  SCALE
+  BOOLEAN
+  BODY_MAP
+  RATING_SCALE
+  SLIDER
+}

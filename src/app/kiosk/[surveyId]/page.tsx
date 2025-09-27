@@ -203,7 +203,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               Enter password for <strong>{selectedPlayer.firstName} {selectedPlayer.lastName}</strong>:
             </p>
             <p className="text-xs text-gray-500 mb-4">
-              Password format: First letter of first name + First letter of last name (e.g., "AB" for Aleksa Boskovic)
+              Password format: First letter of first name + First letter of last name (e.g., &quot;AB&quot; for Aleksa Boskovic)
             </p>
             <input
               type="text"

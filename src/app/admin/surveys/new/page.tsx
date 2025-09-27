@@ -164,7 +164,7 @@ export default function NewSurveyPage() {
 
             {questions.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-gray-500">No questions added yet. Click "Add Question" to get started.</p>
+                <p className="text-gray-500">No questions added yet. Click &quot;Add Question&quot; to get started.</p>
               </div>
             ) : (
               <div className="space-y-6">

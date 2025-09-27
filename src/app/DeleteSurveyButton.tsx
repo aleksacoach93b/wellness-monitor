@@ -41,7 +41,7 @@ export default function DeleteSurveyButton({ surveyId, surveyTitle }: DeleteSurv
         <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Survey</h3>
           <p className="text-gray-600 mb-6">
-            Are you sure you want to delete "{surveyTitle}"? This action cannot be undone and will also delete all responses.
+            Are you sure you want to delete &quot;{surveyTitle}&quot;? This action cannot be undone and will also delete all responses.
           </p>
           <div className="flex justify-end space-x-3">
             <button

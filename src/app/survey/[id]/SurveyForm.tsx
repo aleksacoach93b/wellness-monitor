@@ -20,7 +20,7 @@ export default function SurveyForm({ survey }: SurveyFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [playerId, setPlayerId] = useState<string | null>(null)
-  const [player, setPlayer] = useState<any>(null)
+  const [player, setPlayer] = useState<{firstName: string, lastName: string, email?: string} | null>(null)
   const [bodyMapView, setBodyMapView] = useState<'front' | 'back'>('front')
   const [painBodyMapData, setPainBodyMapData] = useState<Record<string, number>>({})
   const [sorenessBodyMapData, setSorenessBodyMapData] = useState<Record<string, number>>({})

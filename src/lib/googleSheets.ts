@@ -44,7 +44,7 @@ class GoogleSheetsService {
       answer: string
     }>
     bodyMapData?: Record<string, number> | null
-  }) {
+  }): Promise<void> {
     try {
       // Define all possible muscle areas (from the body map)
       const allMuscleAreas = [

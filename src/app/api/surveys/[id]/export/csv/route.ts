@@ -200,8 +200,8 @@ export async function GET(
         
         return {
           responseId: response.id,
-          playerName: `${response.player.firstName} ${response.player.lastName}`,
-          playerEmail: response.player.email,
+          playerName: response.player ? `${response.player.firstName} ${response.player.lastName}` : 'Unknown Player',
+          playerEmail: response.player?.email || '',
           submittedAt: response.submittedAt,
           questionText: question?.text || '',
           questionType: question?.type || '',

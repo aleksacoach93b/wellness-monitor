@@ -1,131 +1,154 @@
-# Google Sheets Integration Setup
+# 📊 Google Sheets Automatski Upload Setup
 
-This guide will help you set up Google Sheets integration for automatic data export to PowerBI.
+## 🎯 Cilj
+Automatski upload CSV podataka na Google Sheets na nalog `aleksacoach@gmail.com` svaki put kada se submit-uje response.
 
-## Step 1: Create a Google Cloud Project
+## 🔧 Korak 1: Kreiranje Google Service Account
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the Google Sheets API:
-   - Go to "APIs & Services" > "Library"
-   - Search for "Google Sheets API"
-   - Click "Enable"
+### 1.1 Idi na Google Cloud Console
+- Otvori [Google Cloud Console](https://console.cloud.google.com/)
+- Uloguj se sa `aleksacoach@gmail.com`
 
-## Step 2: Create a Service Account
+### 1.2 Kreiraj novi projekat
+- Klikni na dropdown sa imenom projekta (gore levo)
+- Klikni "New Project"
+- Ime: `Wellness Monitor`
+- Klikni "Create"
 
-1. Go to "APIs & Services" > "Credentials"
-2. Click "Create Credentials" > "Service Account"
-3. Fill in the service account details:
-   - Name: `wellness-monitor-service`
-   - Description: `Service account for wellness monitoring app`
-4. Click "Create and Continue"
-5. Skip the optional steps and click "Done"
+### 1.3 Kreiraj Service Account
+- Idi na "IAM & Admin" → "Service Accounts"
+- Klikni "Create Service Account"
+- **Service account name:** `wellness-monitor-service`
+- **Description:** `Service account for wellness monitor app`
+- Klikni "Create and Continue"
 
-## Step 3: Generate Service Account Key
+### 1.4 Dodaj permissions
+- **Role:** `Editor` (za Google Sheets pristup)
+- Klikni "Continue"
+- Klikni "Done"
 
-1. In the Credentials page, find your service account
-2. Click on the service account email
-3. Go to the "Keys" tab
-4. Click "Add Key" > "Create new key"
-5. Choose "JSON" format
-6. Download the JSON file
+## 🔑 Korak 2: Kreiranje JSON ključa
 
-## Step 4: Create Google Sheet
+### 2.1 Generiši ključ
+- Klikni na kreirani Service Account
+- Idi na "Keys" tab
+- Klikni "Add Key" → "Create new key"
+- **Key type:** JSON
+- Klikni "Create"
+- **Download-uj JSON fajl** (važno!)
 
-1. Go to [Google Sheets](https://sheets.google.com/)
-2. Create a new spreadsheet
-3. Name it "Wellness Monitor Data" (or any name you prefer)
-4. Copy the spreadsheet ID from the URL:
-   ```
-   https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
-   ```
+### 2.2 Izvuci podatke iz JSON-a
+Iz JSON fajla trebaš:
+- `client_email` (Service Account email)
+- `private_key` (Private key)
 
-## Step 5: Share Sheet with Service Account
+## 📊 Korak 3: Kreiranje Google Sheets
 
-1. In your Google Sheet, click "Share"
-2. Add the service account email (from the JSON file) as an editor
-3. The email looks like: `wellness-monitor-service@your-project.iam.gserviceaccount.com`
+### 3.1 Kreiraj spreadsheet
+- Idi na [Google Sheets](https://sheets.google.com)
+- Klikni "Blank" da kreiraš novi spreadsheet
+- **Ime:** `Wellness Monitor Data - aleksacoach@gmail.com`
 
-## Step 6: Configure Environment Variables
+### 3.2 Share sa Service Account
+- Klikni "Share" (gore desno)
+- **Dodaj email:** `your-service-account@wellness-monitor.iam.gserviceaccount.com`
+- **Permission:** Editor
+- Klikni "Send"
 
-Create a `.env.local` file in your project root with:
+### 3.3 Kopiraj Spreadsheet ID
+- Iz URL-a: `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit`
+- Kopiraj `SPREADSHEET_ID` deo
 
-```env
-# Database
-DATABASE_URL="file:./dev.db"
+## ⚙️ Korak 4: Podešavanje Environment Variables
 
+### 4.1 Lokalno (.env fajl)
+```bash
 # Google Sheets Integration
-GOOGLE_SERVICE_ACCOUNT_EMAIL="your-service-account@your-project.iam.gserviceaccount.com"
+ENABLE_GOOGLE_SHEETS=true
+GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@wellness-monitor.iam.gserviceaccount.com
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n"
-GOOGLE_SPREADSHEET_ID="your-google-sheet-id-here"
-
-# Enable Google Sheets integration
-ENABLE_GOOGLE_SHEETS="true"
+GOOGLE_SPREADSHEET_ID=your_spreadsheet_id_here
 ```
 
-### Getting the Values:
+### 4.2 Vercel (Production)
+- Idi na Vercel Dashboard
+- Idi na tvoj projekat
+- Idi na "Settings" → "Environment Variables"
+- Dodaj sve 4 varijable:
+  - `ENABLE_GOOGLE_SHEETS` = `true`
+  - `GOOGLE_SERVICE_ACCOUNT_EMAIL` = `your-service-account@...`
+  - `GOOGLE_PRIVATE_KEY` = `-----BEGIN PRIVATE KEY-----\n...`
+  - `GOOGLE_SPREADSHEET_ID` = `your_spreadsheet_id`
 
-1. **GOOGLE_SERVICE_ACCOUNT_EMAIL**: From the JSON file, use the `client_email` field
-2. **GOOGLE_PRIVATE_KEY**: From the JSON file, use the `private_key` field (keep the \n characters)
-3. **GOOGLE_SPREADSHEET_ID**: From the Google Sheets URL
+## 🚀 Korak 5: Testiranje
 
-## Step 7: Test the Integration
-
-1. Start your application: `npm run dev`
-2. Create a survey and submit a response
-3. Check your Google Sheet - you should see the data automatically appear
-4. Use the "Export to Google Sheets" button in the admin dashboard for manual exports
-
-## Data Structure in Google Sheets
-
-The exported data will have the following columns:
-
-- **Survey ID**: Unique identifier for the survey
-- **Survey Title**: Name of the survey
-- **Player ID**: Unique identifier for the player (if registered)
-- **Player Name**: Name of the player
-- **Player Email**: Email of the player
-- **Submitted At**: Timestamp when the response was submitted
-- **Question Columns**: One column for each question in the survey
-
-## PowerBI Integration
-
-Once your data is in Google Sheets:
-
-1. Open PowerBI Desktop
-2. Click "Get Data" > "More" > "Online Services" > "Google Sheets"
-3. Sign in with your Google account
-4. Select your wellness monitoring spreadsheet
-5. Choose the sheet with your survey data
-6. Transform and model the data as needed for your analytics
-
-## Troubleshooting
-
-### Common Issues:
-
-1. **"Permission denied" error**: Make sure the service account email has editor access to the Google Sheet
-2. **"Invalid credentials" error**: Check that the private key is correctly formatted with \n characters
-3. **"Sheet not found" error**: Verify the spreadsheet ID is correct
-4. **No data appearing**: Check that `ENABLE_GOOGLE_SHEETS="true"` in your environment variables
-
-### Debug Mode:
-
-Add this to your `.env.local` to see detailed logs:
-```env
-DEBUG_GOOGLE_SHEETS="true"
+### 5.1 Lokalno testiranje
+```bash
+npm run dev
 ```
+- Idi na admin panel
+- Idi na survey results
+- Klikni "Export to Google Sheets"
+- Proveri da li se podaci pojavljuju u Google Sheets
 
-## Security Notes
+### 5.2 Automatski upload
+- Submit-uj novi response
+- Proveri da li se automatski dodaje u Google Sheets
 
-- Never commit the `.env.local` file to version control
-- Keep your service account JSON file secure
-- Regularly rotate your service account keys
-- Use the principle of least privilege for service account permissions
+## 📋 Struktura podataka u Google Sheets
 
-## Support
+### Kolone:
+1. **Survey ID** - ID surveya
+2. **Survey Title** - Naziv surveya
+3. **Player ID** - ID igrača
+4. **Player Name** - Ime igrača
+5. **Player Email** - Email igrača
+6. **Submitted At** - Datum i vreme submit-a
+7. **Question Answers** - Odgovori na pitanja
+8. **Body Map Data** - Podaci o body map-u (300+ kolona za sve regije)
 
-If you encounter issues:
-1. Check the browser console for error messages
-2. Check the server logs for detailed error information
-3. Verify all environment variables are set correctly
-4. Test the Google Sheets API access manually using the Google API Explorer
+### Sheet naming:
+- Svaki survey dobija svoj sheet: `Survey_[SURVEY_ID]`
+- Headers se automatski postavljaju
+- Podaci se dodaju na dno
+
+## 🔄 Automatska sinhronizacija
+
+### Kada se pokreće:
+- **Automatski:** Svaki put kada se submit-uje response
+- **Ručno:** Klikom na "Export to Google Sheets" dugme
+
+### Filtering:
+- Samo aktivni igrači (iz "Manage Players")
+- Samo validni responses
+- Dnevna logika (jedan response po danu po igraču)
+
+## 🛠️ Troubleshooting
+
+### Problem: "Permission denied"
+- Proveri da li je Service Account share-ovan sa spreadsheet-om
+- Proveri da li je `GOOGLE_SERVICE_ACCOUNT_EMAIL` tačan
+
+### Problem: "Invalid credentials"
+- Proveri da li je `GOOGLE_PRIVATE_KEY` tačno kopiran
+- Proveri da li su `\n` karakteri u private key-u
+
+### Problem: "Spreadsheet not found"
+- Proveri da li je `GOOGLE_SPREADSHEET_ID` tačan
+- Proveri da li spreadsheet postoji
+
+### Problem: "No data uploaded"
+- Proveri da li je `ENABLE_GOOGLE_SHEETS=true`
+- Proveri console logs za greške
+
+## 📞 Support
+
+Ako imaš problema:
+1. Proveri console logs u browser-u
+2. Proveri Vercel logs
+3. Proveri da li su svi environment variables postavljeni
+4. Testiraj lokalno pre nego što deploy-uješ
+
+---
+
+**🎉 Kada sve bude podešeno, podaci će se automatski upload-ovati na Google Sheets svaki put kada igrač submit-uje response!**

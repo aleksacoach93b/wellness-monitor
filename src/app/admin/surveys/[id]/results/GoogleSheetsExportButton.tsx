@@ -16,7 +16,7 @@ export default function GoogleSheetsExportButton({ surveyId }: GoogleSheetsExpor
     setExportStatus('idle')
 
     try {
-      const response = await fetch('/api/export/google-sheets', {
+      const response = await fetch('/api/google-sheets/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ surveyId })
@@ -25,7 +25,7 @@ export default function GoogleSheetsExportButton({ surveyId }: GoogleSheetsExpor
       if (response.ok) {
         const result = await response.json()
         setExportStatus('success')
-        alert(`Successfully exported ${result.responseCount} responses to Google Sheets!`)
+        alert(`Successfully exported ${result.uploadedCount} responses to Google Sheets!`)
       } else {
         setExportStatus('error')
         alert('Failed to export to Google Sheets. Please check your configuration.')

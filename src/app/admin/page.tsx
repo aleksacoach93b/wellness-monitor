@@ -1,13 +1,25 @@
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 
+// Force dynamic rendering to avoid build-time database calls
+export const dynamic = 'force-dynamic'
+
 export default async function AdminPage() {
-  // Get basic stats
-  const [surveysCount, responsesCount, playersCount] = await Promise.all([
-    prisma.survey.count(),
-    prisma.response.count(),
-    prisma.player.count({ where: { isActive: true } })
-  ])
+  // Get basic stats with error handling
+  let surveysCount = 0
+  let responsesCount = 0
+  let playersCount = 0
+  
+  try {
+    [surveysCount, responsesCount, playersCount] = await Promise.all([
+      prisma.survey.count(),
+      prisma.response.count(),
+      prisma.player.count({ where: { isActive: true } })
+    ])
+  } catch (error) {
+    console.error('Error fetching admin stats:', error)
+    // Use default values if database is not available
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

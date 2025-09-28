@@ -3,21 +3,38 @@ import { prisma } from '@/lib/prisma'
 import { Plus, BarChart3, Users, FileText, Trash2 } from 'lucide-react'
 import DeleteSurveyButton from './DeleteSurveyButton'
 import HomeButton from '@/components/HomeButton'
+import { Survey } from '@prisma/client'
+
+// Force dynamic rendering to avoid build-time database calls
+export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const surveys = await prisma.survey.findMany({
-    include: {
-      _count: {
-        select: {
-          questions: true,
-          responses: true
-        }
-      }
-    },
-    orderBy: {
-      createdAt: 'desc'
+  let surveys: (Survey & {
+    _count: {
+      questions: number
+      responses: number
     }
-  })
+  })[] = []
+  
+  try {
+    surveys = await prisma.survey.findMany({
+      include: {
+        _count: {
+          select: {
+            questions: true,
+            responses: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching surveys:', error)
+    // Return empty array if database is not available
+    surveys = []
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

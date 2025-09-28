@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { User, Calendar, Mail, Phone, FileText, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import Link from 'next/link'
+import { Player, Survey, Response } from '@prisma/client'
+
+// Force dynamic rendering to avoid build-time database calls
+export const dynamic = 'force-dynamic'
 
 interface PlayerPageProps {
   params: {
@@ -11,33 +15,54 @@ interface PlayerPageProps {
 }
 
 export default async function PlayerPage({ params }: PlayerPageProps) {
-  const player = await prisma.player.findUnique({
-    where: { id: params.id },
-    include: {
-      responses: {
-        include: {
-          survey: true
-        },
-        orderBy: { submittedAt: 'desc' }
+  let player: (Player & {
+    responses: (Response & {
+      survey: Survey
+    })[]
+  }) | null = null
+  
+  try {
+    player = await prisma.player.findUnique({
+      where: { id: params.id },
+      include: {
+        responses: {
+          include: {
+            survey: true
+          },
+          orderBy: { submittedAt: 'desc' }
+        }
       }
-    }
-  })
+    })
+  } catch (error) {
+    console.error('Error fetching player:', error)
+    notFound()
+  }
 
   if (!player) {
     notFound()
   }
 
-  const activeSurveys = await prisma.survey.findMany({
-    where: { isActive: true },
-    include: {
-      _count: {
-        select: {
-          questions: true
+  let activeSurveys: (Survey & {
+    _count: {
+      questions: number
+    }
+  })[] = []
+  try {
+    activeSurveys = await prisma.survey.findMany({
+      where: { isActive: true },
+      include: {
+        _count: {
+          select: {
+            questions: true
+          }
         }
-      }
-    },
-    orderBy: { createdAt: 'desc' }
-  })
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+  } catch (error) {
+    console.error('Error fetching active surveys:', error)
+    // Use empty array if database is not available
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">

@@ -1,15 +1,27 @@
 import { prisma } from '@/lib/prisma'
 import { User, Search } from 'lucide-react'
 import Link from 'next/link'
+import { Player } from '@prisma/client'
+
+// Force dynamic rendering to avoid build-time database calls
+export const dynamic = 'force-dynamic'
 
 export default async function PlayersPage() {
-  const players = await prisma.player.findMany({
-    where: { isActive: true },
-    orderBy: [
-      { firstName: 'asc' },
-      { lastName: 'asc' }
-    ]
-  })
+  let players: Player[] = []
+  
+  try {
+    players = await prisma.player.findMany({
+      where: { isActive: true },
+      orderBy: [
+        { firstName: 'asc' },
+        { lastName: 'asc' }
+      ]
+    })
+  } catch (error) {
+    console.error('Error fetching players:', error)
+    // Return empty array if database is not available
+    players = []
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">

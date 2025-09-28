@@ -4,6 +4,9 @@ import SurveyForm from './SurveyForm'
 import BackButton from '@/components/BackButton'
 import { Heart, Activity, User } from 'lucide-react'
 
+// Force dynamic rendering to avoid build-time database calls
+export const dynamic = 'force-dynamic'
+
 interface SurveyPageProps {
   params: Promise<{
     id: string
@@ -17,19 +20,26 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
   const { id } = await params
   const { playerId } = await searchParams
   
-  const survey = await prisma.survey.findUnique({
-    where: {
-      id: id,
-      isActive: true
-    },
-    include: {
-      questions: {
-        orderBy: {
-          order: 'asc'
+  let survey = null
+  
+  try {
+    survey = await prisma.survey.findUnique({
+      where: {
+        id: id,
+        isActive: true
+      },
+      include: {
+        questions: {
+          orderBy: {
+            order: 'asc'
+          }
         }
       }
-    }
-  })
+    })
+  } catch (error) {
+    console.error('Error fetching survey:', error)
+    notFound()
+  }
 
   if (!survey) {
     notFound()

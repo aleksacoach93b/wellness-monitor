@@ -240,11 +240,13 @@ export async function GET(
       )
     }
     
-    // Return as JSON for Power BI import
-    return NextResponse.json(powerBiData, {
+    // Return as simple JSON array (identical to CSV structure) for Power BI import
+    return NextResponse.json(powerBiData.flattenedData, {
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="survey-${survey.id}-powerbi.json"`
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       }
     })
     

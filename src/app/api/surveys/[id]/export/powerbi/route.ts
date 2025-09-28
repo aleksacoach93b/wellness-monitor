@@ -191,7 +191,7 @@ export async function GET(
       })),
       // Flattened data for easier Power BI consumption - each response as one row with all questions as columns
       flattenedData: survey.responses.map(response => {
-        const row: Record<string, any> = {
+        const row: Record<string, string | number | null> = {
           responseId: response.id,
           playerId: response.playerId,
           playerName: response.playerName,

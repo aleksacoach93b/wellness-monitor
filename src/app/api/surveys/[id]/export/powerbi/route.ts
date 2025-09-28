@@ -189,51 +189,65 @@ export async function GET(
           value: a.value
         }))
       })),
-      // Flattened data for easier Power BI consumption - each response as one row with all questions as columns
-      flattenedData: survey.responses.map(response => {
-        const row: Record<string, string | number | null> = {
-          responseId: response.id,
-          playerId: response.playerId,
-          playerName: response.playerName,
-          playerEmail: response.playerEmail,
-          submittedAt: response.submittedAt,
-          surveyId: survey.id,
-          surveyTitle: survey.title,
-          surveyCreatedAt: survey.createdAt,
-          surveyIsRecurring: survey.isRecurring
-        }
-        
-        // Add each question as a separate column
-        survey.questions.forEach(question => {
-          const answer = response.answers.find(a => a.questionId === question.id)
+      // Flattened data identical to CSV structure - each answer as separate row
+      flattenedData: survey.responses.flatMap(response => 
+        response.answers.map(answer => {
+          const question = survey.questions.find(q => q.id === answer.questionId)
           
-          if (question.type === 'BODY_MAP' && answer?.value && answer.value !== 'No') {
+          // For Body Map questions, create separate rows for each body part
+          if (question?.type === 'BODY_MAP' && answer.value && answer.value !== 'No') {
             try {
               const bodyMapData = JSON.parse(answer.value)
+              const bodyMapRows: Record<string, string | number | null>[] = []
               
-              // Convert path IDs to readable names and create separate columns for each body part
+              // Convert path IDs to readable names and create separate rows for each body part
               Object.entries(bodyMapData).forEach(([key, value]) => {
                 let muscleName = key
                 if (key.startsWith('path-')) {
                   muscleName = getMuscleName(key)
                 }
                 
-                // Create column name like "Painful Areas? - Left Gluteus Maximus"
-                const columnName = `${question.text} - ${muscleName}`
-                row[columnName] = value as number
+                bodyMapRows.push({
+                  responseId: response.id,
+                  playerName: response.playerName,
+                  playerEmail: response.playerEmail,
+                  submittedAt: response.submittedAt,
+                  questionText: `${question.text} - ${muscleName}`,
+                  questionType: question.type,
+                  answerValue: value as number,
+                  surveyTitle: survey.title
+                })
               })
+              
+              return bodyMapRows
             } catch (e) {
-              // If JSON parsing fails, keep original value
-              row[question.text] = answer?.value || ''
+              // If JSON parsing fails, return single row with original value
+              return [{
+                responseId: response.id,
+                playerName: response.playerName,
+                playerEmail: response.playerEmail,
+                submittedAt: response.submittedAt,
+                questionText: question?.text || '',
+                questionType: question?.type || '',
+                answerValue: answer.value,
+                surveyTitle: survey.title
+              }]
             }
           } else {
-            // For non-Body Map questions, use question text as column name
-            row[question.text] = answer?.value || ''
+            // For non-Body Map questions, return single row
+            return [{
+              responseId: response.id,
+              playerName: response.playerName,
+              playerEmail: response.playerEmail,
+              submittedAt: response.submittedAt,
+              questionText: question?.text || '',
+              questionType: question?.type || '',
+              answerValue: answer.value,
+              surveyTitle: survey.title
+            }]
           }
-        })
-        
-        return row
-      })
+        }).flat()
+      )
     }
     
     // Return as simple JSON array (identical to CSV structure) for Power BI import

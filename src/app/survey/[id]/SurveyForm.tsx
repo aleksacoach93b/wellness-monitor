@@ -746,6 +746,127 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
               </div>
             )}
 
+            {(question.type as string) === 'RPE' && (
+              <div className="mt-4">
+                <div className="bg-gray-600 rounded-xl p-4 border border-gray-500">
+                  <div className="flex flex-col items-center space-y-3">
+                    {/* First row: 1-5 */}
+                    <div className="flex space-x-2">
+                      {[1, 2, 3, 4, 5].map((rating) => {
+                        // RPE colors - REVERSED from Rating Scale (1=green, 10=red)
+                        let colorClasses = ''
+                        let hoverClasses = ''
+                        if (rating >= 1 && rating <= 3) {
+                          // Easy effort - GREEN
+                          colorClasses = 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-green-200'
+                          hoverClasses = 'hover:from-green-600 hover:to-green-700'
+                        } else if (rating >= 4 && rating <= 6) {
+                          // Moderate effort - YELLOW
+                          colorClasses = 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white shadow-yellow-200'
+                          hoverClasses = 'hover:from-yellow-500 hover:to-yellow-600'
+                        } else if (rating >= 7 && rating <= 8) {
+                          // Hard effort - ORANGE
+                          colorClasses = 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-200'
+                          hoverClasses = 'hover:from-orange-600 hover:to-orange-700'
+                        } else if (rating >= 9 && rating <= 10) {
+                          // Maximum effort - RED
+                          colorClasses = 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-red-200'
+                          hoverClasses = 'hover:from-red-600 hover:to-red-700'
+                        }
+
+                        const isSelected = formData[question.id] === rating.toString()
+                        
+                        return (
+                          <button
+                            key={rating}
+                            type="button"
+                            onClick={() => handleInputChange(question.id, rating.toString())}
+                            className={`w-10 h-10 rounded-lg font-bold transition-all duration-200 text-sm border-2 ${
+                              isSelected
+                                ? `${colorClasses} border-white shadow-lg scale-105`
+                                : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
+                            }`}
+                          >
+                            {rating}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    
+                    {/* Second row: 6-10 */}
+                    <div className="flex space-x-2">
+                      {[6, 7, 8, 9, 10].map((rating) => {
+                        // RPE colors - REVERSED from Rating Scale (1=green, 10=red)
+                        let colorClasses = ''
+                        let hoverClasses = ''
+                        if (rating >= 1 && rating <= 3) {
+                          // Easy effort - GREEN
+                          colorClasses = 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-green-200'
+                          hoverClasses = 'hover:from-green-600 hover:to-green-700'
+                        } else if (rating >= 4 && rating <= 6) {
+                          // Moderate effort - YELLOW
+                          colorClasses = 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white shadow-yellow-200'
+                          hoverClasses = 'hover:from-yellow-500 hover:to-yellow-600'
+                        } else if (rating >= 7 && rating <= 8) {
+                          // Hard effort - ORANGE
+                          colorClasses = 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-200'
+                          hoverClasses = 'hover:from-orange-600 hover:to-orange-700'
+                        } else if (rating >= 9 && rating <= 10) {
+                          // Maximum effort - RED
+                          colorClasses = 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-red-200'
+                          hoverClasses = 'hover:from-red-600 hover:to-red-700'
+                        }
+
+                        const isSelected = formData[question.id] === rating.toString()
+                        
+                        return (
+                          <button
+                            key={rating}
+                            type="button"
+                            onClick={() => handleInputChange(question.id, rating.toString())}
+                            className={`w-10 h-10 rounded-lg font-bold transition-all duration-200 text-sm border-2 ${
+                              isSelected
+                                ? `${colorClasses} border-white shadow-lg scale-105`
+                                : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
+                            }`}
+                          >
+                            {rating}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* RPE-specific labels */}
+                  <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-500">
+                    <span className="text-sm text-green-300 font-medium">Very Light</span>
+                    <span className="text-sm text-red-300 font-medium">Maximal</span>
+                  </div>
+                  
+                  {/* Selected value display with RPE description */}
+                  {formData[question.id] && (
+                    <div className="mt-3 text-center">
+                      <div className="inline-flex items-center px-3 py-1.5 bg-blue-900/30 rounded-lg">
+                        <span className="text-sm font-semibold text-blue-300">
+                          RPE: {formData[question.id]}/10
+                          {formData[question.id] === '1' && ' - Very Light'}
+                          {formData[question.id] === '2' && ' - Light'}
+                          {formData[question.id] === '3' && ' - Moderate'}
+                          {formData[question.id] === '4' && ' - Somewhat Hard'}
+                          {formData[question.id] === '5' && ' - Hard'}
+                          {formData[question.id] === '6' && ' - Hard+'}
+                          {formData[question.id] === '7' && ' - Very Hard'}
+                          {formData[question.id] === '8' && ' - Very Hard+'}
+                          {formData[question.id] === '9' && ' - Very Very Hard'}
+                          {formData[question.id] === '10' && ' - Maximal'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
         {(question.type as string) === 'SLIDER' && (
           <div className="mt-6">
             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl rounded-2xl p-4 sm:p-6 border border-slate-600/30 shadow-2xl relative overflow-hidden">
@@ -803,12 +924,18 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
               {question.options && (() => {
                 try {
                   const labels = JSON.parse(question.options)
-                  if (labels && labels.left && labels.center && labels.right) {
+                  if (labels && (labels.left || labels.center || labels.right)) {
                     return (
                       <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-600/30 relative z-10">
-                        <span className="text-sm text-slate-300 font-medium text-center flex-1">{labels.left}</span>
-                        <span className="text-sm text-slate-300 font-medium text-center flex-1">{labels.center}</span>
-                        <span className="text-sm text-slate-300 font-medium text-center flex-1">{labels.right}</span>
+                        <span className="text-sm text-slate-300 font-medium text-center flex-1">
+                          {labels.left || 'Low'}
+                        </span>
+                        <span className="text-sm text-slate-300 font-medium text-center flex-1">
+                          {labels.center || 'Fair'}
+                        </span>
+                        <span className="text-sm text-slate-300 font-medium text-center flex-1">
+                          {labels.right || 'High'}
+                        </span>
                       </div>
                     )
                   }
@@ -819,7 +946,14 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
               })()}
               
               {/* Default Color Legend with glassmorphism - Mobile Optimized (fallback) */}
-              {!question.options && (
+              {!question.options || (() => {
+                try {
+                  const labels = JSON.parse(question.options)
+                  return !labels || (!labels.left && !labels.center && !labels.right)
+                } catch (e) {
+                  return true
+                }
+              })() && (
                 <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs text-slate-300 relative z-10">
                   <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/30 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg backdrop-blur-sm border border-slate-600/30">
                     <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500 shadow-lg animate-pulse"></div>

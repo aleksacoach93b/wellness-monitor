@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
-import { Plus, BarChart3, Users, FileText, Trash2 } from 'lucide-react'
+import { Plus, BarChart3, Users, FileText, Trash2, Clock, Calendar, Settings } from 'lucide-react'
 import DeleteSurveyButton from './DeleteSurveyButton'
 import HomeButton from '@/components/HomeButton'
 import { Survey } from '@prisma/client'
+import { isRecurringSurveyActive, formatRecurringInfo } from '@/lib/recurringSurvey'
 
 // Force dynamic rendering to avoid build-time database calls
 export const dynamic = 'force-dynamic'
@@ -45,10 +46,27 @@ export default async function HomePage() {
               <h1 className="text-3xl font-bold text-gray-900">Wellness Monitor</h1>
               <p className="mt-2 text-gray-600">Create and manage wellness surveys for your players</p>
             </div>
-            <HomeButton />
+            <div className="flex space-x-3">
+              <Link
+                href="/admin"
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                title="Go to Admin Dashboard"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Admin
+              </Link>
+              <HomeButton />
+            </div>
           </div>
           
           <div className="mt-6 flex space-x-4">
+            <Link
+              href="/admin"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Admin Dashboard
+            </Link>
             <Link
               href="/admin/players"
               className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -145,6 +163,12 @@ export default async function HomePage() {
                     <div className="flex-1">
                       <div className="flex items-center">
                         <h3 className="text-sm font-medium text-gray-900">{survey.title}</h3>
+                        {survey.isRecurring ? (
+                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Recurring
+                          </span>
+                        ) : null}
                         {survey.isActive ? (
                           <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Active
@@ -165,6 +189,12 @@ export default async function HomePage() {
                         <span className="mx-2">•</span>
                         <span>Created {new Date(survey.createdAt).toLocaleDateString()}</span>
                       </div>
+                      {survey.isRecurring && (
+                        <div className="mt-1 flex items-center text-xs text-blue-600">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          <span>{formatRecurringInfo(survey)}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center space-x-2">
                       <Link

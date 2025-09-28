@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Save, Eye, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Save, Eye, ChevronUp, ChevronDown, Clock } from 'lucide-react'
 import { QuestionType, Survey, Question } from '@prisma/client'
 import HomeButton from '@/components/HomeButton'
 
@@ -192,9 +192,16 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
         router.push('/')
         router.refresh()
       } else {
-        const errorData = await response.json()
-        console.error('Failed to update survey:', errorData)
-        alert(`Failed to update survey: ${errorData.error || 'Unknown error'}`)
+        let errorMessage = 'Unknown error'
+        try {
+          const errorData = await response.json()
+          console.error('Failed to update survey:', errorData)
+          errorMessage = errorData.error || errorData.details || 'Unknown error'
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError)
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        }
+        alert(`Failed to update survey: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error updating survey:', error)
@@ -350,7 +357,8 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
                         <option value="EMAIL">Email</option>
                         <option value="BOOLEAN">Yes/No</option>
                         <option value="SCALE">Scale (1-10)</option>
-                        <option value="RATING_SCALE">Rating Scale (1-10)</option>
+                          <option value="RATING_SCALE">Rating Scale (1-10)</option>
+                          <option value="RPE">RPE - Rating of Perceived Exertion (1-10)</option>
                         <option value="SLIDER">Slider</option>
                         <option value="SELECT">Single Choice</option>
                         <option value="MULTIPLE_SELECT">Multiple Choice</option>
@@ -462,10 +470,18 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
         <div className="flex justify-end space-x-3">
           <button
             type="button"
-            onClick={() => router.push('/admin/surveys')}
+            onClick={() => router.push(`/admin/surveys/${id}`)}
             className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/admin/surveys/${id}/edit-schedule`)}
+            className="flex items-center px-4 py-2 border border-blue-300 rounded-md text-sm font-medium text-blue-700 bg-white hover:bg-blue-50"
+          >
+            <Clock className="h-4 w-4 mr-2" />
+            Edit Schedule
           </button>
           <button
             type="submit"

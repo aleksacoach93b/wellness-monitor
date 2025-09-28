@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { Download, BarChart3, Users, Calendar } from 'lucide-react'
+import { Download, Users, Calendar, BarChart3 } from 'lucide-react'
 import ResultsTable from './ResultsTable'
 import HomeButton from '@/components/HomeButton'
+import PowerBILink from '@/components/PowerBILink'
 import { format } from 'date-fns'
 
 // Muscle name mapping function (same as in BodyMap component)
@@ -380,14 +381,14 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
     
     // Add regular question headers
     survey.questions.forEach(question => {
-      if (!(question.text.toLowerCase().includes('painful') || question.text.toLowerCase().includes('sore') || question.text.toLowerCase().includes('muscle') || question.text.toLowerCase().includes('body'))) {
+      if (question.type !== 'BODY_MAP') {
         headers.push(question.text)
       }
     })
     
     // Add body map headers for each muscle area
     survey.questions.forEach(question => {
-      if ((question.text.toLowerCase().includes('painful') || question.text.toLowerCase().includes('sore') || question.text.toLowerCase().includes('muscle') || question.text.toLowerCase().includes('body'))) {
+      if (question.type === 'BODY_MAP') {
         allMuscleAreas.forEach(area => {
           headers.push(`${question.text} - ${getMuscleName(area)}`)
         })
@@ -407,7 +408,7 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
       
       // Add regular question answers
       survey.questions.forEach(question => {
-        if (!(question.text.toLowerCase().includes('painful') || question.text.toLowerCase().includes('sore') || question.text.toLowerCase().includes('muscle') || question.text.toLowerCase().includes('body'))) {
+        if (question.type !== 'BODY_MAP') {
           const answer = response.answers.find(a => a.questionId === question.id)
           let value = answer?.value || ''
           
@@ -421,7 +422,7 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
       
       // Add body map answers for each muscle area
       survey.questions.forEach(question => {
-        if ((question.text.toLowerCase().includes('painful') || question.text.toLowerCase().includes('sore') || question.text.toLowerCase().includes('muscle') || question.text.toLowerCase().includes('body'))) {
+        if (question.type === 'BODY_MAP') {
           const answer = response.answers.find(a => a.questionId === question.id)
           let bodyMapData: Record<string, number> = {}
           
@@ -518,6 +519,7 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
                   <Download className="h-4 w-4 mr-2" />
                   Export CSV
                 </a>
+                <PowerBILink surveyId={survey.id} surveyTitle={survey.title} />
               </div>
             </div>
           </div>

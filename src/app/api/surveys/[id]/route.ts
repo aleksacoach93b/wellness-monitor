@@ -8,7 +8,7 @@ const updateSurveySchema = z.object({
   questions: z.array(z.object({
     id: z.string().optional(), // Allow undefined for new questions
     text: z.string().min(1),
-    type: z.enum(['TEXT', 'NUMBER', 'EMAIL', 'SELECT', 'MULTIPLE_SELECT', 'SCALE', 'BOOLEAN', 'BODY_MAP', 'RATING_SCALE', 'SLIDER', 'TIME']),
+    type: z.enum(['TEXT', 'NUMBER', 'EMAIL', 'SELECT', 'MULTIPLE_SELECT', 'SCALE', 'BOOLEAN', 'BODY_MAP', 'RATING_SCALE', 'RPE', 'SLIDER', 'TIME']),
     options: z.string().nullable().optional(),
     required: z.boolean(),
     order: z.number()
@@ -53,9 +53,15 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    console.log('=== SURVEY UPDATE START ===')
     const { id: surveyId } = await params
+    console.log('Survey ID:', surveyId)
+    
     const body = await request.json()
+    console.log('Raw request body:', JSON.stringify(body, null, 2))
+    
     const validatedData = updateSurveySchema.parse(body)
+    console.log('Validated data:', JSON.stringify(validatedData, null, 2))
 
     // Update the survey
     const updatedSurvey = await prisma.survey.update({
@@ -85,11 +91,33 @@ export async function PUT(
       })
     }
 
+    console.log('Survey updated successfully:', updatedSurvey.id)
+    console.log('=== SURVEY UPDATE END ===')
     return NextResponse.json(updatedSurvey)
   } catch (error) {
+    console.error('=== SURVEY UPDATE ERROR ===')
     console.error('Error updating survey:', error)
+    
+    if (error instanceof z.ZodError) {
+      console.error('Validation error details:', error.issues)
+      return NextResponse.json(
+        { 
+          error: 'Validation error', 
+          details: error.issues.map(issue => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+            code: issue.code
+          }))
+        },
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to update survey' },
+      { 
+        error: 'Failed to update survey',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }

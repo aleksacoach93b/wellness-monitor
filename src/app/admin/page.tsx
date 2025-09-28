@@ -45,7 +45,7 @@ export default async function AdminPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-6 flex space-x-4 mb-8">
+        <div className="mt-6 flex flex-wrap gap-4 mb-8">
           <Link
             href="/admin/players"
             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -67,6 +67,38 @@ export default async function AdminPage() {
               <path d="M12 5v14"></path>
             </svg>
             New Survey
+          </Link>
+          <Link
+            href="/admin/qr-code"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-qr-code h-4 w-4 mr-2" aria-hidden="true">
+              <rect width="5" height="5" x="3" y="3" rx="1"></rect>
+              <rect width="5" height="5" x="16" y="3" rx="1"></rect>
+              <rect width="5" height="5" x="3" y="16" rx="1"></rect>
+              <path d="M21 16h-3a2 2 0 0 0-2 2v3"></path>
+              <path d="M21 21v.01"></path>
+              <path d="M12 7v3a2 2 0 0 1-2 2H7"></path>
+              <path d="M3 12h.01"></path>
+              <path d="M12 3h.01"></path>
+              <path d="M12 16v.01"></path>
+              <path d="M16 12h1"></path>
+              <path d="M21 12v.01"></path>
+              <path d="M12 21v-1"></path>
+            </svg>
+            QR Code
+          </Link>
+          <Link
+            href="/admin/powerbi"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-bar-chart-3 h-4 w-4 mr-2" aria-hidden="true">
+              <path d="M3 3v16a2 2 0 0 0 2 2h16"></path>
+              <path d="M18 17V9"></path>
+              <path d="M13 17V5"></path>
+              <path d="M8 17v-3"></path>
+            </svg>
+            Power BI
           </Link>
         </div>
 
@@ -164,6 +196,18 @@ export default async function AdminPage() {
                   className="block w-full text-left px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
                 >
                   Player Management
+                </Link>
+                <Link
+                  href="/admin/qr-code"
+                  className="block w-full text-left px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  Generate QR Code
+                </Link>
+                <Link
+                  href="/admin/powerbi"
+                  className="block w-full text-left px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  Power BI Setup
                 </Link>
               </div>
             </div>

@@ -7,11 +7,17 @@ const createSurveySchema = z.object({
   description: z.string().nullable().optional(),
   questions: z.array(z.object({
     text: z.string().min(1, 'Question text is required'),
-    type: z.enum(['TEXT', 'NUMBER', 'EMAIL', 'SELECT', 'MULTIPLE_SELECT', 'SCALE', 'BOOLEAN', 'BODY_MAP', 'RATING_SCALE', 'SLIDER', 'TIME']),
-    options: z.array(z.string()).optional(),
+    type: z.enum(['TEXT', 'NUMBER', 'EMAIL', 'SELECT', 'MULTIPLE_SELECT', 'SCALE', 'BOOLEAN', 'BODY_MAP', 'RATING_SCALE', 'RPE', 'SLIDER', 'TIME']),
+    options: z.union([z.array(z.string()), z.string()]).optional(),
     required: z.boolean().default(true),
     order: z.number().default(0),
-  })).min(1, 'At least one question is required')
+  })).min(1, 'At least one question is required'),
+  // Recurring survey fields
+  isRecurring: z.boolean().default(false),
+  startDate: z.string().nullable().optional(),
+  endDate: z.string().nullable().optional(),
+  dailyStartTime: z.string().nullable().optional(),
+  dailyEndTime: z.string().nullable().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -28,11 +34,17 @@ export async function POST(request: NextRequest) {
         title: validatedData.title,
         description: validatedData.description || null,
         createdBy: 'admin', // Simple admin identifier for now
+        // Recurring survey fields
+        isRecurring: validatedData.isRecurring,
+        startDate: validatedData.startDate ? new Date(validatedData.startDate) : null,
+        endDate: validatedData.endDate ? new Date(validatedData.endDate) : null,
+        dailyStartTime: validatedData.dailyStartTime,
+        dailyEndTime: validatedData.dailyEndTime,
         questions: {
           create: validatedData.questions.map(q => ({
             text: q.text,
             type: q.type,
-            options: q.options ? JSON.stringify(q.options) : null,
+            options: q.options ? (typeof q.options === 'string' ? q.options : JSON.stringify(q.options)) : null,
             required: q.required,
             order: q.order,
           }))

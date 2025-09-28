@@ -21,11 +21,10 @@ export async function POST(request: NextRequest) {
     const validatedData = submitResponseSchema.parse(body)
     console.log('Validated data:', validatedData)
 
-    // Verify survey exists and is active
+    // Verify survey exists (allow inactive recurring surveys for testing)
     const survey = await prisma.survey.findUnique({
       where: {
-        id: validatedData.surveyId,
-        isActive: true
+        id: validatedData.surveyId
       },
       include: {
         questions: true

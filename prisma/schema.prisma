@@ -37,6 +37,14 @@ model Survey {
   updatedAt   DateTime @updatedAt
   createdBy   String   // Simple admin identifier for now
   
+  // Recurring survey fields
+  isRecurring     Boolean  @default(false)
+  startDate       DateTime?
+  endDate         DateTime?
+  dailyStartTime  String?  // Format: "06:00"
+  dailyEndTime    String?  // Format: "11:00"
+  timezone        String   @default("Europe/Belgrade")
+  
   questions   Question[]
   responses   Response[]
   
@@ -97,6 +105,7 @@ enum QuestionType {
   BOOLEAN
   BODY_MAP
   RATING_SCALE
+  RPE
   SLIDER
   TIME
 }

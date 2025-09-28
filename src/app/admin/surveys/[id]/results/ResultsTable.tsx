@@ -211,8 +211,8 @@ export default function ResultsTable({ responses }: ResultsTableProps) {
           {expandedResponse === response.id && (
             <div className="mt-4 space-y-4">
               {response.answers.map((answer) => {
-                // Check if this is body map data (pain or soreness)
-                if ((answer.question.text.toLowerCase().includes('painful') || answer.question.text.toLowerCase().includes('sore') || answer.question.text.toLowerCase().includes('muscle') || answer.question.text.toLowerCase().includes('body')) && answer.value.includes('{')) {
+                // Check if this is body map data
+                if (answer.question.type === 'BODY_MAP' && answer.value.includes('{')) {
                   try {
                     const bodyMapData = JSON.parse(answer.value)
                     const isPain = answer.question.text.toLowerCase().includes('painful')
@@ -242,8 +242,8 @@ export default function ResultsTable({ responses }: ResultsTableProps) {
                   }
                 }
                 
-                // Check if this is the old body map data format
-                if (answer.question.text.includes('muscle') && answer.value.includes('{')) {
+                // Check if this is the old body map data format (fallback)
+                if (answer.question.text.toLowerCase().includes('muscle') && answer.value.includes('{')) {
                   try {
                     const bodyMapData = JSON.parse(answer.value)
                     return (

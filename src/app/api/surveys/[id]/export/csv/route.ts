@@ -135,7 +135,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    
+
     // Fetch survey with all related data
     const survey = await prisma.survey.findUnique({
       where: { id },
@@ -145,113 +145,109 @@ export async function GET(
         },
         responses: {
           include: {
-            answers: true
+            player: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            },
+            answers: {
+              include: {
+                question: true
+              }
+            }
           },
           orderBy: { submittedAt: 'desc' }
         }
       }
     })
-    
+
     if (!survey) {
       return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
     }
-    
-    // Format data for Power BI
-    const powerBiData = {
-      survey: {
-        id: survey.id,
-        title: survey.title,
-        description: survey.description,
-        createdAt: survey.createdAt,
-        isRecurring: survey.isRecurring,
-        startDate: survey.startDate,
-        endDate: survey.endDate,
-        dailyStartTime: survey.dailyStartTime,
-        dailyEndTime: survey.dailyEndTime
-      },
-      questions: survey.questions.map(q => ({
-        id: q.id,
-        text: q.text,
-        type: q.type,
-        options: q.options,
-        required: q.required,
-        order: q.order
-      })),
-      responses: survey.responses.map(r => ({
-        id: r.id,
-        playerId: r.playerId,
-        playerName: r.playerName,
-        playerEmail: r.playerEmail,
-        submittedAt: r.submittedAt,
-        answers: r.answers.map(a => ({
-          id: a.id,
-          questionId: a.questionId,
-          value: a.value
-        }))
-      })),
-      // Flattened data for easier Power BI consumption
-      flattenedData: survey.responses.flatMap(response => 
-        response.answers.map(answer => {
-          const question = survey.questions.find(q => q.id === answer.questionId)
-          
-          // Process Body Map answers to convert path IDs to readable names
-          let processedValue = answer.value
-          if (question?.type === 'BODY_MAP' && answer.value && answer.value !== 'No') {
-            try {
-              const bodyMapData = JSON.parse(answer.value)
-              const processedBodyMap: Record<string, number> = {}
-              
-              // Convert path IDs to readable names
-              Object.entries(bodyMapData).forEach(([key, value]) => {
-                if (key.startsWith('path-')) {
-                  // Convert path ID to readable muscle name
-                  const muscleName = getMuscleName(key)
-                  processedBodyMap[muscleName] = value as number
-                } else {
-                  // These are already readable names
-                  processedBodyMap[key] = value as number
-                }
-              })
-              
-              processedValue = JSON.stringify(processedBodyMap)
-            } catch (e) {
-              // If JSON parsing fails, keep original value
-              processedValue = answer.value
-            }
+
+    // Process data for CSV export
+    const csvData = survey.responses.flatMap(response => 
+      response.answers.map(answer => {
+        const question = survey.questions.find(q => q.id === answer.questionId)
+        
+        // Process Body Map answers to convert path IDs to readable names
+        let processedValue = answer.value
+        if (question?.type === 'BODY_MAP' && answer.value && answer.value !== 'No') {
+          try {
+            const bodyMapData = JSON.parse(answer.value)
+            const processedBodyMap: Record<string, number> = {}
+            
+            // Convert path IDs to readable names
+            Object.entries(bodyMapData).forEach(([key, value]) => {
+              if (key.startsWith('path-')) {
+                // Convert path ID to readable muscle name
+                const muscleName = getMuscleName(key)
+                processedBodyMap[muscleName] = value as number
+              } else {
+                // These are already readable names
+                processedBodyMap[key] = value as number
+              }
+            })
+            
+            processedValue = JSON.stringify(processedBodyMap)
+          } catch (e) {
+            // If JSON parsing fails, keep original value
+            processedValue = answer.value
           }
-          
-          return {
-            responseId: response.id,
-            playerId: response.playerId,
-            playerName: response.playerName,
-            playerEmail: response.playerEmail,
-            submittedAt: response.submittedAt,
-            questionId: answer.questionId,
-            questionText: question?.text || '',
-            questionType: question?.type || '',
-            answerValue: processedValue,
-            // Survey metadata
-            surveyId: survey.id,
-            surveyTitle: survey.title,
-            surveyCreatedAt: survey.createdAt,
-            surveyIsRecurring: survey.isRecurring
-          }
-        })
-      )
+        }
+        
+        return {
+          responseId: response.id,
+          playerName: `${response.player.firstName} ${response.player.lastName}`,
+          playerEmail: response.player.email,
+          submittedAt: response.submittedAt,
+          questionText: question?.text || '',
+          questionType: question?.type || '',
+          answerValue: processedValue,
+          surveyTitle: survey.title
+        }
+      })
+    )
+
+    // Convert to CSV format
+    if (csvData.length === 0) {
+      return new NextResponse('No data available', {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`
+        }
+      })
     }
-    
-    // Return as JSON for Power BI import
-    return NextResponse.json(powerBiData, {
+
+    // Create CSV headers
+    const headers = Object.keys(csvData[0])
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => 
+        headers.map(header => {
+          const value = row[header as keyof typeof row]
+          // Escape CSV values that contain commas or quotes
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+            return `"${value.replace(/"/g, '""')}"`
+          }
+          return value
+        }).join(',')
+      )
+    ].join('\n')
+
+    return new NextResponse(csvContent, {
       headers: {
-        'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="survey-${survey.id}-powerbi.json"`
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`
       }
     })
-    
+
   } catch (error) {
-    console.error('Error exporting Power BI data:', error)
+    console.error('Error exporting survey to CSV:', error)
     return NextResponse.json(
-      { error: 'Failed to export Power BI data' },
+      { error: 'Failed to export survey data' },
       { status: 500 }
     )
   }

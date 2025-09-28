@@ -6,6 +6,7 @@ The build was failing because the application was trying to connect to the datab
 1. Adding `export const dynamic = 'force-dynamic'` to all pages that use Prisma
 2. Adding proper error handling for database connections
 3. Making all database-dependent pages render dynamically instead of statically
+4. Removed Google Sheets integration (replaced with Power BI integration)
 
 ## Environment Variables Setup
 
@@ -18,14 +19,10 @@ The build was failing because the application was trying to connect to the datab
 ### 2. Vercel Environment Variables
 1. Go to your Vercel project dashboard
 2. Navigate to **Settings** > **Environment Variables**
-3. Add the following variables:
+3. Add the following variable:
 
 ```
 DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
-ENABLE_GOOGLE_SHEETS=false
-GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
-GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n"
-GOOGLE_SPREADSHEET_ID=your_spreadsheet_id_here
 ```
 
 ### 3. Database Migration
@@ -91,9 +88,52 @@ If you still encounter issues:
 3. **Build Logs**: Check Vercel build logs for any remaining errors
 4. **Database Migration**: Ensure the database schema is properly migrated
 
+## Power BI Integration
+
+### Connecting Power BI to Supabase
+1. Open Power BI Desktop
+2. Click **Get Data** → **Database** → **PostgreSQL database**
+3. Enter connection details:
+   - **Server**: `db.anxxbhyujbxyiwnutfwd.supabase.co`
+   - **Database**: `postgres`
+   - **Data Connectivity mode**: DirectQuery (recommended for real-time data)
+4. Click **OK** and enter credentials:
+   - **Username**: `postgres`
+   - **Password**: `Teodor2025.`
+5. Select tables you want to import:
+   - `players` - Player information
+   - `surveys` - Survey definitions
+   - `questions` - Survey questions
+   - `responses` - Survey responses
+   - `answers` - Individual answers
+
+### Power BI Data Model
+- **Players** ↔ **Responses** (One-to-Many)
+- **Surveys** ↔ **Questions** (One-to-Many)
+- **Surveys** ↔ **Responses** (One-to-Many)
+- **Responses** ↔ **Answers** (One-to-Many)
+- **Questions** ↔ **Answers** (One-to-Many)
+
+### Recommended Visualizations
+1. **Player Performance Dashboard**
+   - Response trends over time
+   - Body map pain visualization
+   - Survey completion rates
+
+2. **Survey Analytics**
+   - Question response distributions
+   - Most/least answered questions
+   - Response patterns by player
+
+3. **Health Monitoring**
+   - Pain level trends
+   - Body area analysis
+   - Wellness score tracking
+
 ## Next Steps
 
 1. Set up your Supabase database
 2. Configure Vercel environment variables
 3. Run database migrations
 4. Deploy and test the application
+5. Connect Power BI to Supabase for data visualization

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { googleSheetsService } from '@/lib/googleSheets'
 import { z } from 'zod'
 
 const submitResponseSchema = z.object({
@@ -122,29 +121,6 @@ export async function POST(request: NextRequest) {
     })
     
     console.log('Response created successfully:', response.id)
-
-    // Export to Google Sheets if enabled
-    if (process.env.ENABLE_GOOGLE_SHEETS === 'true') {
-      try {
-        await googleSheetsService.appendSurveyResponse({
-          surveyId: response.surveyId,
-          surveyTitle: survey.title,
-          playerId: response.playerId || undefined,
-          playerName: response.playerName || undefined,
-          playerEmail: response.playerEmail || undefined,
-          submittedAt: response.submittedAt.toISOString(),
-          answers: response.answers.map(answer => ({
-            questionText: answer.question.text,
-            questionType: answer.question.type,
-            answer: answer.value
-          })),
-          bodyMapData: validatedData.bodyMapData
-        })
-      } catch (sheetsError) {
-        console.error('Failed to export to Google Sheets:', sheetsError)
-        // Don't fail the response if Google Sheets export fails
-      }
-    }
 
     return NextResponse.json(response)
   } catch (error) {

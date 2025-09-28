@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { Download, BarChart3, Users, Calendar } from 'lucide-react'
 import ResultsTable from './ResultsTable'
-import GoogleSheetsExportButton from './GoogleSheetsExportButton'
 import HomeButton from '@/components/HomeButton'
 import { format } from 'date-fns'
 
@@ -519,7 +518,6 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
                   <Download className="h-4 w-4 mr-2" />
                   Export CSV
                 </a>
-                <GoogleSheetsExportButton surveyId={survey.id} />
               </div>
             </div>
           </div>

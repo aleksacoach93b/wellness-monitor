@@ -61,7 +61,7 @@ export async function PUT(
         phone: validatedData.phone,
         image: validatedData.image,
         isActive: validatedData.isActive,
-        // password: validatedData.password || generatePlayerPassword(validatedData.firstName, validatedData.lastName) // Temporarily disabled until DB is updated
+        password: validatedData.password || generatePlayerPassword(validatedData.firstName, validatedData.lastName)
       }
     })
 

@@ -18,7 +18,7 @@ model Player {
   email       String?  @unique
   phone       String?
   image       String?  // URL to player photo
-  password    String   // Password based on initials (e.g., "AB" for Aleksa Boskovic)
+  password    String   @default("") // Password based on initials (e.g., "AB" for Aleksa Boskovic)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -98,4 +98,5 @@ enum QuestionType {
   BODY_MAP
   RATING_SCALE
   SLIDER
+  TIME
 }

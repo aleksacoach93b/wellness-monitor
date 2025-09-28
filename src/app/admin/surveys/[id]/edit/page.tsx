@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Save, Eye } from 'lucide-react'
+import { Plus, Trash2, Save, Eye, ChevronUp, ChevronDown } from 'lucide-react'
 import { QuestionType, Survey, Question } from '@prisma/client'
 import HomeButton from '@/components/HomeButton'
 
@@ -13,10 +13,16 @@ interface QuestionFormState {
   options: string[]
   required: boolean
   order: number
+  sliderLabels?: {
+    left?: string
+    center?: string
+    right?: string
+  }
 }
 
-export default function EditSurveyPage({ params }: { params: { id: string } }) {
+export default function EditSurveyPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
+  const { id } = use(params)
   const [survey, setSurvey] = useState<Survey & { questions: Question[] } | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -27,16 +33,35 @@ export default function EditSurveyPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     const fetchSurvey = async () => {
       try {
-        const response = await fetch(`/api/surveys/${params.id}`)
+        const response = await fetch(`/api/surveys/${id}`)
         if (response.ok) {
           const surveyData = await response.json()
           setSurvey(surveyData)
           setTitle(surveyData.title)
           setDescription(surveyData.description || '')
-          setQuestions((surveyData.questions || []).map((q: Question) => ({
-            ...q,
-            options: q.options ? JSON.parse(q.options) : []
-          })))
+          setQuestions((surveyData.questions || []).map((q: Question) => {
+            let parsedOptions = []
+            let sliderLabels = undefined
+            
+            if (q.options) {
+              try {
+                const parsed = JSON.parse(q.options)
+                if (Array.isArray(parsed)) {
+                  parsedOptions = parsed
+                } else if (parsed && (parsed.left || parsed.center || parsed.right)) {
+                  sliderLabels = parsed
+                }
+              } catch (e) {
+                // If parsing fails, treat as empty
+              }
+            }
+            
+            return {
+              ...q,
+              options: parsedOptions,
+              sliderLabels: sliderLabels
+            }
+          }))
         }
       } catch (error) {
         console.error('Error fetching survey:', error)
@@ -46,7 +71,7 @@ export default function EditSurveyPage({ params }: { params: { id: string } }) {
     }
 
     fetchSurvey()
-  }, [params.id])
+  }, [id])
 
   const addQuestion = () => {
     const newQuestion: QuestionFormState = {
@@ -68,6 +93,38 @@ export default function EditSurveyPage({ params }: { params: { id: string } }) {
     setQuestions(questions.filter(q => q.id !== id))
   }
 
+  const moveQuestionUp = (index: number) => {
+    if (index > 0) {
+      const newQuestions = [...questions]
+      const temp = newQuestions[index]
+      newQuestions[index] = newQuestions[index - 1]
+      newQuestions[index - 1] = temp
+      
+      // Update order numbers
+      newQuestions.forEach((q, i) => {
+        q.order = i
+      })
+      
+      setQuestions(newQuestions)
+    }
+  }
+
+  const moveQuestionDown = (index: number) => {
+    if (index < questions.length - 1) {
+      const newQuestions = [...questions]
+      const temp = newQuestions[index]
+      newQuestions[index] = newQuestions[index + 1]
+      newQuestions[index + 1] = temp
+      
+      // Update order numbers
+      newQuestions.forEach((q, i) => {
+        q.order = i
+      })
+      
+      setQuestions(newQuestions)
+    }
+  }
+
   const addOption = (questionId: string) => {
     updateQuestion(questionId, {
       options: [...questions.find(q => q.id === questionId)!.options, '']
@@ -87,6 +144,17 @@ export default function EditSurveyPage({ params }: { params: { id: string } }) {
     updateQuestion(questionId, { options: newOptions })
   }
 
+  const updateSliderLabel = (questionId: string, labelType: 'left' | 'center' | 'right', value: string) => {
+    const question = questions.find(q => q.id === questionId)!
+    const currentLabels = question.sliderLabels || {}
+    updateQuestion(questionId, {
+      sliderLabels: {
+        ...currentLabels,
+        [labelType]: value
+      }
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -98,7 +166,9 @@ export default function EditSurveyPage({ params }: { params: { id: string } }) {
           id: q.id.startsWith('temp-') ? undefined : q.id, // Don't send temp IDs to backend
           text: q.text,
           type: q.type,
-          options: q.options.length > 0 ? JSON.stringify(q.options) : null,
+          options: q.options.length > 0 ? JSON.stringify(q.options) : 
+                   (q.sliderLabels && (q.sliderLabels.left || q.sliderLabels.center || q.sliderLabels.right)) ? 
+                   JSON.stringify(q.sliderLabels) : null,
           required: q.required,
           order: index // Ensure order is correct on submission
         }))
@@ -112,7 +182,7 @@ export default function EditSurveyPage({ params }: { params: { id: string } }) {
 
       console.log('Submitting survey update:', requestData)
 
-      const response = await fetch(`/api/surveys/${params.id}`, {
+      const response = await fetch(`/api/surveys/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData)
@@ -150,7 +220,7 @@ export default function EditSurveyPage({ params }: { params: { id: string } }) {
           <HomeButton />
           <button
             type="button"
-            onClick={() => router.push(`/admin/surveys/${params.id}/results`)}
+            onClick={() => router.push(`/admin/surveys/${id}/results`)}
             className="flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             <Eye className="h-4 w-4 mr-2" />
@@ -210,11 +280,42 @@ export default function EditSurveyPage({ params }: { params: { id: string } }) {
             {questions.map((question, index) => (
               <div key={question.id} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-sm font-medium text-gray-900">Question {index + 1}</h3>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-sm font-medium text-gray-900">Question {index + 1}</h3>
+                    <div className="flex flex-col space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => moveQuestionUp(index)}
+                        disabled={index === 0}
+                        className={`p-1 rounded ${
+                          index === 0 
+                            ? 'text-gray-300 cursor-not-allowed' 
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                        title="Move question up"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveQuestionDown(index)}
+                        disabled={index === questions.length - 1}
+                        className={`p-1 rounded ${
+                          index === questions.length - 1 
+                            ? 'text-gray-300 cursor-not-allowed' 
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                        title="Move question down"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => removeQuestion(question.id)}
-                    className="text-red-600 hover:text-red-900"
+                    className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                    title="Delete question"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -254,10 +355,13 @@ export default function EditSurveyPage({ params }: { params: { id: string } }) {
                         <option value="SELECT">Single Choice</option>
                         <option value="MULTIPLE_SELECT">Multiple Choice</option>
                         <option value="BODY_MAP">Body Map</option>
+                        <option value="TIME">Time (24h format)</option>
                       </select>
                     </div>
+                  </div>
 
-                    <div className="flex items-center">
+
+                  <div className="flex items-center">
                       <input
                         type="checkbox"
                         id={`required-${question.id}`}
@@ -307,8 +411,50 @@ export default function EditSurveyPage({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                   )}
+
+                  {question.type === 'SLIDER' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Slider Labels (Optional)
+                      </label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Left Label</label>
+                          <input
+                            type="text"
+                            value={question.sliderLabels?.left || ''}
+                            onChange={(e) => updateSliderLabel(question.id, 'left', e.target.value)}
+                            className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="e.g., Very Bad"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Center Label</label>
+                          <input
+                            type="text"
+                            value={question.sliderLabels?.center || ''}
+                            onChange={(e) => updateSliderLabel(question.id, 'center', e.target.value)}
+                            className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="e.g., Ok"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Right Label</label>
+                          <input
+                            type="text"
+                            value={question.sliderLabels?.right || ''}
+                            onChange={(e) => updateSliderLabel(question.id, 'right', e.target.value)}
+                            className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="e.g., Very Good"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Leave empty to use default color legend (Low, Fair, Good, High)
+                      </p>
+                    </div>
+                  )}
                 </div>
-              </div>
             ))}
           </div>
         </div>

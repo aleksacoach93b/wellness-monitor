@@ -73,33 +73,33 @@ export default function NewPlayerPage() {
       }
     } catch (error) {
       console.error('Error creating player:', error)
-      alert(`Failed to create player: ${error.message}`)
+      alert(`Failed to create player: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-900">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Add New Player</h1>
-              <p className="mt-2 text-gray-600">Add a new athlete to your team</p>
+              <h1 className="text-3xl font-bold text-white">Add New Player</h1>
+              <p className="mt-2 text-gray-300">Add a new athlete to your team</p>
             </div>
             <HomeButton />
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Player Information</h2>
+          <div className="bg-gray-800 shadow rounded-lg p-6 border border-gray-700">
+            <h2 className="text-lg font-medium text-white mb-4">Player Information</h2>
             
             <div className="space-y-4">
               <div className="flex items-center space-x-6">
                 <div className="flex-shrink-0">
-                  <div className="h-24 w-24 rounded-full bg-gray-300 flex items-center justify-center">
+                  <div className="h-24 w-24 rounded-full bg-gray-600 flex items-center justify-center">
                     {formData.image ? (
                       <img
                         src={formData.image}
@@ -107,12 +107,12 @@ export default function NewPlayerPage() {
                         className="h-24 w-24 rounded-full object-cover"
                       />
                     ) : (
-                      <User className="h-12 w-12 text-gray-600" />
+                      <User className="h-12 w-12 text-gray-300" />
                     )}
                   </div>
                 </div>
                 <div className="flex-1">
-                  <label htmlFor="image" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="image" className="block text-sm font-medium text-gray-300">
                     Player Photo
                   </label>
                   
@@ -122,7 +122,7 @@ export default function NewPlayerPage() {
                       <img
                         src={imagePreview}
                         alt="Player preview"
-                        className="w-24 h-24 object-cover rounded-lg border border-gray-300"
+                        className="w-24 h-24 object-cover rounded-lg border border-gray-600"
                       />
                     </div>
                   )}
@@ -130,9 +130,9 @@ export default function NewPlayerPage() {
                   {/* File Upload */}
                   <div className="mt-1">
                     <label htmlFor="image-upload" className="cursor-pointer">
-                      <div className="flex items-center justify-center w-full h-10 border-2 border-dashed border-gray-300 rounded-md hover:border-gray-400 transition-colors">
-                        <Upload className="h-4 w-4 mr-2 text-gray-400" />
-                        <span className="text-sm text-gray-600">Upload Photo</span>
+                      <div className="flex items-center justify-center w-full h-10 border-2 border-dashed border-gray-600 rounded-md hover:border-gray-500 transition-colors bg-gray-700">
+                        <Upload className="h-4 w-4 mr-2 text-gray-300" />
+                        <span className="text-sm text-gray-300">Upload Photo</span>
                       </div>
                       <input
                         id="image-upload"
@@ -151,7 +151,7 @@ export default function NewPlayerPage() {
                       name="image"
                       value={formData.image.startsWith('data:') ? '' : formData.image}
                       onChange={handleInputChange}
-                      className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       placeholder="Or enter image URL"
                     />
                   </div>
@@ -160,7 +160,7 @@ export default function NewPlayerPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-300">
                     First Name *
                   </label>
                   <input
@@ -169,13 +169,13 @@ export default function NewPlayerPage() {
                     id="firstName"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     placeholder="Enter first name"
                     required
                   />
                 </div>
                 <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-300">
                     Last Name *
                   </label>
                   <input
@@ -184,7 +184,7 @@ export default function NewPlayerPage() {
                     id="lastName"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     placeholder="Enter last name"
                     required
                   />
@@ -192,7 +192,7 @@ export default function NewPlayerPage() {
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-300">
                   Email
                 </label>
                 <input
@@ -201,13 +201,13 @@ export default function NewPlayerPage() {
                   id="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   placeholder="Enter email address"
                 />
               </div>
 
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-300">
                   Phone Number
                 </label>
                 <input
@@ -216,13 +216,13 @@ export default function NewPlayerPage() {
                   id="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   placeholder="Enter phone number"
                 />
               </div>
 
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-300">
                   Date of Birth
                 </label>
                 <input
@@ -231,7 +231,7 @@ export default function NewPlayerPage() {
                   id="dateOfBirth"
                   value={formData.dateOfBirth}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
               </div>
             </div>
@@ -241,7 +241,7 @@ export default function NewPlayerPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Cancel
             </button>

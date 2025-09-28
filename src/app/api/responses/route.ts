@@ -40,6 +40,56 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if player already has a response for today and delete it
+    if (validatedData.playerId) {
+      console.log('=== DAILY RESPONSE LOGIC START ===')
+      console.log('Player ID:', validatedData.playerId)
+      
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      
+      console.log('Date range - Today:', today.toISOString(), 'Tomorrow:', tomorrow.toISOString())
+      
+      const existingResponses = await prisma.response.findMany({
+        where: {
+          surveyId: validatedData.surveyId,
+          playerId: validatedData.playerId,
+          submittedAt: {
+            gte: today,
+            lt: tomorrow
+          }
+        }
+      })
+      
+      console.log('Found existing responses:', existingResponses.length)
+      console.log('Existing response IDs:', existingResponses.map(r => r.id))
+      
+      if (existingResponses.length > 0) {
+        console.log('Deleting', existingResponses.length, 'existing responses...')
+        
+        // Delete existing responses and their answers
+        for (const existingResponse of existingResponses) {
+          console.log('Deleting response:', existingResponse.id)
+          await prisma.answer.deleteMany({
+            where: { responseId: existingResponse.id }
+          })
+          await prisma.response.delete({
+            where: { id: existingResponse.id }
+          })
+          console.log('Deleted response:', existingResponse.id)
+        }
+        
+        console.log('Successfully deleted all existing responses for today')
+      } else {
+        console.log('No existing responses found for today')
+      }
+      console.log('=== DAILY RESPONSE LOGIC END ===')
+    } else {
+      console.log('No playerId provided, skipping daily response logic')
+    }
+
     // Create response with answers
     console.log('Creating response with data:', {
       surveyId: validatedData.surveyId,
@@ -106,14 +156,14 @@ export async function POST(request: NextRequest) {
     })
     
     if (error instanceof z.ZodError) {
-      console.error('Validation errors:', error.errors)
-      console.error('Failed validation details:', error.errors.map(e => ({
+      console.error('Validation errors:', error.issues)
+      console.error('Failed validation details:', error.issues.map(e => ({
         path: e.path,
         message: e.message,
         code: e.code
       })))
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

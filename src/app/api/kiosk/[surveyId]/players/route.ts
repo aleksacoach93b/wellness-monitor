@@ -20,7 +20,7 @@ export async function GET(
     // Get all responses for this survey
     const responses = await prisma.response.findMany({
       where: { surveyId },
-      select: { playerId: true }
+      select: { id: true, playerId: true }
     })
 
     // Create a set of player IDs who have responded
@@ -31,7 +31,7 @@ export async function GET(
       ...player,
       hasResponded: respondedPlayerIds.has(player.id),
       responseId: respondedPlayerIds.has(player.id) 
-        ? responses.find(r => r.playerId === player.id)?.id 
+        ? responses.find(r => r.playerId === player.id)?.id || undefined 
         : undefined
     }))
 

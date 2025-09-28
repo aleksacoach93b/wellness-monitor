@@ -17,7 +17,7 @@ export async function GET() {
       { 
         success: false, 
         error: 'Database connection failed',
-        details: error.message 
+        details: error instanceof Error ? error.message : 'Unknown error' 
       },
       { status: 500 }
     )

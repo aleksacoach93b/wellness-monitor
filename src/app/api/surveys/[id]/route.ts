@@ -8,7 +8,7 @@ const updateSurveySchema = z.object({
   questions: z.array(z.object({
     id: z.string().optional(), // Allow undefined for new questions
     text: z.string().min(1),
-    type: z.enum(['TEXT', 'NUMBER', 'EMAIL', 'SELECT', 'MULTIPLE_SELECT', 'SCALE', 'BOOLEAN', 'BODY_MAP', 'RATING_SCALE', 'SLIDER']),
+    type: z.enum(['TEXT', 'NUMBER', 'EMAIL', 'SELECT', 'MULTIPLE_SELECT', 'SCALE', 'BOOLEAN', 'BODY_MAP', 'RATING_SCALE', 'SLIDER', 'TIME']),
     options: z.string().nullable().optional(),
     required: z.boolean(),
     order: z.number()

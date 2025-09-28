@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
         phone: body.phone || null,
         dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
         image: body.image || null,
-        // password: generatePlayerPassword(body.firstName, body.lastName) // Temporarily disabled until DB is updated
+        password: generatePlayerPassword(body.firstName, body.lastName)
       }
     })
 
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating player:', error)
     return NextResponse.json(
-      { error: 'Failed to create player', details: error.message },
+      { error: 'Failed to create player', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

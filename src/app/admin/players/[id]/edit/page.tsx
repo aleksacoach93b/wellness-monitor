@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Save, ArrowLeft, Trash2, Upload } from 'lucide-react'
 import { Player } from '@prisma/client'
@@ -8,6 +8,7 @@ import HomeButton from '@/components/HomeButton'
 
 export default function EditPlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
+  const { id } = use(params)
   const [player, setPlayer] = useState<Player | null>(null)
   const [formData, setFormData] = useState({
     firstName: '',
@@ -27,7 +28,6 @@ export default function EditPlayerPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     const fetchPlayer = async () => {
       try {
-        const { id } = await params
         const response = await fetch(`/api/players/${id}`)
         if (response.ok) {
           const playerData = await response.json()
@@ -51,14 +51,13 @@ export default function EditPlayerPage({ params }: { params: Promise<{ id: strin
     }
 
     fetchPlayer()
-  }, [params])
+  }, [id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      const { id } = await params
       const response = await fetch(`/api/players/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -120,7 +119,6 @@ export default function EditPlayerPage({ params }: { params: Promise<{ id: strin
 
     setIsDeleting(true)
     try {
-      const { id } = await params
       const response = await fetch(`/api/players/${id}`, {
         method: 'DELETE'
       })

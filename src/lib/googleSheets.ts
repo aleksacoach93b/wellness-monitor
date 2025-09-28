@@ -12,7 +12,7 @@ interface GoogleSheetsConfig {
 
 class GoogleSheetsService {
   private auth: JWT
-  private sheets: any
+  private sheets: any // eslint-disable-line @typescript-eslint/no-explicit-any
   private config: GoogleSheetsConfig
 
   constructor() {

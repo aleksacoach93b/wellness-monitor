@@ -11,6 +11,11 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
     },
   },
   log: ['error'],
+  __internal: {
+    engine: {
+      connection_limit: 1,
+    },
+  },
 })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma

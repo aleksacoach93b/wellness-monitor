@@ -13,7 +13,6 @@ interface BodyMapProps {
 }
 
 export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange, onContinue, onClose }: BodyMapProps) {
-  const svgRef = useRef<SVGSVGElement>(null)
   const [scale, setScale] = useState(0.8)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
@@ -109,7 +108,7 @@ export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange
   // Prevent auto-scroll to top when body map opens
   useEffect(() => {
     // Disable any auto-scroll behavior
-    const handleScroll = (e: Event) => {
+    const handleScroll = () => {
       // Allow normal scrolling but prevent auto-scroll to top
     }
     

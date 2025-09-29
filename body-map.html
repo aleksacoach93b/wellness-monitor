@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .body-area {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .body-area:hover {
+            stroke-width: 2px !important;
+            stroke: #1f2937 !important;
+        }
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="legend">
+        <h3>Pain/Soreness Levels</h3>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #e5e7eb;"></div>
+            <span>No Data (0)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #fef3c7;"></div>
+            <span>Low (1-3)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #fbbf24;"></div>
+            <span>Medium (4-6)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ef4444;"></div>
+            <span>High (7-10)</span>
+        </div>
+    </div>
+    
+    <div id="body-map-container"></div>
+    
+    <script>
+        // Kreiraj SVG container
+        const svg = d3.select("#body-map-container")
+            .append("svg")
+            .attr("width", 400)
+            .attr("height", 600)
+            .style("border", "1px solid #e5e7eb")
+            .style("border-radius", "8px");
+            
+        // Dodaj tvoj Body Map SVG ovde
+        svg.html(`
+            <!-- OVDE IDE TVOJ BODY MAP SVG -->
+            <!-- Kopiraj ceo SVG iz BodyMap.tsx komponente -->
+            <g id="body-map">
+                <!-- Front body paths -->
+                <path id="path-4" class="body-area" fill="#e5e7eb" stroke="#374151" stroke-width="1" d="M297.5,25.5c0,0-1.5,0-1.5,1.5s1.5,1.5,1.5,1.5s1.5,0,1.5-1.5S297.5,25.5,297.5,25.5z" data-title="Face and Skin" />
+                <path id="path-5" class="body-area" fill="#e5e7eb" stroke="#374151" stroke-width="1" d="M297.5,15.5c0,0-1.5,0-1.5,1.5s1.5,1.5,1.5,1.5s1.5,0,1.5-1.5S297.5,15.5,297.5,15.5z" data-title="Top Head" />
+                <!-- ... dodaj sve ostale path elemente ... -->
+                
+                <!-- Back body areas -->
+                <path id="left-achilles" class="body-area" fill="#e5e7eb" stroke="#374151" stroke-width="1" d="M236.958,708.231c3.152.079,5.772,2.478,6.162,5.607,2.243,17.996,4.037,62.548,3.621,65.461-.464,3.246-2.038,18.523-3.478,11.538-4.232-20.523-6.751-50.291-9.275-62.61-2.435-11.884-6.725-14.782-2.087-18.492,2.366-1.893,1.947-1.582,5.057-1.503Z" data-title="Left Achilles" />
+                <path id="right-achilles" class="body-area" fill="#e5e7eb" stroke="#374151" stroke-width="1" d="M357.916,708.231c-3.152.079-5.772,2.478-6.162,5.607-2.243,17.996-4.037,62.548-3.621,65.461.464,3.246,2.038,18.523,3.478,11.538,4.232-20.523,6.751-50.291,9.275-62.61,2.435-11.884,6.725-14.782,2.087-18.492-2.366-1.893-1.947-1.582-5.057-1.503Z" data-title="Right Achilles" />
+                <!-- ... dodaj sve ostale back body areas ... -->
+            </g>
+        `);
+        
+        // Funkcija za boje na osnovu vrednosti
+        function getColorForValue(value) {
+            if (value === 0 || value === null || value === undefined) return "#e5e7eb"; // Siva - nema podataka
+            if (value <= 3) return "#fef3c7"; // Žuta - mala vrednost
+            if (value <= 6) return "#fbbf24"; // Narandžasta - srednja vrednost
+            return "#ef4444"; // Crvena - visoka vrednost
+        }
+        
+        // Funkcija za ažuriranje Body Map-a sa podacima
+        function updateBodyMap(data) {
+            if (!data || !Array.isArray(data)) return;
+            
+            data.forEach(d => {
+                const areaId = d.areaId || d[0]; // ID dela tela
+                const value = d.value || d[1];   // Vrednost
+                
+                // Oboji deo tela na osnovu vrednosti
+                svg.select(`#${areaId}`)
+                    .style("fill", getColorForValue(value))
+                    .attr("data-value", value);
+            });
+        }
+        
+        // Test podaci (za testiranje)
+        const testData = [
+            { areaId: "left-achilles", value: 5 },
+            { areaId: "right-achilles", value: 3 },
+            { areaId: "left-lateral-gastrocs", value: 7 }
+        ];
+        
+        // Ažuriraj sa test podacima
+        updateBodyMap(testData);
+        
+        // Dodaj tooltip
+        svg.selectAll(".body-area")
+            .on("mouseover", function(event, d) {
+                const areaId = this.id;
+                const value = this.getAttribute("data-value") || "0";
+                const title = this.getAttribute("data-title") || areaId;
+                
+                // Prikaži tooltip
+                d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .style("position", "absolute")
+                    .style("background", "rgba(0,0,0,0.8)")
+                    .style("color", "white")
+                    .style("padding", "8px")
+                    .style("border-radius", "4px")
+                    .style("font-size", "12px")
+                    .style("pointer-events", "none")
+                    .style("z-index", "1000")
+                    .html(`${title}<br/>Value: ${value}`)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 10) + "px");
+            })
+            .on("mouseout", function() {
+                d3.selectAll(".tooltip").remove();
+            });
+    </script>
+</body>
+</html>

@@ -2,8 +2,9 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import SurveyForm from './SurveyForm'
 import BackButton from '@/components/BackButton'
-import { Heart, Activity, User, Clock, Calendar } from 'lucide-react'
+import { Heart, Activity, Clock } from 'lucide-react'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
+import Image from 'next/image'
 
 // Force dynamic rendering to avoid build-time database calls
 export const dynamic = 'force-dynamic'
@@ -70,9 +71,11 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
               <div className="flex justify-center mb-4">
                 <div className="relative">
                   {player && player.image ? (
-                    <img
+                    <Image
                       src={player.image}
                       alt={`${player.firstName} ${player.lastName}`}
+                      width={64}
+                      height={64}
                       className="w-16 h-16 rounded-2xl object-cover border-4 border-white shadow-lg"
                     />
                   ) : (

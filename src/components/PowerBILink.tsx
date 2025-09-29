@@ -43,7 +43,7 @@ export default function PowerBILink({ surveyId, surveyTitle }: PowerBILinkProps)
         } else {
           setError('Failed to load Power BI configuration')
         }
-      } catch (err) {
+      } catch {
         setError('Error loading Power BI configuration')
       } finally {
         setLoading(false)

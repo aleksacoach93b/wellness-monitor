@@ -2,8 +2,9 @@
 
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { Survey, Player, Response } from '@prisma/client'
+import { Survey, Player } from '@prisma/client'
 import { CheckCircle, User, Home, Maximize, Minimize } from 'lucide-react'
+import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
 
@@ -26,7 +27,6 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithStatus | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showKioskPassword, setShowKioskPassword] = useState(false)
-  const [kioskPasswordChecked, setKioskPasswordChecked] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -505,9 +505,11 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               <div className="flex justify-center mb-4 sm:mb-6">
                 <div className="relative">
                   {player.image ? (
-                    <img
+                    <Image
                       src={player.image}
                       alt={`${player.firstName} ${player.lastName}`}
+                      width={96}
+                      height={96}
                       className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full object-cover border-2 sm:border-4 border-slate-600/50 shadow-2xl group-hover:border-blue-400/60 transition-all duration-500 backdrop-blur-sm"
                     />
                   ) : (

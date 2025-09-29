@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
-import { Plus, BarChart3, Users, FileText, Trash2, Clock, Calendar, Settings } from 'lucide-react'
+import { Plus, BarChart3, Users, FileText, Clock, Calendar, Settings } from 'lucide-react'
 import DeleteSurveyButton from './DeleteSurveyButton'
 import HomeButton from '@/components/HomeButton'
 import { Survey } from '@prisma/client'
-import { isRecurringSurveyActive, formatRecurringInfo } from '@/lib/recurringSurvey'
+import { formatRecurringInfo } from '@/lib/recurringSurvey'
 
 // Force dynamic rendering to avoid build-time database calls
 export const dynamic = 'force-dynamic'

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { User, Calendar, Mail, Phone, FileText, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Player, Survey, Response } from '@prisma/client'
 
 // Force dynamic rendering to avoid build-time database calls
@@ -71,10 +72,12 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         <div className="flex items-center space-x-4">
           <div className="flex-shrink-0">
             {player.image ? (
-              <img
+              <Image
                 className="h-16 w-16 rounded-full object-cover border-2 border-gray-600"
                 src={player.image}
                 alt={`${player.firstName} ${player.lastName}`}
+                width={64}
+                height={64}
               />
             ) : (
               <div className="h-16 w-16 rounded-full bg-gray-600 flex items-center justify-center border-2 border-gray-500">

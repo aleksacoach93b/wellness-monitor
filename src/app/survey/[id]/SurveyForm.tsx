@@ -921,7 +921,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                       </div>
                     )
                   }
-                } catch (e) {
+                } catch {
                   // If parsing fails, fall back to default labels
                 }
                 return null
@@ -932,7 +932,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                 try {
                   const labels = JSON.parse(question.options)
                   return !labels || (!labels.left && !labels.center && !labels.right)
-                } catch (e) {
+                } catch {
                   return true
                 }
               })() && (

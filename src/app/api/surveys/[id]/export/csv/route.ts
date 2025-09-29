@@ -167,49 +167,53 @@ export async function GET(
       return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
     }
 
-    // Process data for CSV export
-    const csvData = survey.responses.flatMap(response => 
-      response.answers.map(answer => {
-        const question = survey.questions.find(q => q.id === answer.questionId)
-        
-        // Process Body Map answers to convert path IDs to readable names
-        let processedValue = answer.value
-        if (question?.type === 'BODY_MAP' && answer.value && answer.value !== 'No') {
-          try {
-            const bodyMapData = JSON.parse(answer.value)
-            const processedBodyMap: Record<string, number> = {}
-            
-            // Convert path IDs to readable names
-            Object.entries(bodyMapData).forEach(([key, value]) => {
-              if (key.startsWith('path-')) {
-                // Convert path ID to readable muscle name
-                const muscleName = getMuscleName(key)
-                processedBodyMap[muscleName] = value as number
-              } else {
-                // These are already readable names
-                processedBodyMap[key] = value as number
-              }
-            })
-            
-            processedValue = JSON.stringify(processedBodyMap)
-          } catch (e) {
-            // If JSON parsing fails, keep original value
-            processedValue = answer.value
-          }
-        }
-        
-        return {
-          responseId: response.id,
-          playerName: response.player ? `${response.player.firstName} ${response.player.lastName}` : 'Unknown Player',
-          playerEmail: response.player?.email || '',
-          submittedAt: response.submittedAt,
-          questionText: question?.text || '',
-          questionType: question?.type || '',
-          answerValue: processedValue,
-          surveyTitle: survey.title
+    // Create flattened CSV data - each response as one row with all body parts as columns
+    const csvData = survey.responses.map(response => {
+      const row: Record<string, string | number | null> = {
+        responseId: response.id,
+        playerName: response.player ? `${response.player.firstName} ${response.player.lastName}` : 'Unknown Player',
+        playerEmail: response.player?.email || '',
+        submittedAt: response.submittedAt,
+        surveyTitle: survey.title
+      }
+      
+      // Add non-Body Map questions as columns
+      survey.questions.forEach(question => {
+        if (question.type !== 'BODY_MAP') {
+          const answer = response.answers.find(a => a.questionId === question.id)
+          row[question.text] = answer?.value || ''
         }
       })
-    )
+      
+      // Add Body Map questions - each body part as separate column
+      survey.questions.forEach(question => {
+        if (question.type === 'BODY_MAP') {
+          const answer = response.answers.find(a => a.questionId === question.id)
+          
+          if (answer?.value && answer.value !== 'No') {
+            try {
+              const bodyMapData = JSON.parse(answer.value)
+              
+              // Convert path IDs to readable names and create separate columns for each body part
+              Object.entries(bodyMapData).forEach(([key, value]) => {
+                let muscleName = key
+                if (key.startsWith('path-')) {
+                  muscleName = getMuscleName(key)
+                }
+                
+                // Create column name like "Painful Areas - Right Pectoralis"
+                const columnName = `${question.text} - ${muscleName}`
+                row[columnName] = value as number
+              })
+            } catch (e) {
+              // If JSON parsing fails, skip
+            }
+          }
+        }
+      })
+      
+      return row
+    })
 
     // Convert to CSV format
     if (csvData.length === 0) {

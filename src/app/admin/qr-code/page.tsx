@@ -10,14 +10,43 @@ export default function QRCodePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [baseUrl, setBaseUrl] = useState('')
+  const [selectedSurvey, setSelectedSurvey] = useState<string>('')
+  const [surveys, setSurveys] = useState<any[]>([])
+  const [qrUrl, setQrUrl] = useState('')
 
   useEffect(() => {
     // Get the current URL
     const currentUrl = window.location.origin
     setBaseUrl(currentUrl)
     
-    // Generate QR code for the kiosk link
-    const kioskUrl = `${currentUrl}/kiosk`
+    // Fetch surveys
+    fetchSurveys()
+  }, [])
+
+  const fetchSurveys = async () => {
+    try {
+      const response = await fetch('/api/surveys')
+      if (response.ok) {
+        const data = await response.json()
+        setSurveys(data)
+        // Auto-select first active survey
+        const activeSurvey = data.find((s: any) => s.isActive)
+        if (activeSurvey) {
+          setSelectedSurvey(activeSurvey.id)
+          generateQRCode(activeSurvey.id)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching surveys:', error)
+    }
+  }
+
+  const generateQRCode = (surveyId: string) => {
+    if (!surveyId) return
+    
+    setIsLoading(true)
+    const kioskUrl = `${baseUrl}/kiosk/${surveyId}`
+    setQrUrl(kioskUrl)
     
     QRCode.toDataURL(kioskUrl, {
       width: 300,
@@ -35,7 +64,7 @@ export default function QRCodePage() {
       console.error('Error generating QR code:', err)
       setIsLoading(false)
     })
-  }, [])
+  }
 
   const handleDownload = () => {
     if (qrCodeDataURL) {
@@ -47,9 +76,8 @@ export default function QRCodePage() {
   }
 
   const handleCopyLink = async () => {
-    const kioskUrl = `${baseUrl}/kiosk`
     try {
-      await navigator.clipboard.writeText(kioskUrl)
+      await navigator.clipboard.writeText(qrUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
@@ -68,6 +96,11 @@ export default function QRCodePage() {
     }
   }
 
+  const handleSurveyChange = (surveyId: string) => {
+    setSelectedSurvey(surveyId)
+    generateQRCode(surveyId)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -83,6 +116,25 @@ export default function QRCodePage() {
             </div>
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">Wellness Kiosk QR Code</h2>
             <p className="text-gray-600">Scan this QR code to access the wellness survey kiosk mode</p>
+          </div>
+
+          {/* Survey Selector */}
+          <div className="mb-8">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Select Survey:
+            </label>
+            <select
+              value={selectedSurvey}
+              onChange={(e) => handleSurveyChange(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select a survey...</option>
+              {surveys.map((survey) => (
+                <option key={survey.id} value={survey.id}>
+                  {survey.title} {survey.isActive ? '(Active)' : '(Inactive)'}
+                </option>
+              ))}
+            </select>
           </div>
 
           {isLoading ? (
@@ -122,18 +174,19 @@ export default function QRCodePage() {
                   {/* Full Link */}
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Kiosk Link:
+                      Survey Kiosk Link:
                     </label>
                     <div className="flex">
                       <input
                         type="text"
-                        value={`${baseUrl}/kiosk`}
+                        value={qrUrl || 'Select a survey first...'}
                         readOnly
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg bg-gray-50 text-sm"
                       />
                       <button
                         onClick={handleCopyLink}
-                        className="px-3 py-2 bg-gray-600 text-white rounded-r-lg hover:bg-gray-700 transition-colors"
+                        disabled={!qrUrl}
+                        className="px-3 py-2 bg-gray-600 text-white rounded-r-lg hover:bg-gray-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                       >
                         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </button>

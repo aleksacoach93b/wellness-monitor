@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Survey, Player, Response } from '@prisma/client'
 import { CheckCircle, User, Home, Maximize, Minimize } from 'lucide-react'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
+import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
 
 interface PlayerWithStatus extends Player {
   hasResponded: boolean
@@ -24,10 +25,24 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [showPlayerPasswordModal, setShowPlayerPasswordModal] = useState(false)
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithStatus | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showKioskPassword, setShowKioskPassword] = useState(false)
+  const [kioskPasswordChecked, setKioskPasswordChecked] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Check kiosk password first
+        const kioskResponse = await fetch('/api/kiosk-settings')
+        if (kioskResponse.ok) {
+          const kioskSettings = await kioskResponse.json()
+          if (kioskSettings.isEnabled) {
+            setShowKioskPassword(true)
+            return
+          }
+        }
+        
+        // If password protection is disabled, proceed normally
+        setKioskPasswordChecked(true)
         
         // Fetch survey details
         const surveyResponse = await fetch(`/api/surveys/${surveyId}`)
@@ -51,6 +66,39 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
     fetchData()
   }, [surveyId])
+
+  const handleKioskPasswordCorrect = () => {
+    setShowKioskPassword(false)
+    setKioskPasswordChecked(true)
+    // Fetch data after password is correct
+    fetchData()
+  }
+
+  const handleKioskPasswordCancel = () => {
+    router.push('/')
+  }
+
+  const fetchData = async () => {
+    try {
+      // Fetch survey details
+      const surveyResponse = await fetch(`/api/surveys/${surveyId}`)
+      if (surveyResponse.ok) {
+        const surveyData = await surveyResponse.json()
+        setSurvey(surveyData)
+      }
+
+      // Fetch players with response status
+      const playersResponse = await fetch(`/api/kiosk/${surveyId}/players`)
+      if (playersResponse.ok) {
+        const playersData = await playersResponse.json()
+        setPlayers(playersData)
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handlePlayerClick = async (player: PlayerWithStatus) => {
     setSelectedPlayer(player)
@@ -186,6 +234,16 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   }
 
   const filteredPlayers = getPlayersByLetter(selectedLetter)
+
+  // Show kiosk password prompt if needed
+  if (showKioskPassword) {
+    return (
+      <KioskPasswordPrompt
+        onPasswordCorrect={handleKioskPasswordCorrect}
+        onCancel={handleKioskPasswordCancel}
+      />
+    )
+  }
 
   if (isLoading) {
     return (

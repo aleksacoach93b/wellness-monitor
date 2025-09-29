@@ -173,7 +173,7 @@ export async function GET(
         responseId: response.id,
         playerName: response.player ? `${response.player.firstName} ${response.player.lastName}` : 'Unknown Player',
         playerEmail: response.player?.email || '',
-        submittedAt: response.submittedAt,
+        submittedAt: response.submittedAt.toISOString(),
         surveyTitle: survey.title
       }
       

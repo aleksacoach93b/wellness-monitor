@@ -220,7 +220,7 @@ export async function GET(
               })
               
               return bodyMapRows
-            } catch (e) {
+            } catch {
               // If JSON parsing fails, return single row with original value
               return [{
                 responseId: response.id,

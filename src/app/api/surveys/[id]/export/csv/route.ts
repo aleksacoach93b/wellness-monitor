@@ -301,7 +301,7 @@ export async function GET(
                 // If it's not JSON, treat it as a regular answer and put it in the main question column
                 row[question.text] = answer.value
               }
-            } catch (e) {
+            } catch {
               // If JSON parsing fails, treat it as a regular answer
               row[question.text] = answer.value
             }

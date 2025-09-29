@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { shouldUpdateSurveyStatus } from '@/lib/recurringSurvey'
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Get all recurring surveys
     const recurringSurveys = await prisma.survey.findMany({
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       if (shouldUpdateSurveyStatus(survey)) {
         const status = isRecurringSurveyActive(survey)
         
-        const updatedSurvey = await prisma.survey.update({
+        await prisma.survey.update({
           where: { id: survey.id },
           data: { 
             isActive: status.isCurrentlyActive,

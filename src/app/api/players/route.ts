@@ -3,14 +3,6 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { generatePlayerPassword } from '@/lib/passwordUtils'
 
-const createPlayerSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email().nullable().optional(),
-  phone: z.string().nullable().optional(),
-  dateOfBirth: z.string().nullable().optional(),
-  image: z.string().nullable().optional()
-})
 
 export async function POST(request: NextRequest) {
   try {

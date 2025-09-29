@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Save, Eye } from 'lucide-react'
+import { Plus, Trash2, Save } from 'lucide-react'
 import { QuestionType } from '@prisma/client'
 import HomeButton from '@/components/HomeButton'
 

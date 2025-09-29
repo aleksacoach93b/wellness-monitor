@@ -70,17 +70,6 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     fetchData()
   }, [surveyId])
 
-  const handleKioskPasswordCorrect = () => {
-    setShowKioskPassword(false)
-    setKioskPasswordChecked(true)
-    // Fetch data after password is correct
-    fetchData()
-  }
-
-  const handleKioskPasswordCancel = () => {
-    router.push('/')
-  }
-
   const fetchData = async () => {
     try {
       // Fetch survey details
@@ -101,6 +90,16 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleKioskPasswordCorrect = () => {
+    setShowKioskPassword(false)
+    // Fetch data after password is correct
+    fetchData()
+  }
+
+  const handleKioskPasswordCancel = () => {
+    router.push('/')
   }
 
   const handlePlayerClick = async (player: PlayerWithStatus) => {

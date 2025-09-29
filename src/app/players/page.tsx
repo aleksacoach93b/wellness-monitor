@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { User, Search } from 'lucide-react'
 import Link from 'next/link'
 import { Player } from '@prisma/client'
+import Image from 'next/image'
 
 // Force dynamic rendering to avoid build-time database calls
 export const dynamic = 'force-dynamic'
@@ -59,10 +60,12 @@ export default async function PlayersPage() {
               <div className="flex flex-col items-center text-center">
                 <div className="mb-3">
                   {player.image ? (
-                    <img
+                    <Image
                       className="h-16 w-16 rounded-full object-cover border-2 border-gray-600 group-hover:border-gray-500"
                       src={player.image}
                       alt={`${player.firstName} ${player.lastName}`}
+                      width={64}
+                      height={64}
                     />
                   ) : (
                     <div className="h-16 w-16 rounded-full bg-gray-600 flex items-center justify-center border-2 border-gray-500 group-hover:border-gray-400">

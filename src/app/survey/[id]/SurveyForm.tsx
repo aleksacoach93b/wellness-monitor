@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { QuestionType, Survey, Question, Player } from '@prisma/client'
-import { CheckCircle, AlertCircle } from 'lucide-react'
+import { Survey, Question, Player } from '@prisma/client'
+import { CheckCircle } from 'lucide-react'
 import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
+import Image from 'next/image'
 
 interface SurveyFormProps {
   survey: Survey & {
@@ -18,7 +19,6 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
   const router = useRouter()
   const [formData, setFormData] = useState<Record<string, string | string[]>>({})
   const [playerName, setPlayerName] = useState('')
-  const [playerEmail, setPlayerEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [playerId, setPlayerId] = useState<string | null>(null)
@@ -376,9 +376,11 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
             {playerData?.image && (
               <div className="relative mb-4 flex justify-center">
                 <div className="relative">
-                  <img 
+                  <Image 
                     src={playerData.image} 
                     alt={playerName}
+                    width={96}
+                    height={96}
                     className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-white/20 shadow-2xl object-cover"
                   />
                   <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-cyan-500/20 animate-pulse"></div>
@@ -652,19 +654,14 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                       {[1, 2, 3, 4, 5].map((rating) => {
                         // Determine color based on rating with gradients
                         let colorClasses = ''
-                        let hoverClasses = ''
                         if (rating >= 1 && rating <= 3) {
                           colorClasses = 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-red-200'
-                          hoverClasses = 'hover:from-red-600 hover:to-red-700'
                         } else if (rating >= 4 && rating <= 6) {
                           colorClasses = 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-200'
-                          hoverClasses = 'hover:from-orange-600 hover:to-orange-700'
                         } else if (rating >= 7 && rating <= 8) {
                           colorClasses = 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white shadow-yellow-200'
-                          hoverClasses = 'hover:from-yellow-500 hover:to-yellow-600'
                         } else if (rating >= 9 && rating <= 10) {
                           colorClasses = 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-green-200'
-                          hoverClasses = 'hover:from-green-600 hover:to-green-700'
                         }
 
                         const isSelected = formData[question.id] === rating.toString()
@@ -691,19 +688,14 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                       {[6, 7, 8, 9, 10].map((rating) => {
                         // Determine color based on rating with gradients
                         let colorClasses = ''
-                        let hoverClasses = ''
                         if (rating >= 1 && rating <= 3) {
                           colorClasses = 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-red-200'
-                          hoverClasses = 'hover:from-red-600 hover:to-red-700'
                         } else if (rating >= 4 && rating <= 6) {
                           colorClasses = 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-200'
-                          hoverClasses = 'hover:from-orange-600 hover:to-orange-700'
                         } else if (rating >= 7 && rating <= 8) {
                           colorClasses = 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white shadow-yellow-200'
-                          hoverClasses = 'hover:from-yellow-500 hover:to-yellow-600'
                         } else if (rating >= 9 && rating <= 10) {
                           colorClasses = 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-green-200'
-                          hoverClasses = 'hover:from-green-600 hover:to-green-700'
                         }
 
                         const isSelected = formData[question.id] === rating.toString()
@@ -755,23 +747,18 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                       {[1, 2, 3, 4, 5].map((rating) => {
                         // RPE colors - REVERSED from Rating Scale (1=green, 10=red)
                         let colorClasses = ''
-                        let hoverClasses = ''
                         if (rating >= 1 && rating <= 3) {
                           // Easy effort - GREEN
                           colorClasses = 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-green-200'
-                          hoverClasses = 'hover:from-green-600 hover:to-green-700'
                         } else if (rating >= 4 && rating <= 6) {
                           // Moderate effort - YELLOW
                           colorClasses = 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white shadow-yellow-200'
-                          hoverClasses = 'hover:from-yellow-500 hover:to-yellow-600'
                         } else if (rating >= 7 && rating <= 8) {
                           // Hard effort - ORANGE
                           colorClasses = 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-200'
-                          hoverClasses = 'hover:from-orange-600 hover:to-orange-700'
                         } else if (rating >= 9 && rating <= 10) {
                           // Maximum effort - RED
                           colorClasses = 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-red-200'
-                          hoverClasses = 'hover:from-red-600 hover:to-red-700'
                         }
 
                         const isSelected = formData[question.id] === rating.toString()
@@ -798,23 +785,18 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                       {[6, 7, 8, 9, 10].map((rating) => {
                         // RPE colors - REVERSED from Rating Scale (1=green, 10=red)
                         let colorClasses = ''
-                        let hoverClasses = ''
                         if (rating >= 1 && rating <= 3) {
                           // Easy effort - GREEN
                           colorClasses = 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-green-200'
-                          hoverClasses = 'hover:from-green-600 hover:to-green-700'
                         } else if (rating >= 4 && rating <= 6) {
                           // Moderate effort - YELLOW
                           colorClasses = 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white shadow-yellow-200'
-                          hoverClasses = 'hover:from-yellow-500 hover:to-yellow-600'
                         } else if (rating >= 7 && rating <= 8) {
                           // Hard effort - ORANGE
                           colorClasses = 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-200'
-                          hoverClasses = 'hover:from-orange-600 hover:to-orange-700'
                         } else if (rating >= 9 && rating <= 10) {
                           // Maximum effort - RED
                           colorClasses = 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-red-200'
-                          hoverClasses = 'hover:from-red-600 hover:to-red-700'
                         }
 
                         const isSelected = formData[question.id] === rating.toString()

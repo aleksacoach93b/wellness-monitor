@@ -96,6 +96,16 @@ model Answer {
   @@map("answers")
 }
 
+model KioskSettings {
+  id        String   @id @default(cuid())
+  password  String   @default("")
+  isEnabled Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("kiosk_settings")
+}
+
 enum QuestionType {
   TEXT
   NUMBER

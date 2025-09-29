@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Survey } from '@prisma/client'
+import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
 
 export default function KioskRedirectPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false)
+  const [activeSurvey, setActiveSurvey] = useState<Survey | null>(null)
 
   useEffect(() => {
     const redirectToKiosk = async () => {
@@ -18,28 +21,46 @@ export default function KioskRedirectPage() {
           const surveys: Survey[] = await response.json()
           
           // Find the first active survey
-          const activeSurvey = surveys.find(survey => survey.isActive)
+          const survey = surveys.find(survey => survey.isActive)
           
-          if (activeSurvey) {
-            // Redirect to kiosk mode for the active survey
-            router.push(`/kiosk/${activeSurvey.id}`)
+          if (survey) {
+            setActiveSurvey(survey)
+            setShowPasswordPrompt(true)
           } else {
             setError('No active surveys found')
-            setIsLoading(false)
           }
         } else {
           setError('Failed to fetch surveys')
-          setIsLoading(false)
         }
       } catch (err) {
         console.error('Error redirecting to kiosk:', err)
         setError('An error occurred while loading the survey')
+      } finally {
         setIsLoading(false)
       }
     }
 
     redirectToKiosk()
   }, [router])
+
+  const handlePasswordCorrect = () => {
+    if (activeSurvey) {
+      router.push(`/kiosk/${activeSurvey.id}`)
+    }
+  }
+
+  const handleCancel = () => {
+    router.push('/')
+  }
+
+  if (showPasswordPrompt) {
+    return (
+      <KioskPasswordPrompt
+        onPasswordCorrect={handlePasswordCorrect}
+        onCancel={handleCancel}
+      />
+    )
+  }
 
   if (isLoading) {
     return (

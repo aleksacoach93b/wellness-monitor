@@ -209,6 +209,12 @@ export default async function AdminPage() {
                 >
                   Power BI Setup
                 </Link>
+                <Link
+                  href="/admin/kiosk-settings"
+                  className="block w-full text-left px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  Kiosk Settings
+                </Link>
               </div>
             </div>
           </div>

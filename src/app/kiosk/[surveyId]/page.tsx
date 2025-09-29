@@ -31,18 +31,19 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Check kiosk password first for each survey
+        // Always check kiosk password for each survey
         const kioskResponse = await fetch('/api/kiosk-settings')
         if (kioskResponse.ok) {
           const kioskSettings = await kioskResponse.json()
-          if (kioskSettings.isEnabled) {
+          // Always show password prompt if password is set
+          if (kioskSettings.password && kioskSettings.password.trim() !== '') {
             setShowKioskPassword(true)
             setKioskPasswordChecked(false)
             return
           }
         }
         
-        // If password protection is disabled, proceed normally
+        // If no password is set, proceed normally
         setKioskPasswordChecked(true)
         setShowKioskPassword(false)
         

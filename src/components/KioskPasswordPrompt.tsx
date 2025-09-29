@@ -30,12 +30,6 @@ export default function KioskPasswordPrompt({ onPasswordCorrect, onCancel }: Kio
       if (response.ok) {
         const settings = await response.json()
         
-        if (!settings.isEnabled) {
-          // Password protection is disabled, allow access
-          onPasswordCorrect()
-          return
-        }
-        
         if (password.trim() === settings.password) {
           // Password is correct
           onPasswordCorrect()

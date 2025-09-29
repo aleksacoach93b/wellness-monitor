@@ -16,7 +16,6 @@ export default function KioskSettingsPage() {
   const router = useRouter()
   const [settings, setSettings] = useState<KioskSettings | null>(null)
   const [password, setPassword] = useState('')
-  const [isEnabled, setIsEnabled] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -33,7 +32,6 @@ export default function KioskSettingsPage() {
         const data = await response.json()
         setSettings(data)
         setPassword(data.password)
-        setIsEnabled(data.isEnabled)
       }
     } catch (error) {
       console.error('Error fetching settings:', error)
@@ -59,7 +57,7 @@ export default function KioskSettingsPage() {
         },
         body: JSON.stringify({
           password: password.trim(),
-          isEnabled
+          isEnabled: password.trim() !== ''
         }),
       })
 
@@ -140,24 +138,22 @@ export default function KioskSettingsPage() {
               </p>
             </div>
 
-            {/* Enable/Disable Section */}
-            <div>
-              <label className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  checked={isEnabled}
-                  onChange={(e) => setIsEnabled(e.target.checked)}
-                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <div>
-                  <span className="text-sm font-medium text-gray-700">
-                    Enable Password Protection
-                  </span>
-                  <p className="text-sm text-gray-500">
-                    {isEnabled ? 'Kiosk mode requires password' : 'Kiosk mode is open (no password required)'}
+            {/* Info Section */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <Lock className="w-5 h-5 text-blue-600 mt-0.5" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Password Protection Active
+                  </h3>
+                  <p className="mt-1 text-sm text-blue-700">
+                    Once a password is set, it will be required for all kiosk mode access. 
+                    Leave the password field empty to disable protection.
                   </p>
                 </div>
-              </label>
+              </div>
             </div>
 
             {/* Status Display */}

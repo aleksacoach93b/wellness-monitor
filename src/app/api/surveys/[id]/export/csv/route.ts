@@ -325,7 +325,13 @@ export async function GET(
     // Create CSV headers
     const headers = Object.keys(csvData[0])
     const csvContent = [
-      headers.join(','),
+      headers.map(header => {
+        // Escape CSV headers that contain commas or quotes
+        if (header.includes(',') || header.includes('"') || header.includes('\n')) {
+          return `"${header.replace(/"/g, '""')}"`
+        }
+        return header
+      }).join(','),
       ...csvData.map(row => 
         headers.map(header => {
           const value = row[header as keyof typeof row]

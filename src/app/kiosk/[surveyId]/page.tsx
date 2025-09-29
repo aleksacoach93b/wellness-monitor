@@ -31,18 +31,20 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Check kiosk password first
+        // Check kiosk password first for each survey
         const kioskResponse = await fetch('/api/kiosk-settings')
         if (kioskResponse.ok) {
           const kioskSettings = await kioskResponse.json()
           if (kioskSettings.isEnabled) {
             setShowKioskPassword(true)
+            setKioskPasswordChecked(false)
             return
           }
         }
         
         // If password protection is disabled, proceed normally
         setKioskPasswordChecked(true)
+        setShowKioskPassword(false)
         
         // Fetch survey details
         const surveyResponse = await fetch(`/api/surveys/${surveyId}`)
@@ -224,7 +226,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
       document.removeEventListener('msfullscreenchange', handleFullscreenChange)
     }
-  }, [])
+  }, [surveyId])
 
   const getPlayersByLetter = (letter: string) => {
     if (!letter) return players

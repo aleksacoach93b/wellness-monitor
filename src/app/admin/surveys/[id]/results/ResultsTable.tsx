@@ -232,7 +232,7 @@ export default function ResultsTable({ responses }: ResultsTableProps) {
                         </div>
                       </div>
                     )
-                  } catch (e) {
+                  } catch {
                     return (
                       <div key={answer.id} className="border-l-4 border-blue-500 pl-4">
                         <h4 className="font-medium text-gray-900">{answer.question.text}</h4>
@@ -259,7 +259,7 @@ export default function ResultsTable({ responses }: ResultsTableProps) {
                         </div>
                       </div>
                     )
-                  } catch (e) {
+                  } catch {
                     return (
                       <div key={answer.id} className="border-l-4 border-blue-500 pl-4">
                         <h4 className="font-medium text-gray-900">{answer.question.text}</h4>

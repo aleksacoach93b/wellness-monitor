@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Save, User, Upload } from 'lucide-react'
+import Image from 'next/image'
 import HomeButton from '@/components/HomeButton'
 
 export default function NewPlayerPage() {
@@ -101,9 +102,11 @@ export default function NewPlayerPage() {
                 <div className="flex-shrink-0">
                   <div className="h-24 w-24 rounded-full bg-gray-600 flex items-center justify-center">
                     {formData.image ? (
-                      <img
+                      <Image
                         src={formData.image}
                         alt="Player"
+                        width={96}
+                        height={96}
                         className="h-24 w-24 rounded-full object-cover"
                       />
                     ) : (
@@ -119,9 +122,11 @@ export default function NewPlayerPage() {
                   {/* Image Preview */}
                   {imagePreview && (
                     <div className="mt-2 mb-3">
-                      <img
+                      <Image
                         src={imagePreview}
                         alt="Player preview"
+                        width={96}
+                        height={96}
                         className="w-24 h-24 object-cover rounded-lg border border-gray-600"
                       />
                     </div>

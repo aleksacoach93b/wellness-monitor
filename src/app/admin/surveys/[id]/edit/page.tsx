@@ -51,7 +51,7 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
                 } else if (parsed && (parsed.left || parsed.center || parsed.right)) {
                   sliderLabels = parsed
                 }
-              } catch (e) {
+                } catch {
                 // If parsing fails, treat as empty
               }
             }

@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Save, ArrowLeft, Trash2, Upload } from 'lucide-react'
+import Image from 'next/image'
 import { Player } from '@prisma/client'
 import HomeButton from '@/components/HomeButton'
 
@@ -276,9 +277,11 @@ export default function EditPlayerPage({ params }: { params: Promise<{ id: strin
                 {/* Image Preview */}
                 {(imagePreview || formData.image) && (
                   <div className="mt-2 mb-3">
-                    <img
+                    <Image
                       src={imagePreview || formData.image}
                       alt="Player preview"
+                      width={96}
+                      height={96}
                       className="w-24 h-24 object-cover rounded-lg border border-gray-300"
                     />
                   </div>

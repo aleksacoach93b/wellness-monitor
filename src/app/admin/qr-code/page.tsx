@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Download, QrCode, Copy, Check } from 'lucide-react'
+import Image from 'next/image'
 import QRCode from 'qrcode'
 import HomeButton from '@/components/HomeButton'
 
@@ -11,7 +12,7 @@ export default function QRCodePage() {
   const [copied, setCopied] = useState(false)
   const [baseUrl, setBaseUrl] = useState('')
   const [selectedSurvey, setSelectedSurvey] = useState<string>('')
-  const [surveys, setSurveys] = useState<any[]>([])
+  const [surveys, setSurveys] = useState<{id: string, title: string, isActive: boolean}[]>([])
   const [qrUrl, setQrUrl] = useState('')
 
   useEffect(() => {
@@ -21,7 +22,7 @@ export default function QRCodePage() {
     
     // Fetch surveys
     fetchSurveys()
-  }, [])
+  }, [fetchSurveys])
 
   const fetchSurveys = async () => {
     try {
@@ -30,7 +31,7 @@ export default function QRCodePage() {
         const data = await response.json()
         setSurveys(data)
         // Auto-select first active survey
-        const activeSurvey = data.find((s: any) => s.isActive)
+        const activeSurvey = data.find((s: {id: string, title: string, isActive: boolean}) => s.isActive)
         if (activeSurvey) {
           setSelectedSurvey(activeSurvey.id)
           generateQRCode(activeSurvey.id)
@@ -148,9 +149,11 @@ export default function QRCodePage() {
               <div className="text-center">
                 <div className="bg-white p-6 rounded-lg border-2 border-gray-200 inline-block">
                   {qrCodeDataURL && (
-                    <img 
+                    <Image 
                       src={qrCodeDataURL} 
                       alt="Wellness Kiosk QR Code" 
+                      width={256}
+                      height={256}
                       className="w-64 h-64 mx-auto"
                     />
                   )}

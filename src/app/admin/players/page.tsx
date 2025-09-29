@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { Plus, User, Mail, Phone, Calendar } from 'lucide-react'
+import Image from 'next/image'
 import { format } from 'date-fns'
 import HomeButton from '@/components/HomeButton'
 import { Player } from '@prisma/client'
@@ -73,10 +74,12 @@ export default async function PlayersPage() {
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
                         {player.image ? (
-                          <img
+                          <Image
                             className="h-16 w-16 rounded-full object-cover"
                             src={player.image}
                             alt={`${player.firstName} ${player.lastName}`}
+                            width={64}
+                            height={64}
                           />
                         ) : (
                           <div className="h-16 w-16 rounded-full bg-gray-300 flex items-center justify-center">

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { BarChart3, Database, ExternalLink, Download, Settings, Home } from 'lucide-react'
+import { BarChart3, Database, ExternalLink, Download, Settings } from 'lucide-react'
 import HomeButton from '@/components/HomeButton'
 
 export default function PowerBISetupPage() {

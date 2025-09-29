@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
-import { ArrowLeft, Edit, BarChart3, Eye, Trash2, Clock, Calendar, Users, FileText } from 'lucide-react'
+import { ArrowLeft, Edit, BarChart3, Eye, Clock, Calendar, Users, FileText } from 'lucide-react'
 import { format } from 'date-fns'
 import { isRecurringSurveyActive, formatRecurringInfo } from '@/lib/recurringSurvey'
 import DeleteSurveyButton from '@/components/DeleteSurveyButton'

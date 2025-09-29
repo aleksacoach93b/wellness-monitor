@@ -429,7 +429,7 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
           if (answer?.value && answer.value.includes('{')) {
             try {
               bodyMapData = JSON.parse(answer.value)
-            } catch (e) {
+                } catch {
               // If parsing fails, keep empty object
             }
           }
@@ -448,7 +448,6 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
     return csvData.join('\n')
   }
 
-  const csvContent = await exportToCSV()
 
   return (
     <div className="min-h-screen bg-gray-50">

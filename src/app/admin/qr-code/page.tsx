@@ -15,15 +15,6 @@ export default function QRCodePage() {
   const [surveys, setSurveys] = useState<{id: string, title: string, isActive: boolean}[]>([])
   const [qrUrl, setQrUrl] = useState('')
 
-  useEffect(() => {
-    // Get the current URL
-    const currentUrl = window.location.origin
-    setBaseUrl(currentUrl)
-    
-    // Fetch surveys
-    fetchSurveys()
-  }, [fetchSurveys])
-
   const fetchSurveys = async () => {
     try {
       const response = await fetch('/api/surveys')
@@ -41,6 +32,15 @@ export default function QRCodePage() {
       console.error('Error fetching surveys:', error)
     }
   }
+
+  useEffect(() => {
+    // Get the current URL
+    const currentUrl = window.location.origin
+    setBaseUrl(currentUrl)
+    
+    // Fetch surveys
+    fetchSurveys()
+  }, [])
 
   const generateQRCode = (surveyId: string) => {
     if (!surveyId) return

@@ -24,7 +24,11 @@ export default async function SurveyResultsPage({ params }: SurveyResultsPagePro
       },
       responses: {
         include: {
-          answers: true
+          answers: {
+            include: {
+              question: true
+            }
+          }
         },
         orderBy: { submittedAt: 'desc' }
       }

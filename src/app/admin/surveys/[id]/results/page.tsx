@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { Download, Users, BarChart3, Link, Copy, Check } from 'lucide-react'
+import { Users, BarChart3 } from 'lucide-react'
 import ResultsTable from './ResultsTable'
 import HomeButton from '@/components/HomeButton'
 import PowerBILink from '@/components/PowerBILink'

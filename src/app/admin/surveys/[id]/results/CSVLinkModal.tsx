@@ -8,7 +8,7 @@ interface CSVLinkModalProps {
   surveyTitle: string
 }
 
-export default function CSVLinkModal({ surveyId, surveyTitle }: CSVLinkModalProps) {
+export default function CSVLinkModal({ surveyId }: CSVLinkModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   
@@ -102,8 +102,8 @@ export default function CSVLinkModal({ surveyId, surveyTitle }: CSVLinkModalProp
                 <p className="text-xs text-blue-800">
                   <strong>Power BI Instructions:</strong><br />
                   1. Copy the link above<br />
-                  2. In Power BI, go to "Get Data" → "Web"<br />
-                  3. Paste the URL and click "OK"<br />
+                  2. In Power BI, go to &quot;Get Data&quot; → &quot;Web&quot;<br />
+                  3. Paste the URL and click &quot;OK&quot;<br />
                   4. The data will be imported automatically
                 </p>
               </div>

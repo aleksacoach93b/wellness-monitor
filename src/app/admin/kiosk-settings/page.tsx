@@ -260,8 +260,8 @@ export default function KioskSettingsPage() {
             <li>• When enabled, players must enter the password before accessing kiosk mode</li>
             <li>• The password is required for both the main kiosk link and individual survey links</li>
             <li>• You can share the password with your players verbally or via other secure means</li>
-            <li>• Use "Update Password" to change the password without affecting other settings</li>
-            <li>• Use "Save Settings" to save any changes to the configuration</li>
+            <li>• Use &quot;Update Password&quot; to change the password without affecting other settings</li>
+            <li>• Use &quot;Save Settings&quot; to save any changes to the configuration</li>
             <li>• Disable password protection to make kiosk mode completely open</li>
           </ul>
         </div>

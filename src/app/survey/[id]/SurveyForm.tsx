@@ -88,7 +88,6 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
         const playerData = await response.json()
         setPlayerData(playerData)
         setPlayerName(`${playerData.firstName} ${playerData.lastName}`)
-        setPlayerEmail(playerData.email || '')
       }
     } catch (error) {
       console.error('Error fetching player:', error)

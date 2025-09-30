@@ -64,6 +64,7 @@ export default function KioskSettingsPage() {
       if (response.ok) {
         const updatedSettings = await response.json()
         setSettings(updatedSettings)
+        setPassword(updatedSettings.password)
         setMessage('Kiosk settings saved successfully!')
       } else {
         setMessage('Failed to save settings')

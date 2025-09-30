@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const updateKioskSettingsSchema = z.object({
-  password: z.string().min(1, 'Password is required'),
+  password: z.string(),
   isEnabled: z.boolean()
 })
 
@@ -35,7 +35,9 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log('Received kiosk settings update:', body)
     const { password, isEnabled } = updateKioskSettingsSchema.parse(body)
+    console.log('Parsed data:', { password, isEnabled })
     
     // Get the first (and only) kiosk settings record
     let settings = await prisma.kioskSettings.findFirst()
@@ -46,11 +48,13 @@ export async function PUT(request: NextRequest) {
         where: { id: settings.id },
         data: { password, isEnabled }
       })
+      console.log('Updated existing settings:', settings)
     } else {
       // Create new settings
       settings = await prisma.kioskSettings.create({
         data: { password, isEnabled }
       })
+      console.log('Created new settings:', settings)
     }
     
     return NextResponse.json(settings)

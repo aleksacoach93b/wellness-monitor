@@ -17,13 +17,24 @@ export async function GET(
       ]
     })
 
-    // Get all responses for this survey
+    // Get today's responses for this survey only
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
     const responses = await prisma.response.findMany({
-      where: { surveyId },
+      where: { 
+        surveyId,
+        submittedAt: {
+          gte: today,
+          lt: tomorrow
+        }
+      },
       select: { id: true, playerId: true }
     })
 
-    // Create a set of player IDs who have responded
+    // Create a set of player IDs who have responded today
     const respondedPlayerIds = new Set(responses.map(r => r.playerId).filter(Boolean))
 
     // Add response status to each player

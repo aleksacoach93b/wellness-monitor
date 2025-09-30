@@ -10,12 +10,13 @@ import { Player, Survey, Response } from '@prisma/client'
 export const dynamic = 'force-dynamic'
 
 interface PlayerPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function PlayerPage({ params }: PlayerPageProps) {
+  const { id } = await params
   let player: (Player & {
     responses: (Response & {
       survey: Survey
@@ -24,7 +25,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
   
   try {
     player = await prisma.player.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         responses: {
           include: {

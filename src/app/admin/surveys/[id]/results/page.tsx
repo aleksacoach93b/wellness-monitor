@@ -199,14 +199,15 @@ const getMuscleName = (areaId: string): string => {
 }
 
 interface SurveyResultsPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function SurveyResultsPage({ params }: SurveyResultsPageProps) {
+  const { id } = await params
   const survey = await prisma.survey.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       questions: {
         orderBy: { order: 'asc' }

@@ -34,7 +34,6 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
       // Use player prop if available
       setPlayerData(player)
       setPlayerName(`${player.firstName} ${player.lastName}`)
-      setPlayerEmail(player.email || '')
       setPlayerId(player.id)
     } else {
       // Fallback to URL params
@@ -208,12 +207,6 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
           if (typeof window !== 'undefined') {
             window.location.href = `/kiosk/${survey.id}`
           }
-          
-          // Fallback: if redirect doesn't work within 3 seconds, show success message
-          setTimeout(() => {
-            console.log('Redirect fallback triggered')
-            setIsSubmitted(true)
-          }, 3000)
         } else {
           console.log('Setting submitted state for non-kiosk mode')
           setIsSubmitted(true)
@@ -357,7 +350,17 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
         {/* Close Button */}
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => {
+            // If accessed from kiosk mode, redirect back to kiosk
+            if (playerId) {
+              if (typeof window !== 'undefined') {
+                window.location.href = `/kiosk/${survey.id}`
+              }
+            } else {
+              // For non-kiosk mode, go back to home page
+              router.push('/')
+            }
+          }}
           className="absolute top-4 left-4 z-10 text-slate-400 hover:text-white transition-colors bg-slate-800/50 hover:bg-slate-700/50 rounded-full p-2 backdrop-blur-sm"
           data-title="Close survey"
         >

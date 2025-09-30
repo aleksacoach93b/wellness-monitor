@@ -38,13 +38,11 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           // Always show password prompt if password is set
           if (kioskSettings.password && kioskSettings.password.trim() !== '') {
             setShowKioskPassword(true)
-            setKioskPasswordChecked(false)
             return
           }
         }
         
         // If no password is set, proceed normally
-        setKioskPasswordChecked(true)
         setShowKioskPassword(false)
         
         // Fetch survey details
@@ -111,7 +109,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     if (!selectedPlayer) return
     
     // Validate the password
-    if (validatePlayerPassword(playerPassword, selectedPlayer.firstName, selectedPlayer.lastName)) {
+    if (validatePlayerPassword(playerPassword, selectedPlayer.firstName, selectedPlayer.lastName, selectedPlayer.password)) {
       if (selectedPlayer.hasResponded) {
         // If already responded, show a message or allow re-submission
         if (confirm(`${selectedPlayer.firstName} ${selectedPlayer.lastName} has already submitted this survey. Do you want to submit again?`)) {
@@ -415,7 +413,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 className="w-full px-3 py-2 sm:px-4 sm:py-4 border border-slate-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 mb-6 text-center text-lg sm:text-2xl font-mono tracking-widest backdrop-blur-sm"
                 placeholder=""
                 autoFocus
-                maxLength={2}
+                maxLength={10}
               />
               <div className="flex space-x-4">
                 <button

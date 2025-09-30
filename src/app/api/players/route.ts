@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
         phone: body.phone || null,
         dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
         image: body.image || null,
-        password: generatePlayerPassword(body.firstName, body.lastName)
+        password: body.password || generatePlayerPassword(body.firstName, body.lastName)
       }
     })
 

@@ -54,8 +54,8 @@ export default function KioskPasswordPrompt({ onPasswordCorrect, onCancel }: Kio
           <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mb-6 shadow-lg">
             <Lock className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">Wellness Survey</h1>
-          <p className="text-gray-600 text-lg">Enter the access code to begin</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">Survey Access</h1>
+          <p className="text-gray-600 text-lg">Please, enter the password to access the survey</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

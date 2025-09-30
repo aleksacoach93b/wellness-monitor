@@ -5,6 +5,7 @@ import DeleteSurveyButton from './DeleteSurveyButton'
 import HomeButton from '@/components/HomeButton'
 import { Survey } from '@prisma/client'
 import { formatRecurringInfo } from '@/lib/recurringSurvey'
+import CSVLinkModal from './admin/surveys/[id]/results/CSVLinkModal'
 
 // Force dynamic rendering to avoid build-time database calls
 export const dynamic = 'force-dynamic'
@@ -43,8 +44,8 @@ export default async function HomePage() {
         <div className="mb-8">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Wellness Monitor</h1>
-              <p className="mt-2 text-gray-600">Create and manage wellness surveys for your players</p>
+              <h1 className="text-3xl font-bold text-gray-900">Survey Monitor</h1>
+              <p className="mt-2 text-gray-600">Create and manage surveys for your team</p>
             </div>
             <div className="flex space-x-3">
               <Link
@@ -203,6 +204,7 @@ export default async function HomePage() {
                       >
                         Edit
                       </Link>
+                      <CSVLinkModal surveyId={survey.id} surveyTitle={survey.title} />
                       <Link
                         href={`/survey/${survey.id}`}
                         className="text-green-600 hover:text-green-900 text-sm font-medium"

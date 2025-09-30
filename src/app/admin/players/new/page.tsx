@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Save, User, Upload } from 'lucide-react'
+import { Save, User, Upload, RefreshCw, Eye, EyeOff } from 'lucide-react'
 import Image from 'next/image'
 import HomeButton from '@/components/HomeButton'
+import { generatePlayerPassword } from '@/lib/passwordUtils'
 
 export default function NewPlayerPage() {
   const router = useRouter()
@@ -18,6 +19,9 @@ export default function NewPlayerPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [message, setMessage] = useState('')
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -25,6 +29,22 @@ export default function NewPlayerPage() {
       ...prev,
       [name]: value
     }))
+    
+    // Auto-generate password when name changes
+    if (name === 'firstName' || name === 'lastName') {
+      const newPassword = generatePlayerPassword(
+        name === 'firstName' ? value : formData.firstName,
+        name === 'lastName' ? value : formData.lastName
+      )
+      setPassword(newPassword)
+    }
+  }
+
+  const handleResetPassword = () => {
+    const newPassword = generatePlayerPassword(formData.firstName, formData.lastName)
+    setPassword(newPassword)
+    setMessage('Password reset to initials')
+    setTimeout(() => setMessage(''), 3000)
   }
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,7 +75,8 @@ export default function NewPlayerPage() {
     try {
       const requestData = {
         ...formData,
-        dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : null
+        dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : null,
+        password: password || generatePlayerPassword(formData.firstName, formData.lastName)
       }
       console.log('Sending data:', requestData)
       
@@ -227,6 +248,45 @@ export default function NewPlayerPage() {
               </div>
 
               <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+                  Player Password
+                </label>
+                <div className="mt-1 space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value.toUpperCase())}
+                        className="block w-full pr-10 bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-mono tracking-widest text-center"
+                        placeholder="AB"
+                        maxLength={10}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleResetPassword}
+                      className="flex items-center px-3 py-2 border border-gray-600 rounded-md text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600"
+                      title="Reset to initials"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Custom password for kiosk mode. Click refresh to reset to initials ({generatePlayerPassword(formData.firstName, formData.lastName)})
+                  </p>
+                </div>
+              </div>
+
+              <div>
                 <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-300">
                   Date of Birth
                 </label>
@@ -241,6 +301,13 @@ export default function NewPlayerPage() {
               </div>
             </div>
           </div>
+
+          {/* Message */}
+          {message && (
+            <div className="p-3 rounded-lg bg-green-900/50 text-green-300 border border-green-700">
+              {message}
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <button

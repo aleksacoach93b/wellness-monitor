@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Eye, EyeOff, Lock, Unlock } from 'lucide-react'
+import { ArrowLeft, Save, Eye, EyeOff, Lock, Unlock, RefreshCw } from 'lucide-react'
 
 interface KioskSettings {
   id: string
@@ -20,6 +20,7 @@ export default function KioskSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
     fetchSettings()
@@ -74,6 +75,43 @@ export default function KioskSettingsPage() {
       setMessage('Failed to save settings')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleUpdatePassword = async () => {
+    if (!password.trim()) {
+      setMessage('Password is required')
+      return
+    }
+
+    setUpdating(true)
+    setMessage('')
+
+    try {
+      const response = await fetch('/api/kiosk-settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          password: password.trim(),
+          isEnabled: password.trim() !== ''
+        }),
+      })
+
+      if (response.ok) {
+        const updatedSettings = await response.json()
+        setSettings(updatedSettings)
+        setPassword(updatedSettings.password)
+        setMessage('Password updated successfully!')
+      } else {
+        setMessage('Failed to update password')
+      }
+    } catch (error) {
+      console.error('Error updating password:', error)
+      setMessage('Failed to update password')
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -193,8 +231,16 @@ export default function KioskSettingsPage() {
               </div>
             )}
 
-            {/* Save Button */}
-            <div className="flex justify-end">
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={handleUpdatePassword}
+                disabled={updating || !password.trim()}
+                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-5 h-5 ${updating ? 'animate-spin' : ''}`} />
+                {updating ? 'Updating...' : 'Update Password'}
+              </button>
               <button
                 onClick={handleSave}
                 disabled={saving || !password.trim()}
@@ -214,6 +260,8 @@ export default function KioskSettingsPage() {
             <li>• When enabled, players must enter the password before accessing kiosk mode</li>
             <li>• The password is required for both the main kiosk link and individual survey links</li>
             <li>• You can share the password with your players verbally or via other secure means</li>
+            <li>• Use "Update Password" to change the password without affecting other settings</li>
+            <li>• Use "Save Settings" to save any changes to the configuration</li>
             <li>• Disable password protection to make kiosk mode completely open</li>
           </ul>
         </div>

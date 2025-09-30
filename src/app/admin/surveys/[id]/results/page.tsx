@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { Download, Users, BarChart3 } from 'lucide-react'
+import { Download, Users, BarChart3, Link, Copy, Check } from 'lucide-react'
 import ResultsTable from './ResultsTable'
 import HomeButton from '@/components/HomeButton'
 import PowerBILink from '@/components/PowerBILink'
 import { format } from 'date-fns'
+import CSVLinkModal from './CSVLinkModal'
 
 
 interface SurveyResultsPageProps {
@@ -87,15 +88,7 @@ export default async function SurveyResultsPage({ params }: SurveyResultsPagePro
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-medium text-gray-900">Survey Responses</h2>
               <div className="flex space-x-3">
-                <a
-                  href={`/api/surveys/${survey.id}/export/csv`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  CSV Link for Power BI
-                </a>
+                <CSVLinkModal surveyId={survey.id} surveyTitle={survey.title} />
                 <PowerBILink surveyId={survey.id} surveyTitle={survey.title} />
               </div>
             </div>

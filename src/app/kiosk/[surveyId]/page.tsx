@@ -279,6 +279,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     return (
       <KioskPasswordPrompt
         onPasswordCorrect={handleKioskPasswordCorrect}
+        onCancel={() => router.push('/')}
       />
     )
   }

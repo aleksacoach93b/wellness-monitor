@@ -5,7 +5,7 @@ import { Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
 interface KioskPasswordPromptProps {
   onPasswordCorrect: () => void
-  onCancel: () => void
+  onCancel?: () => void
 }
 
 export default function KioskPasswordPrompt({ onPasswordCorrect, onCancel }: KioskPasswordPromptProps) {
@@ -110,15 +110,16 @@ export default function KioskPasswordPrompt({ onPasswordCorrect, onCancel }: Kio
                 </>
               )}
             </button>
-            
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={loading}
-              className="w-full px-6 py-3 text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              Cancel
-            </button>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-gray-200 text-gray-700 text-lg font-semibold rounded-xl hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </form>
 

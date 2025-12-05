@@ -49,15 +49,12 @@ export default function KioskRedirectPage() {
     }
   }
 
-  const handleCancel = () => {
-    router.push('/')
-  }
 
   if (showPasswordPrompt) {
     return (
       <KioskPasswordPrompt
         onPasswordCorrect={handlePasswordCorrect}
-        onCancel={handleCancel}
+        onCancel={() => router.push('/')}
       />
     )
   }

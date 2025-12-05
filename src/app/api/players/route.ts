@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { generatePlayerPassword } from '@/lib/passwordUtils'
 
 
@@ -16,16 +17,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const playerData = {
+      firstName: body.firstName,
+      lastName: body.lastName,
+      email: body.email || null,
+      phone: body.phone || null,
+      dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
+      image: body.image || null,
+      password: body.password || generatePlayerPassword(body.firstName, body.lastName)
+    } as Prisma.PlayerUncheckedCreateInput
+
     const player = await prisma.player.create({
-      data: {
-        firstName: body.firstName,
-        lastName: body.lastName,
-        email: body.email || null,
-        phone: body.phone || null,
-        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
-        image: body.image || null,
-        password: body.password || generatePlayerPassword(body.firstName, body.lastName)
-      }
+      data: playerData
     })
 
     console.log('Player created successfully:', player)

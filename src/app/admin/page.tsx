@@ -110,6 +110,16 @@ export default async function AdminPage() {
             </svg>
             Kiosk Settings
           </Link>
+          <Link
+            href="/admin/admin-access"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield-check h-4 w-4 mr-2" aria-hidden="true">
+              <path d="M9 12l2 2 4-4"></path>
+              <path d="M12 22c4.5-2 8-5 8-10V5l-8-3-8 3v7c0 5 3.5 8 8 10z"></path>
+            </svg>
+            Admin Access
+          </Link>
         </div>
 
         {/* Stats Cards */}
@@ -224,6 +234,12 @@ export default async function AdminPage() {
                   className="block w-full text-left px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
                 >
                   Kiosk Settings
+                </Link>
+                <Link
+                  href="/admin/admin-access"
+                  className="block w-full text-left px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  Admin Access Password
                 </Link>
               </div>
             </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { generatePlayerPassword } from '@/lib/passwordUtils'
+import { Prisma } from '@prisma/client'
 
 const updatePlayerSchema = z.object({
   firstName: z.string().min(1),
@@ -51,18 +52,20 @@ export async function PUT(
     const body = await request.json()
     const validatedData = updatePlayerSchema.parse(body)
 
+    const updateData = {
+      firstName: validatedData.firstName,
+      lastName: validatedData.lastName,
+      dateOfBirth: validatedData.dateOfBirth ? new Date(validatedData.dateOfBirth) : null,
+      email: validatedData.email,
+      phone: validatedData.phone,
+      image: validatedData.image,
+      isActive: validatedData.isActive,
+      password: validatedData.password || generatePlayerPassword(validatedData.firstName, validatedData.lastName)
+    } as Prisma.PlayerUncheckedUpdateInput
+
     const updatedPlayer = await prisma.player.update({
       where: { id: playerId },
-      data: {
-        firstName: validatedData.firstName,
-        lastName: validatedData.lastName,
-        dateOfBirth: validatedData.dateOfBirth ? new Date(validatedData.dateOfBirth) : null,
-        email: validatedData.email,
-        phone: validatedData.phone,
-        image: validatedData.image,
-        isActive: validatedData.isActive,
-        password: validatedData.password || generatePlayerPassword(validatedData.firstName, validatedData.lastName)
-      }
+      data: updateData
     })
 
     return NextResponse.json(updatedPlayer)

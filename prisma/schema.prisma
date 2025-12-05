@@ -6,26 +6,170 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  password      String?     // Hashed password
+  role          UserRole    @default(PLAYER)
+  firstName     String
+  lastName      String
+  isActive      Boolean     @default(true)
+  emailVerified Boolean     @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relations
+  player        Player?
+  sessions      Session[]
+  sentInvitations Invitation[] @relation("InvitationSender")
+  
+  @@map("users")
 }
 
 model Player {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime?
+  email           String?   @unique
+  phone           String?
+  password        String?   // Custom kiosk password for players
+  image           String?   // URL to player photo
+  
+  // Enhanced Profile Fields
+  position        String?   // Player position (e.g., "Forward", "Goalkeeper")
+  jerseyNumber    Int?
+  height          Float?    // in cm
+  weight          Float?    // in kg
+  bloodType       String?
+  emergencyContact String?  // JSON string with contact info
+  medicalNotes    String?   // Any medical conditions or notes
+  
+  // Team and Performance
+  team            String?
+  dateJoined      DateTime?
+  status          PlayerStatus @default(ACTIVE)
+  
+  // Settings
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responses       Response[]
+  documents       PlayerDocument[]
+  scheduleEvents  ScheduleEvent[] @relation("ScheduleParticipants")
+  notifications   Notification[]
+  invitations     Invitation[] @relation("InvitationPlayer")
+  
+  @@map("players")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+model Invitation {
+  id          String          @id @default(cuid())
+  email       String
+  senderId    String
+  playerId    String?
+  token       String          @unique
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  sentAt      DateTime        @default(now())
+  acceptedAt  DateTime?
+  
+  sender      User            @relation("InvitationSender", fields: [senderId], references: [id])
+  player      Player?         @relation("InvitationPlayer", fields: [playerId], references: [id])
+  
+  @@map("invitations")
+}
+
+model PlayerDocument {
+  id          String      @id @default(cuid())
+  playerId    String
+  name        String      // Original filename
+  type        DocumentType
+  category    String?     // e.g., "Medical", "Contract", "Training"
+  url         String      // Storage URL
+  size        Int?        // File size in bytes
+  mimeType    String?
+  uploadedAt  DateTime    @default(now())
+  uploadedBy  String      // User ID who uploaded
+  isActive    Boolean     @default(true)
+  
+  player      Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  
+  @@map("player_documents")
+}
+
+model Schedule {
   id          String   @id @default(cuid())
-  firstName   String
-  lastName    String
-  dateOfBirth DateTime?
-  email       String?  @unique
-  phone       String?
-  image       String?  // URL to player photo
-  password    String   @default("") // Password based on initials (e.g., "AB" for Aleksa Boskovic)
-  isActive    Boolean  @default(true)
+  title       String
+  description String?
+  type        ScheduleType
+  isRecurring Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
-  responses   Response[]
+  events      ScheduleEvent[]
   
-  @@map("players")
+  @@map("schedules")
+}
+
+model ScheduleEvent {
+  id          String      @id @default(cuid())
+  scheduleId  String?
+  title       String
+  description String?
+  type        ScheduleType
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  isAllDay    Boolean     @default(false)
+  color       String?     // Hex color for calendar display
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  schedule    Schedule?   @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  participants Player[]   @relation("ScheduleParticipants")
+  notifications Notification[]
+  
+  @@map("schedule_events")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  playerId    String
+  eventId     String?
+  type        NotificationType
+  title       String
+  message     String
+  isRead      Boolean          @default(false)
+  scheduledFor DateTime?       // For scheduled notifications
+  sentAt      DateTime?
+  createdAt   DateTime         @default(now())
+  
+  player      Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  event       ScheduleEvent?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  
+  @@map("notifications")
 }
 
 model Survey {
@@ -105,6 +249,15 @@ model KioskSettings {
   @@map("kiosk_settings")
 }
 
+model AdminAccessSettings {
+  id        String   @id @default(cuid())
+  password  String   @default("123")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admin_access_settings")
+}
+
 enum QuestionType {
   TEXT
   NUMBER
@@ -118,4 +271,50 @@ enum QuestionType {
   RPE
   SLIDER
   TIME
+}
+
+enum UserRole {
+  ADMIN
+  COACH
+  PLAYER
+}
+
+enum PlayerStatus {
+  ACTIVE
+  INJURED
+  SUSPENDED
+  INACTIVE
+  RETIRED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+enum DocumentType {
+  PDF
+  IMAGE
+  VIDEO
+  AUDIO
+  OTHER
+}
+
+enum ScheduleType {
+  TRAINING
+  MATCH
+  MEETING
+  MEDICAL
+  RECOVERY
+  OTHER
+}
+
+enum NotificationType {
+  SCHEDULE_REMINDER
+  SURVEY_REMINDER
+  DOCUMENT_UPLOADED
+  WELLNESS_ALERT
+  GENERAL
 }

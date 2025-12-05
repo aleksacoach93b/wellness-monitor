@@ -6,6 +6,7 @@ import { Survey, Player } from '@prisma/client'
 import { CheckCircle, User, Home, Maximize, Minimize } from 'lucide-react'
 import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
+import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
 
 interface PlayerWithStatus extends Player {
@@ -21,12 +22,15 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [selectedLetter, setSelectedLetter] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
   const [adminPassword, setAdminPassword] = useState('')
+  const [adminAccessPassword, setAdminAccessPassword] = useState('123')
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [playerPassword, setPlayerPassword] = useState('')
   const [showPlayerPasswordModal, setShowPlayerPasswordModal] = useState(false)
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithStatus | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showKioskPassword, setShowKioskPassword] = useState(false)
+  const [surveyNotActive, setSurveyNotActive] = useState(false)
+  const [surveyStatusMessage, setSurveyStatusMessage] = useState('')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -50,6 +54,16 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         if (surveyResponse.ok) {
           const surveyData = await surveyResponse.json()
           setSurvey(surveyData)
+          
+          // Check if recurring survey is currently active
+          if (surveyData.isRecurring) {
+            const status = isRecurringSurveyActive(surveyData)
+            if (!status.isCurrentlyActive) {
+              setSurveyNotActive(true)
+              setSurveyStatusMessage(status.statusMessage)
+              return
+            }
+          }
         }
 
         // Fetch players with response status
@@ -68,6 +82,24 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     fetchData()
   }, [surveyId])
 
+  useEffect(() => {
+    const loadAdminAccessPassword = async () => {
+      try {
+        const response = await fetch('/api/admin-access')
+        if (response.ok) {
+          const data = await response.json()
+          if (data?.password) {
+            setAdminAccessPassword(data.password)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading admin access password:', error)
+      }
+    }
+
+    loadAdminAccessPassword()
+  }, [])
+
   const fetchData = async () => {
     try {
       // Fetch survey details
@@ -75,6 +107,16 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       if (surveyResponse.ok) {
         const surveyData = await surveyResponse.json()
         setSurvey(surveyData)
+        
+        // Check if recurring survey is currently active
+        if (surveyData.isRecurring) {
+          const status = isRecurringSurveyActive(surveyData)
+          if (!status.isCurrentlyActive) {
+            setSurveyNotActive(true)
+            setSurveyStatusMessage(status.statusMessage)
+            return
+          }
+        }
       }
 
       // Fetch players with response status
@@ -96,9 +138,6 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     fetchData()
   }
 
-  const handleKioskPasswordCancel = () => {
-    router.push('/')
-  }
 
   const handlePlayerClick = async (player: PlayerWithStatus) => {
     setSelectedPlayer(player)
@@ -109,7 +148,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     if (!selectedPlayer) return
     
     // Validate the password
-    if (validatePlayerPassword(playerPassword, selectedPlayer.firstName, selectedPlayer.lastName, selectedPlayer.password)) {
+    if (validatePlayerPassword(playerPassword, selectedPlayer.firstName, selectedPlayer.lastName, selectedPlayer.password ?? undefined)) {
       if (selectedPlayer.hasResponded) {
         // If already responded, show a message or allow re-submission
         if (confirm(`${selectedPlayer.firstName} ${selectedPlayer.lastName} has already submitted this survey. Do you want to submit again?`)) {
@@ -166,7 +205,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   }
 
   const handlePasswordSubmit = () => {
-    if (adminPassword === '123') {
+    if (adminPassword.trim() === adminAccessPassword) {
       router.push('/')
     } else {
       alert('Incorrect password')
@@ -240,7 +279,6 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     return (
       <KioskPasswordPrompt
         onPasswordCorrect={handleKioskPasswordCorrect}
-        onCancel={handleKioskPasswordCancel}
       />
     )
   }
@@ -262,6 +300,26 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white mb-4">Survey Not Found</h1>
           <p className="text-gray-300">The requested survey could not be found.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (surveyNotActive) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-slate-700/50 text-center">
+          <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-3">Survey Not Available</h1>
+          <div className="w-16 h-0.5 bg-gradient-to-r from-orange-400 to-red-400 rounded-full mx-auto mb-6"></div>
+          <p className="text-gray-300 text-lg mb-6">{surveyStatusMessage}</p>
+          <p className="text-sm text-gray-400">
+            Survey: <span className="text-white font-semibold">{survey.title}</span>
+          </p>
         </div>
       </div>
     )

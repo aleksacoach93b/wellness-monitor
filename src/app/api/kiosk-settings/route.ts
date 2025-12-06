@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
+const kioskThemeSchema = z.enum(['dark', 'light', 'red', 'green'])
+
 const updateKioskSettingsSchema = z.object({
   password: z.string(),
-  isEnabled: z.boolean()
+  isEnabled: z.boolean(),
+  theme: kioskThemeSchema.default('dark')
 })
 
 export async function GET() {
@@ -17,7 +20,8 @@ export async function GET() {
       settings = await prisma.kioskSettings.create({
         data: {
           password: '',
-          isEnabled: false
+          isEnabled: false,
+          theme: 'dark'
         }
       })
     }
@@ -36,8 +40,8 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
     console.log('Received kiosk settings update:', body)
-    const { password, isEnabled } = updateKioskSettingsSchema.parse(body)
-    console.log('Parsed data:', { password, isEnabled })
+    const { password, isEnabled, theme } = updateKioskSettingsSchema.parse(body)
+    console.log('Parsed data:', { password, isEnabled, theme })
     
     // Get the first (and only) kiosk settings record
     let settings = await prisma.kioskSettings.findFirst()
@@ -46,13 +50,13 @@ export async function PUT(request: NextRequest) {
       // Update existing settings
       settings = await prisma.kioskSettings.update({
         where: { id: settings.id },
-        data: { password, isEnabled }
+        data: { password, isEnabled, theme }
       })
       console.log('Updated existing settings:', settings)
     } else {
       // Create new settings
       settings = await prisma.kioskSettings.create({
-        data: { password, isEnabled }
+        data: { password, isEnabled, theme }
       })
       console.log('Created new settings:', settings)
     }

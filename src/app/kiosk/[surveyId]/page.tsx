@@ -8,6 +8,7 @@ import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
+import { kioskThemes, KioskTheme } from '@/lib/kioskThemes'
 
 interface PlayerWithStatus extends Player {
   hasResponded: boolean
@@ -31,6 +32,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [showKioskPassword, setShowKioskPassword] = useState(false)
   const [surveyNotActive, setSurveyNotActive] = useState(false)
   const [surveyStatusMessage, setSurveyStatusMessage] = useState('')
+  const [kioskTheme, setKioskTheme] = useState<KioskTheme>('dark')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,6 +41,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         const kioskResponse = await fetch('/api/kiosk-settings')
         if (kioskResponse.ok) {
           const kioskSettings = await kioskResponse.json()
+          setKioskTheme(kioskSettings.theme ?? 'dark')
           // Always show password prompt if password is set
           if (kioskSettings.password && kioskSettings.password.trim() !== '') {
             setShowKioskPassword(true)
@@ -273,6 +276,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   }
 
   const filteredPlayers = getPlayersByLetter(selectedLetter)
+  const activeTheme = kioskThemes[kioskTheme] ?? kioskThemes.dark
 
   // Show kiosk password prompt if needed
   if (showKioskPassword) {
@@ -286,7 +290,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className={`min-h-screen ${activeTheme.rootBackground} flex items-center justify-center`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-300">Loading players...</p>
@@ -297,7 +301,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
   if (!survey) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className={`min-h-screen ${activeTheme.rootBackground} flex items-center justify-center`}>
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white mb-4">Survey Not Found</h1>
           <p className="text-gray-300">The requested survey could not be found.</p>
@@ -308,8 +312,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
   if (surveyNotActive) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-slate-700/50 text-center">
+      <div className={`min-h-screen ${activeTheme.rootBackground} flex items-center justify-center p-4`}>
+        <div className={`max-w-md w-full ${activeTheme.modalBackground} backdrop-blur-xl rounded-2xl shadow-2xl p-8 text-center`}>
           <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
             <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -345,14 +349,14 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           }
         }
       `}</style>
-      <div className={`${isFullscreen ? 'fixed inset-0' : 'min-h-screen'} bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 relative overflow-auto`}>
+      <div className={`${isFullscreen ? 'fixed inset-0' : 'min-h-screen'} ${activeTheme.rootBackground} relative overflow-auto`}>
       {/* Futuristic Background Effects */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-purple-600/5 to-cyan-600/5"></div>
-      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-600/10 via-transparent to-transparent"></div>
+      <div className={`absolute inset-0 ${activeTheme.overlayOne}`}></div>
+      <div className={`absolute top-0 left-0 w-full h-full ${activeTheme.overlayTwo}`}></div>
       
       {/* Futuristic Header - Mobile Optimized */}
-      <div className="relative bg-slate-800/60 backdrop-blur-xl border-b border-slate-700/50 shadow-2xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 via-purple-600/10 to-cyan-600/10"></div>
+      <div className={`relative ${activeTheme.headerBackground}`}>
+        <div className={`absolute inset-0 ${activeTheme.headerOverlay}`}></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-6">
           {/* Mobile Layout */}
           <div className="block sm:hidden">
@@ -363,7 +367,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleHomeClick}
-                  className="bg-slate-600/80 hover:bg-slate-500/80 text-white px-3 py-2 rounded-lg shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all duration-300 backdrop-blur-sm border border-slate-600/50"
+                  className={`${activeTheme.secondaryButton} text-white px-3 py-2 rounded-lg shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all duration-300 backdrop-blur-sm`}
                   title="Home (Admin Access Required)"
                 >
                   <Home className="h-3 w-3" />
@@ -371,7 +375,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 </button>
                 <button
                   onClick={toggleFullscreen}
-                  className="bg-blue-600/80 hover:bg-blue-500/80 text-white px-3 py-2 rounded-lg shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all duration-300 backdrop-blur-sm border border-blue-500/50"
+                  className={`${activeTheme.primaryButton} text-white px-3 py-2 rounded-lg shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all duration-300 backdrop-blur-sm`}
                   title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
                 >
                   {isFullscreen ? <Minimize className="h-3 w-3" /> : <Maximize className="h-3 w-3" />}
@@ -390,13 +394,13 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 <h1 className="relative text-4xl font-light text-white tracking-wider drop-shadow-lg">
                   {survey.title}
                 </h1>
-                <div className="relative mt-2 w-32 h-0.5 bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 rounded-full"></div>
+                <div className={`relative mt-2 w-32 h-0.5 ${activeTheme.accentLine} rounded-full`}></div>
                 <p className="relative mt-3 text-gray-300 text-base tracking-wide">Select your name to begin the survey</p>
               </div>
               <div className="flex items-center space-x-3">
                 <button
                   onClick={toggleFullscreen}
-                  className="relative bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm border border-blue-500/50"
+                  className={`relative ${activeTheme.primaryButton} text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm`}
                   title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
                 >
                   {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
@@ -404,7 +408,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 </button>
                 <button
                   onClick={handleHomeClick}
-                  className="relative bg-gradient-to-r from-slate-600/80 to-slate-700/80 hover:from-slate-500/80 hover:to-slate-600/80 text-white px-6 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-base font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm border border-slate-600/50"
+                  className={`relative ${activeTheme.adminButton} text-white px-6 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-base font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm`}
                   title="Home (Admin Access Required)"
                 >
                   <Home className="h-5 w-5" />
@@ -419,31 +423,31 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       {/* Futuristic Password Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="relative bg-slate-800/90 backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 border border-slate-700/50">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-600/10 to-cyan-600/10 rounded-2xl"></div>
+          <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4`}>
+            <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`}></div>
             <div className="relative">
               <h3 className="text-2xl font-light text-white mb-2 tracking-wide">Admin Access Required</h3>
-              <div className="w-16 h-0.5 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full mb-6"></div>
+              <div className={`w-16 h-0.5 ${activeTheme.accentLine} rounded-full mb-6`}></div>
               <p className="text-base text-gray-300 mb-6 tracking-wide">Enter password to access admin dashboard:</p>
               <input
                 type="password"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
-                className="w-full px-4 py-4 border border-slate-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 mb-6 backdrop-blur-sm text-base tracking-wide"
+                className={`w-full px-4 py-4 rounded-xl backdrop-blur-sm text-base tracking-wide focus:outline-none ${activeTheme.inputField} mb-6`}
                 placeholder="Enter password..."
                 autoFocus
               />
               <div className="flex space-x-4">
                 <button
                   onClick={handlePasswordSubmit}
-                  className="flex-1 bg-gradient-to-r from-blue-500/80 to-cyan-500/80 hover:from-blue-400/80 hover:to-cyan-400/80 text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm border border-blue-400/30"
+                  className={`flex-1 ${activeTheme.primaryButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                 >
                   Access Admin
                 </button>
                 <button
                   onClick={handlePasswordCancel}
-                  className="flex-1 bg-gradient-to-r from-slate-600/80 to-slate-700/80 hover:from-slate-500/80 hover:to-slate-600/80 text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm border border-slate-600/50"
+                  className={`flex-1 ${activeTheme.adminButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                 >
                   Cancel
                 </button>
@@ -456,11 +460,11 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       {/* Futuristic Player Password Modal */}
       {showPlayerPasswordModal && selectedPlayer && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="relative bg-slate-800/90 backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 border border-slate-700/50">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-600/10 to-cyan-600/10 rounded-2xl"></div>
+          <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4`}>
+            <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`}></div>
             <div className="relative">
               <h3 className="text-2xl font-light text-white mb-2 text-center tracking-wide">Player Authentication</h3>
-              <div className="w-16 h-0.5 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full mx-auto mb-6"></div>
+              <div className={`w-16 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-6`}></div>
               <p className="text-base text-gray-300 mb-6 text-center tracking-wide">
                 Enter password for <strong className="text-white">{selectedPlayer.firstName} {selectedPlayer.lastName}</strong>:
               </p>
@@ -469,7 +473,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 value={playerPassword}
                 onChange={(e) => setPlayerPassword(e.target.value.toUpperCase())}
                 onKeyDown={(e) => e.key === 'Enter' && handlePlayerPasswordSubmit()}
-                className="w-full px-3 py-2 sm:px-4 sm:py-4 border border-slate-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 mb-6 text-center text-lg sm:text-2xl font-mono tracking-widest backdrop-blur-sm"
+                className={`w-full px-3 py-2 sm:px-4 sm:py-4 rounded-xl focus:outline-none text-center text-lg sm:text-2xl font-mono tracking-widest backdrop-blur-sm mb-6 ${activeTheme.inputField}`}
                 placeholder=""
                 autoFocus
                 maxLength={10}
@@ -477,13 +481,13 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               <div className="flex space-x-4">
                 <button
                   onClick={handlePlayerPasswordSubmit}
-                  className="flex-1 bg-gradient-to-r from-blue-500/80 to-cyan-500/80 hover:from-blue-400/80 hover:to-cyan-400/80 text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm border border-blue-400/30"
+                  className={`flex-1 ${activeTheme.primaryButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                 >
                   Continue
                 </button>
                 <button
                   onClick={handlePlayerPasswordCancel}
-                  className="flex-1 bg-gradient-to-r from-slate-600/80 to-slate-700/80 hover:from-slate-500/80 hover:to-slate-600/80 text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm border border-slate-600/50"
+                  className={`flex-1 ${activeTheme.adminButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                 >
                   Cancel
                 </button>
@@ -494,21 +498,19 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       )}
 
       {/* Futuristic Alphabet Navigation - Mobile Optimized */}
-      <div className="relative bg-slate-800/60 backdrop-blur-xl border-b border-slate-700/30 py-4 sm:py-8">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-cyan-600/5"></div>
+      <div className={`relative ${activeTheme.panelBackground} backdrop-blur-xl py-4 sm:py-8`}>
+        <div className={`absolute inset-0 ${activeTheme.panelOverlay}`}></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-4 sm:mb-6">
             <h2 className="text-lg sm:text-2xl font-light text-white mb-2 sm:mb-3 tracking-wide">Filter by Last Name</h2>
-            <div className="w-16 sm:w-20 h-0.5 bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 rounded-full mx-auto mb-2 sm:mb-3"></div>
+            <div className={`w-16 sm:w-20 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-2 sm:mb-3`}></div>
             <p className="text-sm sm:text-base text-gray-300 tracking-wide">Click a letter to filter players</p>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
             <button
               onClick={() => setSelectedLetter('')}
-              className={`px-3 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg backdrop-blur-sm border ${
-                !selectedLetter 
-                  ? 'bg-gradient-to-r from-blue-500/80 to-cyan-500/80 text-white shadow-xl border-blue-400/50' 
-                  : 'bg-slate-700/50 text-gray-200 hover:bg-slate-600/50 border-slate-600/50 hover:border-blue-400/50'
+              className={`px-3 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg backdrop-blur-sm ${
+                !selectedLetter ? activeTheme.letterActive : activeTheme.letterInactive
               }`}
             >
               All
@@ -520,12 +522,12 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   key={letter}
                   onClick={() => setSelectedLetter(letter)}
                   disabled={!hasPlayers}
-                  className={`px-3 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg backdrop-blur-sm border ${
+                  className={`px-3 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg backdrop-blur-sm ${
                     selectedLetter === letter
-                      ? 'bg-gradient-to-r from-blue-500/80 to-cyan-500/80 text-white shadow-xl border-blue-400/50'
+                      ? activeTheme.letterActive
                       : hasPlayers
-                      ? 'bg-slate-700/50 text-gray-200 hover:bg-slate-600/50 border-slate-600/50 hover:border-blue-400/50'
-                      : 'bg-slate-600/30 text-gray-500 cursor-not-allowed border-slate-600/30'
+                      ? activeTheme.letterInactive
+                      : activeTheme.letterDisabled
                   }`}
                 >
                   {letter}
@@ -538,16 +540,14 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
       {/* Futuristic Players Grid */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/3 via-purple-600/3 to-cyan-600/3 rounded-3xl"></div>
+        <div className={`absolute inset-0 ${activeTheme.gridOverlay} rounded-3xl`}></div>
         <div className="relative grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-8">
           {filteredPlayers.map((player) => (
             <div
               key={player.id}
               onClick={() => handlePlayerClick(player)}
-              className={`group relative bg-slate-700/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl hover:shadow-3xl cursor-pointer transition-all duration-500 transform hover:scale-110 hover:-translate-y-2 p-3 sm:p-6 lg:p-8 border ${
-                player.hasResponded 
-                  ? 'ring-2 ring-green-400/60 bg-gradient-to-br from-green-900/30 to-slate-700/60 border-green-400/30' 
-                  : 'hover:ring-2 hover:ring-blue-400/60 bg-gradient-to-br from-slate-700/60 to-blue-900/20 border-slate-600/30 hover:border-blue-400/30'
+              className={`group relative backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl hover:shadow-3xl cursor-pointer transition-all duration-500 transform hover:scale-110 hover:-translate-y-2 p-3 sm:p-6 lg:p-8 border ${
+                player.hasResponded ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
               }`}
             >
               {/* Futuristic Status Badge */}
@@ -625,8 +625,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
         {filteredPlayers.length === 0 && (
           <div className="text-center py-20">
-            <div className="relative bg-slate-700/60 backdrop-blur-xl rounded-3xl p-12 max-w-lg mx-auto shadow-2xl border border-slate-600/50">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-600/10 to-cyan-600/10 rounded-3xl"></div>
+            <div className={`relative ${activeTheme.emptyStateCard} backdrop-blur-xl rounded-3xl p-12 max-w-lg mx-auto shadow-2xl`}>
+              <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-3xl`}></div>
               <div className="relative">
                 <div className="w-20 h-20 bg-gradient-to-br from-slate-500/80 to-slate-600/80 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl border-2 border-slate-600/50 backdrop-blur-sm">
                   <User className="w-10 h-10 text-gray-300" />

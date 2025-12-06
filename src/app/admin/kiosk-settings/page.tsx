@@ -2,20 +2,56 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Eye, EyeOff, Lock, Unlock, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Save, Eye, EyeOff, Lock, Unlock, RefreshCw, Palette } from 'lucide-react'
 
 interface KioskSettings {
   id: string
   password: string
   isEnabled: boolean
+  theme: KioskTheme
   createdAt: string
   updatedAt: string
 }
+
+type KioskTheme = 'dark' | 'light' | 'red' | 'green'
+
+const themeOptions: Array<{
+  value: KioskTheme
+  label: string
+  description: string
+  preview: string
+}> = [
+  {
+    value: 'dark',
+    label: 'Dark Mode',
+    description: 'Original neon blue & purple look',
+    preview: 'bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800'
+  },
+  {
+    value: 'light',
+    label: 'Light Steel',
+    description: 'Softer neutral background with cool glow',
+    preview: 'bg-gradient-to-br from-slate-500 via-slate-400 to-slate-500'
+  },
+  {
+    value: 'red',
+    label: 'Red Pulse',
+    description: 'High-energy red & magenta atmosphere',
+    preview: 'bg-gradient-to-br from-rose-900 via-rose-800 to-rose-900'
+  },
+  {
+    value: 'green',
+    label: 'Green Focus',
+    description: 'Emerald palette with calm highlights',
+    preview: 'bg-gradient-to-br from-emerald-900 via-emerald-800 to-emerald-900'
+  },
+]
 
 export default function KioskSettingsPage() {
   const router = useRouter()
   const [settings, setSettings] = useState<KioskSettings | null>(null)
   const [password, setPassword] = useState('')
+  const [theme, setTheme] = useState<KioskTheme>('dark')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -33,6 +69,7 @@ export default function KioskSettingsPage() {
         const data = await response.json()
         setSettings(data)
         setPassword(data.password)
+        setTheme(data.theme ?? 'dark')
       }
     } catch (error) {
       console.error('Error fetching settings:', error)
@@ -58,7 +95,8 @@ export default function KioskSettingsPage() {
         },
         body: JSON.stringify({
           password: password.trim(),
-          isEnabled: password.trim() !== ''
+          isEnabled: password.trim() !== '',
+          theme
         }),
       })
 
@@ -66,6 +104,7 @@ export default function KioskSettingsPage() {
         const updatedSettings = await response.json()
         setSettings(updatedSettings)
         setPassword(updatedSettings.password)
+        setTheme(updatedSettings.theme ?? 'dark')
         setMessage('Kiosk settings saved successfully!')
       } else {
         setMessage('Failed to save settings')
@@ -95,7 +134,8 @@ export default function KioskSettingsPage() {
         },
         body: JSON.stringify({
           password: password.trim(),
-          isEnabled: password.trim() !== ''
+          isEnabled: password.trim() !== '',
+          theme
         }),
       })
 
@@ -103,6 +143,7 @@ export default function KioskSettingsPage() {
         const updatedSettings = await response.json()
         setSettings(updatedSettings)
         setPassword(updatedSettings.password)
+        setTheme(updatedSettings.theme ?? 'dark')
         setMessage('Password updated successfully!')
       } else {
         setMessage('Failed to update password')
@@ -217,8 +258,54 @@ export default function KioskSettingsPage() {
                     Password: {showPassword ? settings.password : '••••••••'}
                   </p>
                 )}
+                <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+                  <Palette className="w-4 h-4 text-indigo-500" />
+                  <span>
+                    Theme: <strong className="text-gray-800 uppercase">{settings.theme}</strong>
+                  </span>
+                </div>
               </div>
             )}
+
+            {/* Theme Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Kiosk Theme
+              </label>
+              <p className="text-sm text-gray-500 mb-4">
+                Choose the color palette for kiosk mode. Changes apply instantly after saving.
+              </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                {themeOptions.map(option => {
+                  const isActive = theme === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setTheme(option.value)}
+                      className={`text-left rounded-xl border p-4 transition-all duration-200 focus:outline-none ${
+                        isActive
+                          ? 'border-blue-500 shadow-lg ring-2 ring-blue-100 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-14 h-14 rounded-lg ${option.preview} shadow-inner`}></div>
+                        <div>
+                          <p className="text-base font-semibold text-gray-900">{option.label}</p>
+                          <p className="text-sm text-gray-500">{option.description}</p>
+                        </div>
+                      </div>
+                      {isActive && (
+                        <p className="mt-3 text-xs font-medium text-blue-600 uppercase tracking-wide">
+                          Selected
+                        </p>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
 
             {/* Message */}
             {message && (

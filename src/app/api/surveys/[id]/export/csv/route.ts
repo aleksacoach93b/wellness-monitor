@@ -252,10 +252,15 @@ export async function GET(
 
     // Create flattened CSV data - each response as one row with ALL body parts as columns
     const csvData = survey.responses.map(response => {
+      // Format date as YYYY-MM-DD HH:MM:SS for Power BI compatibility
+      const formattedDate = response.submittedAt.toISOString()
+        .replace('T', ' ')
+        .replace(/\.\d{3}Z$/, '')
+      
       const row: Record<string, string | number | null> = {
         playerName: response.player ? `${response.player.firstName} ${response.player.lastName}` : 'Unknown Player',
         playerEmail: response.player?.email || '',
-        submittedAt: response.submittedAt.toISOString(),
+        submittedAt: formattedDate,
         surveyTitle: survey.title
       }
       

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Save, Eye, ChevronUp, ChevronDown, Clock } from 'lucide-react'
 import { QuestionType, Survey, Question } from '@prisma/client'
 import HomeButton from '@/components/HomeButton'
+import { parseSliderOptions, serializeSliderLabels, type SliderLabelsState } from '@/lib/sliderOptions'
 
 interface QuestionFormState {
   id: string
@@ -13,11 +14,7 @@ interface QuestionFormState {
   options: string[]
   required: boolean
   order: number
-  sliderLabels?: {
-    left?: string
-    center?: string
-    right?: string
-  }
+  sliderLabels?: SliderLabelsState
 }
 
 export default function EditSurveyPage({ params }: { params: Promise<{ id: string }> }) {
@@ -40,26 +37,26 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
           setTitle(surveyData.title)
           setDescription(surveyData.description || '')
           setQuestions((surveyData.questions || []).map((q: Question) => {
-            let parsedOptions = []
-            let sliderLabels = undefined
-            
+            let parsedOptions: string[] = []
+            let sliderLabels: SliderLabelsState | undefined
+
             if (q.options) {
               try {
-                const parsed = JSON.parse(q.options)
+                const parsed: unknown = JSON.parse(q.options)
                 if (Array.isArray(parsed)) {
-                  parsedOptions = parsed
-                } else if (parsed && (parsed.left || parsed.center || parsed.right)) {
-                  sliderLabels = parsed
+                  parsedOptions = parsed.map(String)
+                } else if (parsed && typeof parsed === 'object') {
+                  sliderLabels = parseSliderOptions(q.options) ?? undefined
                 }
-                } catch {
+              } catch {
                 // If parsing fails, treat as empty
               }
             }
-            
+
             return {
               ...q,
               options: parsedOptions,
-              sliderLabels: sliderLabels
+              sliderLabels,
             }
           }))
         }
@@ -155,6 +152,24 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
     })
   }
 
+  const updateSliderStepLabel = (questionId: string, stepNum: number, value: string) => {
+    const question = questions.find(q => q.id === questionId)!
+    const current = question.sliderLabels || {}
+    const key = String(stepNum)
+    const nextSteps = { ...(current.steps || {}) }
+    if (!value.trim()) {
+      delete nextSteps[key]
+    } else {
+      nextSteps[key] = value
+    }
+    updateQuestion(questionId, {
+      sliderLabels: {
+        ...current,
+        steps: Object.keys(nextSteps).length ? nextSteps : undefined
+      }
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -166,9 +181,12 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
           id: q.id.startsWith('temp-') ? undefined : q.id, // Don't send temp IDs to backend
           text: q.text,
           type: q.type,
-          options: q.options.length > 0 ? JSON.stringify(q.options) : 
-                   (q.sliderLabels && (q.sliderLabels.left || q.sliderLabels.center || q.sliderLabels.right)) ? 
-                   JSON.stringify(q.sliderLabels) : null,
+          options:
+            q.type === 'SLIDER'
+              ? serializeSliderLabels(q.sliderLabels)
+              : q.options.length > 0
+                ? JSON.stringify(q.options)
+                : null,
           required: q.required,
           order: index // Ensure order is correct on submission
         }))
@@ -349,7 +367,22 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
                       </label>
                       <select
                         value={question.type}
-                        onChange={(e) => updateQuestion(question.id, { type: e.target.value as QuestionType, options: [] })}
+                        onChange={(e) => {
+                          const next = e.target.value as QuestionType
+                          if (next === 'SLIDER') {
+                            updateQuestion(question.id, {
+                              type: next,
+                              options: [],
+                              sliderLabels: {},
+                            })
+                          } else {
+                            updateQuestion(question.id, {
+                              type: next,
+                              options: [],
+                              sliderLabels: undefined,
+                            })
+                          }
+                        }}
                         className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       >
                         <option value="TEXT">Text</option>
@@ -460,6 +493,29 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
                       <p className="text-xs text-gray-500 mt-1">
                         Leave empty to use default color legend (Low, Fair, Good, High)
                       </p>
+
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Text for each value (optional)
+                        </label>
+                        <p className="text-xs text-gray-500 mb-2">
+                          Players see this under the selected number on the slider (scale 1–10). Leave a field blank to skip that number.
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                            <div key={n}>
+                              <label className="block text-xs text-gray-500 mb-0.5">{n}</label>
+                              <input
+                                type="text"
+                                value={question.sliderLabels?.steps?.[String(n)] ?? ''}
+                                onChange={(e) => updateSliderStepLabel(question.id, n, e.target.value)}
+                                className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
+                                placeholder={`Label for ${n}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

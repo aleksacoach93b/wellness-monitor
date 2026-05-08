@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Save } from 'lucide-react'
 import { QuestionType } from '@prisma/client'
 import HomeButton from '@/components/HomeButton'
+import { serializeSliderLabels } from '@/lib/sliderOptions'
 
 interface Question {
   id: string
@@ -13,6 +14,8 @@ interface Question {
   options: string[]
   required: boolean
   order: number
+  /** Per-slider-value captions 1–10; keys "1"…"10" */
+  sliderSteps?: Record<string, string>
 }
 
 export default function NewSurveyPage() {
@@ -47,10 +50,11 @@ export default function NewSurveyPage() {
         const updatedQuestion = { ...q, ...updates }
         
         // Initialize options for SLIDER type
-        if (updates.type === 'SLIDER' && (!updatedQuestion.options || updatedQuestion.options.length === 0)) {
+        if (updates.type === 'SLIDER') {
           updatedQuestion.options = ['', '', ''] // Left, Center, Right labels
+          if (!updatedQuestion.sliderSteps) updatedQuestion.sliderSteps = {}
         }
-        
+
         return updatedQuestion
       }
       return q
@@ -80,6 +84,17 @@ export default function NewSurveyPage() {
     updateQuestion(questionId, { options: newOptions })
   }
 
+  const updateSliderStep = (questionId: string, stepNum: number, value: string) => {
+    const question = questions.find(q => q.id === questionId)!
+    const key = String(stepNum)
+    const next = { ...(question.sliderSteps || {}) }
+    if (!value.trim()) delete next[key]
+    else next[key] = value
+    updateQuestion(questionId, {
+      sliderSteps: Object.keys(next).length ? next : {},
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || questions.length === 0) return
@@ -92,13 +107,15 @@ export default function NewSurveyPage() {
         questions: questions.map(q => ({
           text: q.text.trim(),
           type: q.type,
-          options: q.type === 'SLIDER' && q.options.length === 3 
-            ? JSON.stringify({
-                left: q.options[0] || '',
-                center: q.options[1] || '',
-                right: q.options[2] || ''
-              })
-            : q.options.filter(opt => opt.trim()),
+          options:
+            q.type === 'SLIDER'
+              ? serializeSliderLabels({
+                  left: q.options[0],
+                  center: q.options[1],
+                  right: q.options[2],
+                  steps: q.sliderSteps,
+                })
+              : q.options.filter(opt => opt.trim()),
           required: q.required,
           order: q.order,
         })),
@@ -415,6 +432,28 @@ export default function NewSurveyPage() {
                           <p className="mt-1 text-xs text-gray-400">
                             Leave empty to use default color legend (Low, Fair, Good, High)
                           </p>
+                          <div className="mt-4 pt-4 border-t border-gray-600">
+                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                              Text for each value (optional)
+                            </label>
+                            <p className="text-xs text-gray-400 mb-2">
+                              Shown under the selected number (1–10). Leave blank to skip.
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                                <div key={n}>
+                                  <label className="block text-xs text-gray-500 mb-0.5">{n}</label>
+                                  <input
+                                    type="text"
+                                    value={question.sliderSteps?.[String(n)] ?? ''}
+                                    onChange={(e) => updateSliderStep(question.id, n, e.target.value)}
+                                    className="w-full bg-gray-600 border-gray-500 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
+                                    placeholder={`${n}`}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       )}
 

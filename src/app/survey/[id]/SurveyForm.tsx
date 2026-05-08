@@ -7,6 +7,7 @@ import { CheckCircle } from 'lucide-react'
 import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
+import { parseSliderOptions } from '@/lib/sliderOptions'
 
 interface SurveyFormProps {
   survey: Survey & {
@@ -851,7 +852,19 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
               </div>
             )}
 
-        {(question.type as string) === 'SLIDER' && (
+        {(question.type as string) === 'SLIDER' && (() => {
+          const sliderParsed = parseSliderOptions(question.options)
+          const sliderVal = String(formData[question.id] ?? '5')
+          const stepCaption = sliderParsed?.steps?.[sliderVal]?.trim()
+          const showTriFooter =
+            !!(sliderParsed?.left?.trim() || sliderParsed?.center?.trim() || sliderParsed?.right?.trim())
+          const showDefaultLegend =
+            !sliderParsed ||
+            (!sliderParsed.left?.trim() &&
+              !sliderParsed.center?.trim() &&
+              !sliderParsed.right?.trim())
+
+          return (
           <div className="mt-6">
             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl rounded-2xl p-4 sm:p-6 border border-slate-600/30 shadow-2xl relative overflow-hidden">
               {/* Animated background pattern */}
@@ -888,7 +901,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                   className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full text-white font-bold text-sm sm:text-lg md:text-xl shadow-2xl transition-all duration-500 backdrop-blur-sm border-2 border-white/30 hover:scale-110 hover:shadow-3xl relative overflow-hidden"
                   style={{
                     background: (() => {
-                      const value = parseInt(formData[question.id] as string || '5')
+                      const value = parseInt(formData[question.id] as string || '5', 10)
                       if (value <= 3) return 'linear-gradient(135deg, #ef4444, #dc2626)'
                       if (value <= 5) return 'linear-gradient(135deg, #f97316, #ea580c)'
                       if (value <= 7) return 'linear-gradient(135deg, #eab308, #ca8a04)'
@@ -902,42 +915,30 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                     {formData[question.id] || '5'}
                   </span>
                 </div>
+                {stepCaption ? (
+                  <p className="mt-4 text-center text-sm sm:text-base text-slate-100 font-medium tracking-wide px-3 leading-snug relative z-10">
+                    {stepCaption}
+                  </p>
+                ) : null}
               </div>
               
-              {/* Custom Labels - if available in question options */}
-              {question.options && (() => {
-                try {
-                  const labels = JSON.parse(question.options)
-                  if (labels && (labels.left || labels.center || labels.right)) {
-                    return (
+              {/* Custom Labels - left / center / right anchors */}
+              {showTriFooter && sliderParsed ? (
                       <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-600/30 relative z-10">
                         <span className="text-sm text-slate-300 font-medium text-center flex-1">
-                          {labels.left || 'Low'}
+                          {sliderParsed.left?.trim() || 'Low'}
                         </span>
                         <span className="text-sm text-slate-300 font-medium text-center flex-1">
-                          {labels.center || 'Fair'}
+                          {sliderParsed.center?.trim() || 'Fair'}
                         </span>
                         <span className="text-sm text-slate-300 font-medium text-center flex-1">
-                          {labels.right || 'High'}
+                          {sliderParsed.right?.trim() || 'High'}
                         </span>
                       </div>
-                    )
-                  }
-                } catch {
-                  // If parsing fails, fall back to default labels
-                }
-                return null
-              })()}
+              ) : null}
               
-              {/* Default Color Legend with glassmorphism - Mobile Optimized (fallback) */}
-              {!question.options || (() => {
-                try {
-                  const labels = JSON.parse(question.options)
-                  return !labels || (!labels.left && !labels.center && !labels.right)
-                } catch {
-                  return true
-                }
-              })() && (
+              {/* Default Color Legend (fallback when no L/C/R anchors) */}
+              {showDefaultLegend ? (
                 <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs text-slate-300 relative z-10">
                   <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/30 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg backdrop-blur-sm border border-slate-600/30">
                     <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500 shadow-lg animate-pulse"></div>
@@ -956,10 +957,11 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                     <span className="font-medium text-xs sm:text-sm">High (8-10)</span>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
-        )}
+          )
+        })()}
 
 
             {(question.type === 'SELECT' || question.type === 'MULTIPLE_SELECT') && question.options && (

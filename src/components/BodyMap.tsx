@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { X } from 'lucide-react'
+import type { SurveyAppearanceTheme } from '@/lib/surveyFormAppearance'
+import { getSurveyBodyMapTokens } from '@/lib/surveyFormAppearance'
 
 interface BodyMapProps {
   view: 'front' | 'back'
@@ -10,9 +12,20 @@ interface BodyMapProps {
   onViewChange: (view: 'front' | 'back') => void
   onContinue: () => void
   onClose: () => void
+  /** Match SurveyForm / URL ?surveyTheme= */
+  appearanceTheme?: SurveyAppearanceTheme
 }
 
-export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange, onContinue, onClose }: BodyMapProps) {
+export default function BodyMap({
+  view,
+  onAreaClick,
+  selectedAreas,
+  onViewChange,
+  onContinue,
+  onClose,
+  appearanceTheme = 'default',
+}: BodyMapProps) {
+  const t = useMemo(() => getSurveyBodyMapTokens(appearanceTheme), [appearanceTheme])
   const [scale, setScale] = useState(0.8)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
@@ -2242,7 +2255,7 @@ export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange
 
   return (
     <div 
-      className="fixed inset-0 z-[9999] bg-slate-900 overflow-y-auto w-full h-full"
+      className={`fixed inset-0 z-[9999] ${t.overlay} overflow-y-auto w-full h-full`}
       style={{
         position: 'fixed',
         top: 0,
@@ -2256,11 +2269,11 @@ export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange
     >
       <div className="min-h-screen w-full h-full flex flex-col">
         {/* Header */}
-        <div className="bg-slate-800 p-2 sm:p-4 border-b border-slate-600">
+        <div className={`${t.headerBar} p-2 sm:p-4 border-b ${t.headerBorder}`}>
           <div className="flex justify-between items-center mb-2 sm:mb-3">
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-200 transition-colors"
+              className={`${t.closeBtn} transition-colors`}
               data-title="Close body map"
             >
               <X className="h-4 w-4 sm:h-6 sm:w-6" />
@@ -2268,7 +2281,7 @@ export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange
             <div className="flex-1"></div> {/* Spacer */}
             <button
               onClick={onContinue}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 sm:py-2 sm:px-4 rounded-lg transition-colors text-xs sm:text-sm"
+              className={`${t.continueBtn} py-1.5 px-3 sm:py-2 sm:px-4 text-xs sm:text-sm`}
             >
               Continue
             </button>
@@ -2276,13 +2289,11 @@ export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange
           
           {/* Front/Back Toggle */}
           <div className="flex justify-center mb-2 sm:mb-3">
-            <div className="bg-slate-700 rounded-lg p-1 flex">
+            <div className={t.viewToggleRail}>
               <button
                 onClick={() => onViewChange('front')}
                 className={`px-2 py-1 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                  view === 'front' 
-                    ? 'bg-slate-600 text-white' 
-                    : 'text-slate-300 hover:text-white'
+                  view === 'front' ? t.viewToggleOn : t.viewToggleOff
                 }`}
               >
                 Front
@@ -2290,9 +2301,7 @@ export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange
               <button
                 onClick={() => onViewChange('back')}
                 className={`px-2 py-1 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                  view === 'back' 
-                    ? 'bg-slate-600 text-white' 
-                    : 'text-slate-300 hover:text-white'
+                  view === 'back' ? t.viewToggleOn : t.viewToggleOff
                 }`}
               >
                 Back
@@ -2300,7 +2309,7 @@ export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange
             </div>
           </div>
           
-          <p className="text-xs sm:text-sm text-slate-300 text-center">
+          <p className={`text-xs sm:text-sm ${t.hint} text-center`}>
             Click on body areas to cycle through pain/soreness levels (1-10)
           </p>
         </div>
@@ -2308,13 +2317,23 @@ export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange
         {/* Main Content - Mobile optimized layout */}
         <div className="flex-1 flex flex-col gap-2 sm:gap-4 p-2 sm:p-4">
           {/* Selected Areas Card - Fixed height with internal scroll */}
-          <div className="bg-slate-800 rounded-lg p-2 sm:p-4 flex flex-col" style={{ height: typeof window !== 'undefined' && window.innerWidth < 768 ? '25vh' : '30vh' }}>
-            <h5 className="text-sm sm:text-base font-medium text-slate-300 mb-2 sm:mb-3 text-center flex-shrink-0">Selected Areas:</h5>
-            <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+          <div
+            className={`${t.selectedCard} p-2 sm:p-4 flex flex-col`}
+            style={{ height: typeof window !== 'undefined' && window.innerWidth < 768 ? '25vh' : '30vh' }}
+          >
+            <h5
+              className={`text-sm sm:text-base font-medium ${t.selectedTitle} mb-2 sm:mb-3 text-center flex-shrink-0`}
+            >
+              Selected Areas:
+            </h5>
+            <div className={`flex-1 overflow-y-auto min-h-0 ${t.selectedScroll}`}>
               {Object.keys(selectedAreas).length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                   {Object.entries(selectedAreas).map(([area, rating]) => (
-                    <div key={area} className="bg-slate-700/50 rounded-lg p-1.5 sm:p-2 flex items-center justify-between min-h-[2.5rem] sm:min-h-[3rem]">
+                    <div
+                      key={area}
+                      className={`${t.selectedRow} p-1.5 sm:p-2 flex items-center justify-between min-h-[2.5rem] sm:min-h-[3rem]`}
+                    >
                       <div className="flex items-center space-x-0.5 sm:space-x-1 flex-1 min-w-0">
                         <div 
                           className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-white flex-shrink-0"
@@ -2337,7 +2356,7 @@ export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-slate-400 text-sm py-4 sm:py-8">
+                <div className={`text-center ${t.emptyHint} text-sm py-4 sm:py-8`}>
                   No areas selected yet
                 </div>
               )}
@@ -2350,19 +2369,19 @@ export default function BodyMap({ view, onAreaClick, selectedAreas, onViewChange
             <div className="absolute top-2 right-2 z-10 flex flex-col gap-2">
               <button
                 onClick={() => setScale(Math.min(scale * 1.2, 3))}
-                className="bg-slate-700 hover:bg-slate-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold shadow-lg"
+                className={`${t.zoomBtn} w-8 h-8 flex items-center justify-center text-lg font-bold`}
               >
                 +
               </button>
               <button
                 onClick={() => setScale(Math.max(scale * 0.8, 0.5))}
-                className="bg-slate-700 hover:bg-slate-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold shadow-lg"
+                className={`${t.zoomBtn} w-8 h-8 flex items-center justify-center text-lg font-bold`}
               >
                 -
               </button>
               <button
                 onClick={resetZoom}
-                className="bg-slate-700 hover:bg-slate-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
+                className={`${t.zoomBtn} w-8 h-8 flex items-center justify-center text-xs font-bold`}
               >
                 ⌂
               </button>

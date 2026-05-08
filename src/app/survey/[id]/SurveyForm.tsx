@@ -1178,6 +1178,7 @@ export default function SurveyForm({
             onAreaClick={handleBodyMapClick}
             selectedAreas={bodyMapData[currentBodyMapQuestionId] || {}}
             onViewChange={setBodyMapView}
+            appearanceTheme={appearance}
             onContinue={() => {
               setShowBodyMap(false)
               setCurrentBodyMapQuestionId(null)

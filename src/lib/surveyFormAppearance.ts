@@ -217,6 +217,117 @@ export function getSurveyUiTokens(theme: SurveyAppearanceTheme): SurveyUiTokens 
   }
 }
 
+/** Body map fullscreen overlay — must match SurveyForm / kiosk appearance */
+export type SurveyBodyMapTokens = {
+  overlay: string
+  headerBar: string
+  headerBorder: string
+  closeBtn: string
+  continueBtn: string
+  viewToggleRail: string
+  viewToggleOn: string
+  viewToggleOff: string
+  hint: string
+  selectedCard: string
+  selectedTitle: string
+  selectedScroll: string
+  selectedRow: string
+  zoomBtn: string
+  emptyHint: string
+}
+
+export function getSurveyBodyMapTokens(theme: SurveyAppearanceTheme): SurveyBodyMapTokens {
+  const slateBlue: SurveyBodyMapTokens = {
+    overlay: 'bg-slate-900',
+    headerBar: 'bg-slate-800',
+    headerBorder: 'border-slate-600',
+    closeBtn: 'text-slate-400 hover:text-slate-200',
+    continueBtn: 'bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors',
+    viewToggleRail: 'bg-slate-700 rounded-lg p-1 flex',
+    viewToggleOn: 'bg-slate-600 text-white',
+    viewToggleOff: 'text-slate-300 hover:text-white',
+    hint: 'text-slate-300',
+    selectedCard: 'bg-slate-800 rounded-lg',
+    selectedTitle: 'text-slate-300',
+    selectedScroll: 'scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800',
+    selectedRow: 'bg-slate-700/50 rounded-lg',
+    zoomBtn: 'bg-slate-700 hover:bg-slate-600 text-white rounded-full shadow-lg',
+    emptyHint: 'text-slate-400',
+  }
+
+  const green: SurveyBodyMapTokens = {
+    overlay: 'bg-emerald-950',
+    headerBar: 'bg-emerald-900',
+    headerBorder: 'border-emerald-800/70',
+    closeBtn: 'text-emerald-300/90 hover:text-white',
+    continueBtn:
+      'bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition-colors shadow-emerald-900/40',
+    viewToggleRail: 'bg-emerald-950 rounded-lg p-1 flex border border-emerald-800/50',
+    viewToggleOn: 'bg-emerald-700 text-white',
+    viewToggleOff: 'text-emerald-200/90 hover:text-white',
+    hint: 'text-emerald-200/95',
+    selectedCard: 'bg-emerald-900 rounded-lg border border-emerald-800/45',
+    selectedTitle: 'text-emerald-200',
+    selectedScroll: 'scrollbar-thin scrollbar-thumb-emerald-800 scrollbar-track-emerald-950',
+    selectedRow: 'bg-emerald-950/70 rounded-lg border border-emerald-800/35',
+    zoomBtn:
+      'bg-emerald-800 hover:bg-emerald-700 text-white rounded-full shadow-lg border border-emerald-700/50',
+    emptyHint: 'text-emerald-400/85',
+  }
+
+  const rose: SurveyBodyMapTokens = {
+    overlay: 'bg-rose-950',
+    headerBar: 'bg-rose-900',
+    headerBorder: 'border-rose-800/65',
+    closeBtn: 'text-rose-200/85 hover:text-white',
+    continueBtn:
+      'bg-rose-600 hover:bg-rose-500 text-white font-medium rounded-lg transition-colors shadow-rose-950/40',
+    viewToggleRail: 'bg-rose-950 rounded-lg p-1 flex border border-rose-800/45',
+    viewToggleOn: 'bg-rose-700 text-white',
+    viewToggleOff: 'text-rose-200/90 hover:text-white',
+    hint: 'text-rose-200/90',
+    selectedCard: 'bg-rose-900 rounded-lg border border-rose-800/42',
+    selectedTitle: 'text-rose-200',
+    selectedScroll: 'scrollbar-thin scrollbar-thumb-rose-800 scrollbar-track-rose-950',
+    selectedRow: 'bg-rose-950/72 rounded-lg border border-rose-800/38',
+    zoomBtn:
+      'bg-rose-800 hover:bg-rose-700 text-white rounded-full shadow-lg border border-rose-700/45',
+    emptyHint: 'text-rose-400/85',
+  }
+
+  const highZinc: SurveyBodyMapTokens = {
+    ...slateBlue,
+    overlay: 'bg-zinc-950',
+    headerBar: 'bg-zinc-900',
+    headerBorder: 'border-zinc-600',
+    closeBtn: 'text-zinc-400 hover:text-zinc-200',
+    continueBtn: 'bg-cyan-600 hover:bg-cyan-500 text-white font-medium rounded-lg transition-colors',
+    viewToggleRail: 'bg-zinc-800 rounded-lg p-1 flex',
+    viewToggleOn: 'bg-zinc-700 text-white',
+    viewToggleOff: 'text-zinc-300 hover:text-white',
+    hint: 'text-zinc-300',
+    selectedCard: 'bg-zinc-900 rounded-lg',
+    selectedTitle: 'text-zinc-300',
+    selectedScroll: 'scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-zinc-950',
+    selectedRow: 'bg-zinc-800/60 rounded-lg',
+    zoomBtn: 'bg-zinc-700 hover:bg-zinc-600 text-white rounded-full shadow-lg',
+    emptyHint: 'text-zinc-500',
+  }
+
+  switch (theme) {
+    case 'green':
+      return green
+    case 'rose':
+      return rose
+    case 'high':
+      return highZinc
+    case 'dark':
+      return slateBlue
+    default:
+      return slateBlue
+  }
+}
+
 /** Matches draft to survey shape; bumps when questions change */
 export function surveyQuestionFingerprint(questionIdsOrdered: string[]) {
   return questionIdsOrdered.join(',')

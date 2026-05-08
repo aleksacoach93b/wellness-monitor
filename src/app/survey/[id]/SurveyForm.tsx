@@ -345,6 +345,24 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
             0 0 0 4px rgba(59, 130, 246, 0.8),
             0 0 30px rgba(59, 130, 246, 0.6);
         }
+
+        /* Premium thumb for gradient slider questions */
+        input.slider-fancy[type="range"]::-webkit-slider-thumb {
+          width: 30px;
+          height: 30px;
+          margin-top: 0;
+          box-shadow:
+            0 8px 28px rgba(0, 0, 0, 0.45),
+            0 0 0 4px rgba(255, 255, 255, 0.95),
+            inset 0 2px 6px rgba(255, 255, 255, 0.85);
+        }
+        input.slider-fancy[type="range"]::-moz-range-thumb {
+          width: 30px;
+          height: 30px;
+          box-shadow:
+            0 8px 28px rgba(0, 0, 0, 0.45),
+            0 0 0 4px rgba(255, 255, 255, 0.95);
+        }
       `}</style>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 w-full overflow-x-hidden overflow-y-auto fixed inset-0 z-50">
         {/* Close Button */}
@@ -866,95 +884,96 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
 
           return (
           <div className="mt-6">
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl rounded-2xl p-4 sm:p-6 border border-slate-600/30 shadow-2xl relative overflow-hidden">
-              {/* Animated background pattern */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 animate-pulse"></div>
+            <div className="bg-gradient-to-br from-slate-800/90 via-slate-900/85 to-slate-950/90 backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-slate-500/25 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.45)] relative overflow-hidden ring-1 ring-white/[0.06]">
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.07] via-transparent to-cyan-500/[0.06] pointer-events-none" />
+              <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-20 -left-16 w-40 h-40 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
               
-              
-              {/* Enhanced Gradient Slider with smooth animations - Mobile Optimized */}
-              <div className="relative mb-4 sm:mb-6">
-                {/* Enhanced Gradient Background Track */}
-                <div className="absolute top-1/2 left-0 right-0 h-4 sm:h-6 bg-gradient-to-r from-red-500 via-orange-500 via-yellow-500 to-green-500 rounded-full transform -translate-y-1/2 shadow-lg">
-                  <div className="absolute inset-0 bg-gradient-to-r from-red-400/20 via-orange-400/20 via-yellow-400/20 to-green-400/20 rounded-full animate-pulse"></div>
-                </div>
-                
-                {/* Enhanced Slider Input with smooth transitions - Mobile Optimized */}
+              <div className="relative mb-6 sm:mb-8">
+                <div className="absolute top-1/2 left-0 right-0 h-3.5 sm:h-5 bg-gradient-to-r from-red-500 via-amber-400 to-emerald-500 rounded-full -translate-y-1/2 shadow-inner shadow-black/20 ring-1 ring-white/10" />
+                <div className="absolute top-1/2 left-0 right-0 h-3.5 sm:h-5 -translate-y-1/2 rounded-full bg-gradient-to-r from-white/15 via-transparent to-white/10 pointer-events-none" />
                 <input
                   type="range"
                   min="1"
                   max="10"
                   value={formData[question.id] as string || '5'}
                   onChange={(e) => handleInputChange(question.id, e.target.value)}
-                  className="w-full h-6 sm:h-8 bg-transparent appearance-none cursor-pointer relative z-10 transition-all duration-200 hover:scale-105"
+                  className="slider-fancy w-full h-8 sm:h-10 bg-transparent appearance-none cursor-pointer relative z-10 transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99]"
                   style={{
                     background: 'transparent',
                     outline: 'none'
                   }}
                   required={question.required}
                 />
-                
               </div>
               
-              {/* Enhanced Value Display with smooth animations - Mobile Optimized */}
-              <div className="text-center mb-4 sm:mb-6">
-                <div 
-                  className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full text-white font-bold text-sm sm:text-lg md:text-xl shadow-2xl transition-all duration-500 backdrop-blur-sm border-2 border-white/30 hover:scale-110 hover:shadow-3xl relative overflow-hidden"
-                  style={{
-                    background: (() => {
-                      const value = parseInt(formData[question.id] as string || '5', 10)
-                      if (value <= 3) return 'linear-gradient(135deg, #ef4444, #dc2626)'
-                      if (value <= 5) return 'linear-gradient(135deg, #f97316, #ea580c)'
-                      if (value <= 7) return 'linear-gradient(135deg, #eab308, #ca8a04)'
-                      return 'linear-gradient(135deg, #22c55e, #16a34a)'
-                    })()
-                  }}
-                >
-                  {/* Animated glow effect */}
-                  <div className="absolute inset-0 bg-white/20 rounded-full animate-ping"></div>
-                  <span className="text-white font-bold relative z-10 drop-shadow-lg">
-                    {formData[question.id] || '5'}
-                  </span>
+              <div className="text-center mb-5 sm:mb-6 relative z-10">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 mb-3 [font-family:var(--font-outfit)]">
+                  Your selection
+                </p>
+                <div className="relative inline-flex flex-col items-center gap-1">
+                  <div
+                    className="relative inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 md:w-[4.25rem] md:h-[4.25rem] rounded-2xl text-white shadow-[0_12px_40px_-8px_rgba(0,0,0,0.55)] transition-all duration-500 border border-white/25 [font-family:var(--font-outfit)]"
+                    style={{
+                      background: (() => {
+                        const value = parseInt(formData[question.id] as string || '5', 10)
+                        if (value <= 3) return 'linear-gradient(145deg, #f87171 0%, #dc2626 55%, #b91c1c 100%)'
+                        if (value <= 5) return 'linear-gradient(145deg, #fb923c 0%, #ea580c 50%, #c2410c 100%)'
+                        if (value <= 7) return 'linear-gradient(145deg, #facc15 0%, #ca8a04 50%, #a16207 100%)'
+                        return 'linear-gradient(145deg, #4ade80 0%, #22c55e 45%, #15803d 100%)'
+                      })()
+                    }}
+                  >
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                    <span className="text-2xl sm:text-3xl md:text-[2rem] font-semibold relative z-10 tabular-nums tracking-tight drop-shadow-md">
+                      {formData[question.id] || '5'}
+                    </span>
+                  </div>
+                  {stepCaption ? (
+                    <p
+                      className="mt-4 max-w-[20rem] sm:max-w-md mx-auto text-center text-base sm:text-lg md:text-xl font-medium text-white/[0.95] leading-snug px-2 tracking-normal [font-family:var(--font-outfit)] drop-shadow-[0_2px_14px_rgba(0,0,0,0.4)] selection:bg-white/20"
+                    >
+                      {stepCaption}
+                    </p>
+                  ) : (
+                    <p className="mt-3 text-xs text-slate-500 italic [font-family:var(--font-outfit)] tracking-wide hidden sm:block">
+                      Drag to rate from 1 to 10
+                    </p>
+                  )}
                 </div>
-                {stepCaption ? (
-                  <p className="mt-4 text-center text-sm sm:text-base text-slate-100 font-medium tracking-wide px-3 leading-snug relative z-10">
-                    {stepCaption}
-                  </p>
-                ) : null}
               </div>
               
-              {/* Custom Labels - left / center / right anchors */}
               {showTriFooter && sliderParsed ? (
-                      <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-600/30 relative z-10">
-                        <span className="text-sm text-slate-300 font-medium text-center flex-1">
+                      <div className="flex justify-between items-start gap-2 mt-6 pt-5 border-t border-slate-600/35 relative z-10">
+                        <span className="text-[11px] sm:text-xs text-slate-400 text-center flex-1 font-medium uppercase tracking-[0.18em] leading-relaxed [font-family:var(--font-outfit)]">
                           {sliderParsed.left?.trim() || 'Low'}
                         </span>
-                        <span className="text-sm text-slate-300 font-medium text-center flex-1">
+                        <span className="text-[11px] sm:text-xs text-slate-300 text-center flex-1 font-semibold uppercase tracking-[0.22em] leading-relaxed [font-family:var(--font-outfit)]">
                           {sliderParsed.center?.trim() || 'Fair'}
                         </span>
-                        <span className="text-sm text-slate-300 font-medium text-center flex-1">
+                        <span className="text-[11px] sm:text-xs text-slate-400 text-center flex-1 font-medium uppercase tracking-[0.18em] leading-relaxed [font-family:var(--font-outfit)]">
                           {sliderParsed.right?.trim() || 'High'}
                         </span>
                       </div>
               ) : null}
               
-              {/* Default Color Legend (fallback when no L/C/R anchors) */}
               {showDefaultLegend ? (
-                <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs text-slate-300 relative z-10">
-                  <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/30 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg backdrop-blur-sm border border-slate-600/30">
-                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500 shadow-lg animate-pulse"></div>
-                    <span className="font-medium text-xs sm:text-sm">Low (1-3)</span>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs text-slate-300 relative z-10 mt-2 [font-family:var(--font-outfit)]">
+                  <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/35 px-2 sm:px-3 py-2 rounded-xl backdrop-blur-sm border border-slate-600/40">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-400 shadow-lg shrink-0" />
+                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">Low (1–3)</span>
                   </div>
-                  <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/30 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg backdrop-blur-sm border border-slate-600/30">
-                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-orange-500 shadow-lg animate-pulse"></div>
-                    <span className="font-medium text-xs sm:text-sm">Fair (4-5)</span>
+                  <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/35 px-2 sm:px-3 py-2 rounded-xl backdrop-blur-sm border border-slate-600/40">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-orange-400 shadow-lg shrink-0" />
+                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">Fair (4–5)</span>
                   </div>
-                  <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/30 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg backdrop-blur-sm border border-slate-600/30">
-                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-yellow-500 shadow-lg animate-pulse"></div>
-                    <span className="font-medium text-xs sm:text-sm">Good (6-7)</span>
+                  <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/35 px-2 sm:px-3 py-2 rounded-xl backdrop-blur-sm border border-slate-600/40">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-400 shadow-lg shrink-0" />
+                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">Good (6–7)</span>
                   </div>
-                  <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/30 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg backdrop-blur-sm border border-slate-600/30">
-                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-500 shadow-lg animate-pulse"></div>
-                    <span className="font-medium text-xs sm:text-sm">High (8-10)</span>
+                  <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/35 px-2 sm:px-3 py-2 rounded-xl backdrop-blur-sm border border-slate-600/40">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-400 shadow-lg shrink-0" />
+                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">High (8–10)</span>
                   </div>
                 </div>
               ) : null}

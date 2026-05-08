@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Survey } from '@prisma/client'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
+import type { KioskTheme } from '@/lib/kioskThemes'
 
 export default function KioskRedirectPage() {
   const router = useRouter()
@@ -11,10 +12,19 @@ export default function KioskRedirectPage() {
   const [error, setError] = useState<string | null>(null)
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false)
   const [activeSurvey, setActiveSurvey] = useState<Survey | null>(null)
+  const [kioskTheme, setKioskTheme] = useState<KioskTheme>('dark')
 
   useEffect(() => {
     const redirectToKiosk = async () => {
       try {
+        const kioskRes = await fetch('/api/kiosk-settings')
+        if (kioskRes.ok) {
+          const kioskSettings = await kioskRes.json()
+          if (kioskSettings?.theme === 'dark' || kioskSettings?.theme === 'light' || kioskSettings?.theme === 'red' || kioskSettings?.theme === 'green') {
+            setKioskTheme(kioskSettings.theme)
+          }
+        }
+
         // Fetch the first active survey
         const response = await fetch('/api/surveys')
         if (response.ok) {
@@ -53,6 +63,7 @@ export default function KioskRedirectPage() {
   if (showPasswordPrompt) {
     return (
       <KioskPasswordPrompt
+        theme={kioskTheme}
         onPasswordCorrect={handlePasswordCorrect}
         onCancel={() => router.push('/')}
       />

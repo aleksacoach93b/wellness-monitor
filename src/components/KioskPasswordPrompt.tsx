@@ -2,21 +2,31 @@
 
 import { useState } from 'react'
 import { Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { kioskThemes, type KioskTheme } from '@/lib/kioskThemes'
 
 interface KioskPasswordPromptProps {
   onPasswordCorrect: () => void
   onCancel?: () => void
+  /** Matches kiosk player screen; from `/api/kiosk-settings` when available */
+  theme?: KioskTheme
 }
 
-export default function KioskPasswordPrompt({ onPasswordCorrect, onCancel }: KioskPasswordPromptProps) {
+export default function KioskPasswordPrompt({
+  onPasswordCorrect,
+  onCancel,
+  theme = 'dark',
+}: KioskPasswordPromptProps) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const activeTheme = kioskThemes[theme] ?? kioskThemes.dark
+  const hasCode = Boolean(password.trim())
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!password.trim()) {
       setError('Please enter the password')
       return
@@ -29,9 +39,8 @@ export default function KioskPasswordPrompt({ onPasswordCorrect, onCancel }: Kio
       const response = await fetch('/api/kiosk-settings')
       if (response.ok) {
         const settings = await response.json()
-        
+
         if (password.trim() === settings.password) {
-          // Password is correct
           onPasswordCorrect()
         } else {
           setError('Incorrect password. Please try again.')
@@ -39,8 +48,8 @@ export default function KioskPasswordPrompt({ onPasswordCorrect, onCancel }: Kio
       } else {
         setError('Unable to verify password. Please try again.')
       }
-    } catch (error) {
-      console.error('Error verifying password:', error)
+    } catch (err) {
+      console.error('Error verifying password:', err)
       setError('Unable to verify password. Please try again.')
     } finally {
       setLoading(false)
@@ -48,85 +57,117 @@ export default function KioskPasswordPrompt({ onPasswordCorrect, onCancel }: Kio
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
-        <div className="text-center mb-8">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mb-6 shadow-lg">
-            <Lock className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">Survey Access</h1>
-          <p className="text-gray-600 text-lg">Please, enter the password to access the survey</p>
-        </div>
+    <div className={`min-h-screen ${activeTheme.rootBackground} relative overflow-hidden flex items-center justify-center p-4`}>
+      <div className={`pointer-events-none absolute inset-0 ${activeTheme.overlayOne}`} aria-hidden />
+      <div
+        className={`pointer-events-none absolute inset-0 ${activeTheme.overlayTwo}`}
+        aria-hidden
+      />
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-3">
-              Access Code
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-6 py-4 pr-14 text-lg border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
-                placeholder="Enter access code"
-                disabled={loading}
-                autoFocus
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                disabled={loading}
-              >
-                {showPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
-              </button>
+      <div className="relative z-10 w-full max-w-md">
+        <div
+          className={`relative rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden ${activeTheme.modalBackground} border`}
+        >
+          <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-3xl pointer-events-none`} aria-hidden />
+
+          <div className="relative px-8 pt-10 pb-8 sm:px-10 sm:py-12">
+            <div className="text-center mb-8">
+              <div className="relative mx-auto w-24 h-24 mb-8">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/25 via-white/10 to-transparent blur-xl scale-125" aria-hidden />
+                <div
+                  className={`relative flex h-full w-full items-center justify-center rounded-full shadow-2xl border border-white/10 ${activeTheme.primaryButton}`}
+                >
+                  <Lock className="w-11 h-11 text-white drop-shadow-md" strokeWidth={1.75} />
+                </div>
+              </div>
+
+              <h1 className="text-3xl sm:text-4xl font-light text-white tracking-wide mb-3 drop-shadow-lg">
+                Survey Access
+              </h1>
+              <div className={`h-1 w-20 mx-auto rounded-full mb-5 ${activeTheme.accentLine}`} />
+              <p className="text-gray-300 text-base sm:text-lg font-medium tracking-wide leading-relaxed px-2">
+                Enter the access code to open the kiosk
+              </p>
             </div>
-          </div>
 
-          {error && (
-            <div className="flex items-center gap-3 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
-              <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
-              <span className="text-red-700 font-medium">{error}</span>
-            </div>
-          )}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="password" className="block text-sm font-semibold text-gray-200 mb-3 tracking-wide">
+                  Access Code
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`w-full px-5 py-4 pr-14 rounded-xl text-lg tracking-wide backdrop-blur-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-white/25 transition-all duration-200 ${activeTheme.inputField}`}
+                    placeholder="Enter access code"
+                    disabled={loading}
+                    autoFocus
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                    disabled={loading}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
 
-          <div className="space-y-4">
-            <button
-              type="submit"
-              disabled={loading || !password.trim()}
-              className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-lg font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                  Verifying Access...
-                </>
-              ) : (
-                <>
-                  <Lock className="w-6 h-6" />
-                  Start Survey
-                </>
+              {error && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-3 p-4 rounded-xl border border-red-500/40 bg-red-950/50 backdrop-blur-sm"
+                >
+                  <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span className="text-red-100 font-medium text-sm leading-snug">{error}</span>
+                </div>
               )}
-            </button>
-            {onCancel && (
-              <button
-                type="button"
-                onClick={onCancel}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-gray-200 text-gray-700 text-lg font-semibold rounded-xl hover:bg-gray-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        </form>
 
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-500">
-            Contact your coach if you don&apos;t have the access code
-          </p>
+              <div className="space-y-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={loading || !hasCode}
+                  className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-xl text-lg font-semibold transition-all duration-300 shadow-xl backdrop-blur-sm border ${
+                    loading || !hasCode
+                      ? `${activeTheme.secondaryButton} text-white/45 cursor-not-allowed opacity-80`
+                      : `${activeTheme.primaryButton} text-white transform hover:scale-[1.02] active:scale-[0.99]`
+                  }`}
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-white/30 border-t-white" />
+                      Verifying…
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-5 h-5" />
+                      Start Survey
+                    </>
+                  )}
+                </button>
+                {onCancel && (
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    disabled={loading}
+                    className={`w-full flex items-center justify-center px-6 py-3.5 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm border ${activeTheme.adminButton} text-white disabled:opacity-50`}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+
+            <p className="mt-8 text-center text-sm text-gray-500 leading-relaxed">
+              Contact your coach if you don&apos;t have the access code
+            </p>
+          </div>
         </div>
       </div>
     </div>

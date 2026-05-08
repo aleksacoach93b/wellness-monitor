@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-/** Large exports can exceed default serverless limits; keep CSV generation lean below. */
+/** Large exports can exceed default serverless limits on cold starts. */
 export const maxDuration = 60
+export const dynamic = 'force-dynamic'
 
 // Body Map path ID to muscle name mapping
 const getMuscleName = (areaId: string): string => {
@@ -219,9 +220,8 @@ export async function GET(
               }
             },
             answers: {
-              select: {
-                questionId: true,
-                value: true,
+              include: {
+                question: true,
               },
             },
           },
@@ -325,9 +325,10 @@ export async function GET(
     if (csvData.length === 0) {
       return new NextResponse('No data available', {
         headers: {
-          'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`
-        }
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`,
+          'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
+        },
       })
     }
 
@@ -358,9 +359,10 @@ export async function GET(
 
     return new NextResponse(csvContent, {
       headers: {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`
-      }
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`,
+        'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
+      },
     })
 
   } catch (error) {

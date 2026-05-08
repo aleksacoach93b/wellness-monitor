@@ -365,8 +365,10 @@ export async function GET(
 
   } catch (error) {
     console.error('Error exporting survey to CSV:', error)
+    const details =
+      error instanceof Error ? error.message.slice(0, 500) : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to export survey data' },
+      { error: 'Failed to export survey data', details },
       { status: 500 }
     )
   }

@@ -104,6 +104,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   }, [])
 
   const fetchData = async () => {
+    setIsLoading(true)
     try {
       // Fetch survey details
       const surveyResponse = await fetch(`/api/surveys/${surveyId}`)
@@ -290,10 +291,13 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
   if (isLoading) {
     return (
-      <div className={`min-h-screen ${activeTheme.rootBackground} flex items-center justify-center`}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-300">Loading players...</p>
+      <div className={`min-h-screen ${activeTheme.rootBackground} flex items-center justify-center p-6`}>
+        <div className="text-center max-w-sm">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-slate-500 border-t-blue-500 mx-auto" aria-hidden />
+          <p className="mt-6 text-lg font-medium text-white">Opening survey…</p>
+          <p className="mt-2 text-sm text-gray-400">
+            Please wait — this may take a moment on a slower connection.
+          </p>
         </div>
       </div>
     )

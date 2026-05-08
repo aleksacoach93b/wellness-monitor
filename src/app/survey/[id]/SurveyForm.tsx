@@ -245,33 +245,29 @@ export default function SurveyForm({
 
     setIsSubmitting(true)
     try {
+      // One row per survey question so answers always align with current question IDs
+      // (Object.entries(formData) can miss keys or include stale ids after survey edits).
+      const answers = survey.questions.map((question) => {
+        const value = formData[question.id]
+        if (isBodyMapQuestion(question)) {
+          const questionBodyMapData = bodyMapData[question.id] || {}
+          if (Object.keys(questionBodyMapData).length > 0) {
+            return {
+              questionId: question.id,
+              value: JSON.stringify(questionBodyMapData),
+            }
+          }
+        }
+        const v = Array.isArray(value) ? JSON.stringify(value) : String(value ?? '')
+        return { questionId: question.id, value: v }
+      })
+
       const submissionData = {
         surveyId: survey.id,
         playerId: playerId || null,
         playerName: playerName.trim() || null,
         playerEmail: null, // Remove email from submission
-        answers: [
-          ...Object.entries(formData).map(([questionId, value]) => {
-            // Check if this is a body map question and we have body map data
-            const question = survey.questions.find(q => q.id === questionId)
-            if (question && isBodyMapQuestion(question)) {
-              const questionBodyMapData = bodyMapData[questionId] || {}
-              
-              // If we have body map data, append it to the answer
-              if (Object.keys(questionBodyMapData).length > 0) {
-                return {
-                  questionId,
-                  value: JSON.stringify(questionBodyMapData)
-                }
-              }
-            }
-            
-            return {
-              questionId,
-              value: Array.isArray(value) ? JSON.stringify(value) : value
-            }
-          })
-        ]
+        answers,
       }
       
       console.log('Submitting survey data:', submissionData)

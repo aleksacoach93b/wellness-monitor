@@ -9,7 +9,7 @@ const submitResponseSchema = z.object({
   playerEmail: z.string().optional().nullable(),
   answers: z.array(z.object({
     questionId: z.string(),
-    value: z.string()
+    value: z.coerce.string(),
   })),
   bodyMapData: z.record(z.string(), z.number()).optional().nullable()
 })

@@ -247,10 +247,11 @@ export function getSurveyBodyMapTokens(theme: SurveyAppearanceTheme): SurveyBody
     viewToggleOn: 'bg-slate-600 text-white',
     viewToggleOff: 'text-slate-300 hover:text-white',
     hint: 'text-slate-300',
-    selectedCard: 'bg-slate-800 rounded-lg',
-    selectedTitle: 'text-slate-300',
+    selectedCard: 'bg-slate-800 rounded-xl ring-1 ring-white/[0.06] shadow-lg shadow-black/30',
+    selectedTitle: 'text-slate-200',
     selectedScroll: 'scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800',
-    selectedRow: 'bg-slate-700/50 rounded-lg',
+    selectedRow:
+      'bg-slate-700/60 rounded-xl border border-slate-500/25 shadow-md shadow-black/15 backdrop-blur-sm',
     zoomBtn: 'bg-slate-700 hover:bg-slate-600 text-white rounded-full shadow-lg',
     emptyHint: 'text-slate-400',
   }
@@ -266,10 +267,12 @@ export function getSurveyBodyMapTokens(theme: SurveyAppearanceTheme): SurveyBody
     viewToggleOn: 'bg-emerald-700 text-white',
     viewToggleOff: 'text-emerald-200/90 hover:text-white',
     hint: 'text-emerald-200/95',
-    selectedCard: 'bg-emerald-900 rounded-lg border border-emerald-800/45',
-    selectedTitle: 'text-emerald-200',
+    selectedCard:
+      'bg-emerald-900 rounded-xl ring-1 ring-emerald-400/15 border border-emerald-800/50 shadow-xl shadow-black/35',
+    selectedTitle: 'text-emerald-100',
     selectedScroll: 'scrollbar-thin scrollbar-thumb-emerald-800 scrollbar-track-emerald-950',
-    selectedRow: 'bg-emerald-950/70 rounded-lg border border-emerald-800/35',
+    selectedRow:
+      'bg-emerald-950/90 rounded-xl border border-emerald-600/35 shadow-md shadow-emerald-950/60 backdrop-blur-sm',
     zoomBtn:
       'bg-emerald-800 hover:bg-emerald-700 text-white rounded-full shadow-lg border border-emerald-700/50',
     emptyHint: 'text-emerald-400/85',
@@ -286,10 +289,11 @@ export function getSurveyBodyMapTokens(theme: SurveyAppearanceTheme): SurveyBody
     viewToggleOn: 'bg-rose-700 text-white',
     viewToggleOff: 'text-rose-200/90 hover:text-white',
     hint: 'text-rose-200/90',
-    selectedCard: 'bg-rose-900 rounded-lg border border-rose-800/42',
-    selectedTitle: 'text-rose-200',
+    selectedCard: 'bg-rose-900 rounded-xl ring-1 ring-rose-400/12 border border-rose-800/45 shadow-xl shadow-black/35',
+    selectedTitle: 'text-rose-100',
     selectedScroll: 'scrollbar-thin scrollbar-thumb-rose-800 scrollbar-track-rose-950',
-    selectedRow: 'bg-rose-950/72 rounded-lg border border-rose-800/38',
+    selectedRow:
+      'bg-rose-950/88 rounded-xl border border-rose-600/35 shadow-md shadow-rose-950/55 backdrop-blur-sm',
     zoomBtn:
       'bg-rose-800 hover:bg-rose-700 text-white rounded-full shadow-lg border border-rose-700/45',
     emptyHint: 'text-rose-400/85',
@@ -306,10 +310,11 @@ export function getSurveyBodyMapTokens(theme: SurveyAppearanceTheme): SurveyBody
     viewToggleOn: 'bg-zinc-700 text-white',
     viewToggleOff: 'text-zinc-300 hover:text-white',
     hint: 'text-zinc-300',
-    selectedCard: 'bg-zinc-900 rounded-lg',
-    selectedTitle: 'text-zinc-300',
+    selectedCard: 'bg-zinc-900 rounded-xl ring-1 ring-white/5 shadow-lg shadow-black/30',
+    selectedTitle: 'text-zinc-200',
     selectedScroll: 'scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-zinc-950',
-    selectedRow: 'bg-zinc-800/60 rounded-lg',
+    selectedRow:
+      'bg-zinc-800/70 rounded-xl border border-zinc-600/30 shadow-md shadow-black/25 backdrop-blur-sm',
     zoomBtn: 'bg-zinc-700 hover:bg-zinc-600 text-white rounded-full shadow-lg',
     emptyHint: 'text-zinc-500',
   }

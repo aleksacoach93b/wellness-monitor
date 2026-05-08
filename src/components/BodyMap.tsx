@@ -2318,45 +2318,60 @@ export default function BodyMap({
         <div className="flex-1 flex flex-col gap-2 sm:gap-4 p-2 sm:p-4">
           {/* Selected Areas Card - Fixed height with internal scroll */}
           <div
-            className={`${t.selectedCard} p-2 sm:p-4 flex flex-col`}
+            className={`${t.selectedCard} flex flex-col overflow-hidden p-3 sm:p-4`}
             style={{ height: typeof window !== 'undefined' && window.innerWidth < 768 ? '25vh' : '30vh' }}
           >
-            <h5
-              className={`text-sm sm:text-base font-medium ${t.selectedTitle} mb-2 sm:mb-3 text-center flex-shrink-0`}
-            >
-              Selected Areas:
-            </h5>
-            <div className={`flex-1 overflow-y-auto min-h-0 ${t.selectedScroll}`}>
+            <div className="flex shrink-0 flex-col items-center gap-2 text-center">
+              <h5
+                className={`text-xs font-semibold uppercase tracking-[0.14em] sm:text-sm ${t.selectedTitle}`}
+              >
+                Selected Areas
+              </h5>
+              <div className="h-px w-14 rounded-full bg-white/15" aria-hidden />
+            </div>
+            <div className={`mt-3 min-h-0 flex-1 overflow-y-auto ${t.selectedScroll}`}>
               {Object.keys(selectedAreas).length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                <div className="grid auto-rows-min grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
                   {Object.entries(selectedAreas).map(([area, rating]) => (
                     <div
                       key={area}
-                      className={`${t.selectedRow} p-1.5 sm:p-2 flex items-center justify-between min-h-[2.5rem] sm:min-h-[3rem]`}
+                      className={`${t.selectedRow} flex min-h-[2.75rem] items-center justify-between gap-2 py-2 pl-2.5 pr-1.5 sm:min-h-[3rem] sm:py-2.5 sm:pl-3 sm:pr-2`}
                     >
-                      <div className="flex items-center space-x-0.5 sm:space-x-1 flex-1 min-w-0">
-                        <div 
-                          className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-white flex-shrink-0"
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <div
+                          className="h-3 w-3 shrink-0 rounded-full ring-2 ring-white/25 sm:h-3.5 sm:w-3.5"
                           style={{ backgroundColor: getColorForRating(rating) }}
-                        ></div>
-                        <span className="text-white capitalize text-xs sm:text-xs font-medium truncate" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>{getMuscleName(area)}</span>
+                          aria-hidden
+                        />
+                        <span
+                          className="truncate text-left text-[11px] font-medium leading-snug text-white sm:text-xs"
+                          title={getMuscleName(area)}
+                          style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+                        >
+                          {getMuscleName(area)}
+                        </span>
                       </div>
-                      <div className="flex items-center space-x-0.5 sm:space-x-1 flex-shrink-0">
-                        <span className="font-bold text-white text-xs sm:text-xs" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>{rating}/10</span>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <span
+                          className="inline-flex min-w-[2.75rem] justify-center rounded-md bg-black/25 px-2 py-0.5 text-center text-[11px] font-bold tabular-nums text-white shadow-inner sm:text-xs"
+                          style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+                        >
+                          {rating}/10
+                        </span>
                         <button
                           type="button"
                           onClick={() => handleDeselectArea(area)}
-                          className="text-red-400 hover:text-red-300 hover:bg-red-900/20 p-1 sm:p-1.5 rounded transition-colors flex-shrink-0"
-                          data-title="Remove this area"
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-red-400 transition-colors hover:bg-red-500/15 hover:text-red-300 active:scale-95"
+                          aria-label={`Remove ${getMuscleName(area)}`}
                         >
-                          <X className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <X className="h-4 w-4 sm:h-[18px] sm:w-[18px]" strokeWidth={2.25} />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className={`text-center ${t.emptyHint} text-sm py-4 sm:py-8`}>
+                <div className={`py-6 text-center text-sm ${t.emptyHint} sm:py-8`}>
                   No areas selected yet
                 </div>
               )}

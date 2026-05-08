@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+/** Large exports can exceed default serverless limits; keep CSV generation lean below. */
+export const maxDuration = 60
+
 // Body Map path ID to muscle name mapping
 const getMuscleName = (areaId: string): string => {
   const muscleNames: Record<string, string> = {
@@ -216,10 +219,11 @@ export async function GET(
               }
             },
             answers: {
-              include: {
-                question: true
-              }
-            }
+              select: {
+                questionId: true,
+                value: true,
+              },
+            },
           },
           orderBy: { submittedAt: 'desc' }
         }
@@ -337,14 +341,17 @@ export async function GET(
         }
         return header
       }).join(','),
-      ...csvData.map(row => 
+      ...csvData.map(row =>
         headers.map(header => {
           const value = row[header as keyof typeof row]
-          // Escape CSV values that contain commas or quotes
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-            return `"${value.replace(/"/g, '""')}"`
+          const normalized = value === null || value === undefined ? '' : value
+          if (
+            typeof normalized === 'string' &&
+            (normalized.includes(',') || normalized.includes('"') || normalized.includes('\n'))
+          ) {
+            return `"${normalized.replace(/"/g, '""')}"`
           }
-          return value
+          return normalized === '' ? '' : String(normalized)
         }).join(',')
       )
     ].join('\n')

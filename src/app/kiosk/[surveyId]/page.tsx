@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Survey, Player } from '@prisma/client'
-import { CheckCircle, User, Home, Maximize, Minimize } from 'lucide-react'
+import { CheckCircle, Play, User, Home, Maximize, Minimize } from 'lucide-react'
 import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
@@ -14,6 +14,12 @@ import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
 interface PlayerWithStatus extends Player {
   hasResponded: boolean
   responseId?: string
+}
+
+function kioskPlayerInitial(player: Pick<Player, 'firstName' | 'lastName'>): string {
+  const s = player.firstName?.trim() || player.lastName?.trim()
+  if (!s) return '?'
+  return s.slice(0, 1).toLocaleUpperCase()
 }
 
 export default function KioskModePage({ params }: { params: Promise<{ surveyId: string }> }) {
@@ -363,6 +369,12 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         }
       `}</style>
       <div className={`${isFullscreen ? 'fixed inset-0' : 'min-h-screen'} ${activeTheme.rootBackground} relative overflow-auto`}>
+        <a
+          href="#kiosk-player-grid"
+          className="sr-only focus:fixed focus:left-4 focus:top-20 focus:z-[80] focus:inline-flex focus:h-auto focus:min-h-0 focus:w-auto focus:overflow-visible focus:whitespace-nowrap focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-slate-900 focus:shadow-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
+        >
+          Skip to player list
+        </a>
       {/* Futuristic Background Effects */}
       <div className={`absolute inset-0 ${activeTheme.overlayOne}`}></div>
       <div className={`absolute top-0 left-0 w-full h-full ${activeTheme.overlayTwo}`}></div>
@@ -515,11 +527,11 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         <div className={`absolute inset-0 ${activeTheme.panelOverlay}`}></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-4 sm:mb-6">
-            <h2 className="text-lg sm:text-2xl font-light text-white mb-2 sm:mb-3 tracking-wide">Filter by Last Name</h2>
+            <h2 id="kiosk-filter-heading" className="text-lg sm:text-2xl font-light text-white mb-2 sm:mb-3 tracking-wide">Filter by Last Name</h2>
             <div className={`w-16 sm:w-20 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-2 sm:mb-3`}></div>
             <p className="text-sm sm:text-base text-gray-300 tracking-wide">Click a letter to filter players</p>
           </div>
-          <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
+          <nav aria-labelledby="kiosk-filter-heading" className="flex flex-wrap gap-2 sm:gap-3 justify-center">
             <button
               onClick={() => setSelectedLetter('')}
               className={`px-3 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg backdrop-blur-sm ${
@@ -547,19 +559,24 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 </button>
               )
             })}
-          </div>
+          </nav>
         </div>
       </div>
 
       {/* Futuristic Players Grid */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <section
+        id="kiosk-player-grid"
+        aria-label="Players"
+        className="relative max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10"
+      >
         <div className={`absolute inset-0 ${activeTheme.gridOverlay} rounded-3xl`}></div>
         <div className="relative grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-8">
           {filteredPlayers.map((player) => (
-            <div
+            <button
               key={player.id}
+              type="button"
               onClick={() => handlePlayerClick(player)}
-              className={`group relative backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl hover:shadow-3xl cursor-pointer transition-all duration-500 transform hover:scale-110 hover:-translate-y-2 p-3 sm:p-6 lg:p-8 border ${
+              className={`group relative m-0 w-full appearance-none text-left backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-solid shadow-2xl hover:shadow-3xl cursor-pointer transition-[transform,box-shadow] duration-300 ease-out transform hover:scale-[1.02] hover:-translate-y-px focus-visible:z-10 focus-visible:scale-[1.02] focus-visible:-translate-y-px p-3 sm:p-6 lg:p-8 ${activeTheme.playerCardFocus} ${
                 player.hasResponded ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
               }`}
             >
@@ -582,8 +599,15 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                       className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full object-cover border-2 sm:border-4 border-slate-600/50 shadow-2xl group-hover:border-blue-400/60 transition-all duration-500 backdrop-blur-sm"
                     />
                   ) : (
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full bg-gradient-to-br from-slate-500/80 to-slate-600/80 border-2 sm:border-4 border-slate-600/50 shadow-2xl flex items-center justify-center group-hover:from-blue-400/80 group-hover:to-cyan-400/80 transition-all duration-500 backdrop-blur-sm">
-                      <User className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-gray-300 group-hover:text-blue-300 transition-colors duration-500" />
+                    <div
+                      className={`relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-slate-600/50 shadow-2xl transition-all duration-500 backdrop-blur-sm sm:h-20 sm:w-20 sm:border-4 lg:h-24 lg:w-24 ${activeTheme.playerAvatarInitial}`}
+                    >
+                      <span
+                        className="select-none text-xl font-bold leading-none tracking-tight sm:text-2xl lg:text-3xl"
+                        aria-hidden
+                      >
+                        {kioskPlayerInitial(player)}
+                      </span>
                     </div>
                   )}
                   
@@ -605,10 +629,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
               {/* Futuristic Player Name */}
               <div className="text-center">
-                <h3 className="text-xs sm:text-base lg:text-lg font-semibold text-white leading-tight mb-1 sm:mb-2 group-hover:text-blue-300 transition-colors duration-500 tracking-wide">
+                <h3 className="text-[11px] sm:text-sm lg:text-base font-medium leading-tight text-white/50 tracking-wide transition-colors duration-300 group-hover:text-white/70">
                   {player.firstName}
                 </h3>
-                <p className="text-xs sm:text-sm lg:text-base font-medium text-gray-300 group-hover:text-blue-400 transition-colors duration-500 tracking-wide">
+                <p className="mt-0.5 text-xs sm:text-base lg:text-lg font-bold uppercase tracking-wide text-white transition-colors duration-300 group-hover:text-sky-100">
                   {player.lastName}
                 </p>
                 
@@ -620,7 +644,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                     <span className="sm:hidden">Done</span>
                   </div>
                 ) : (
-                  <div className="mt-3 text-xs sm:text-sm text-gray-400 group-hover:text-blue-400 transition-colors duration-500 tracking-wide font-medium">
+                  <div className={`mt-3 ${activeTheme.playerStatusIdlePill}`}>
+                    <Play className="h-3 w-3 shrink-0 opacity-95 sm:h-4 sm:w-4" aria-hidden />
                     <span className="hidden sm:inline">Click to start</span>
                     <span className="sm:hidden">Start</span>
                   </div>
@@ -632,7 +657,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               
               {/* Animated border effect */}
               <div className="absolute inset-0 rounded-3xl border-2 border-transparent group-hover:border-blue-400/20 transition-all duration-500 pointer-events-none"></div>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -653,7 +678,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
             </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
     </>
   )

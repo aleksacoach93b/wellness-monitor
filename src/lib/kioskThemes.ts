@@ -21,6 +21,12 @@ interface ThemeClasses {
   gridOverlay: string
   playerCardIdle: string
   playerCardResponded: string
+  /** Bottom status chip when player has not completed survey — parallels “Done” pill shape */
+  playerStatusIdlePill: string
+  /** Keyboard focus ring on player cards (ring-offset matches page tone) */
+  playerCardFocus: string
+  /** Placeholder avatar (no photo): initial letter circle */
+  playerAvatarInitial: string
   emptyStateCard: string
 }
 
@@ -60,6 +66,12 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     playerCardIdle:
       'hover:ring-2 hover:ring-blue-400/60 bg-gradient-to-br from-slate-700/60 to-blue-900/20 border-slate-600/30 hover:border-blue-400/30',
     playerCardResponded: shared.playerCardResponded,
+    playerStatusIdlePill:
+      'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-blue-400/35 bg-slate-900/55 px-2 py-2 text-xs font-semibold text-blue-200 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-2 sm:px-4 sm:py-1 sm:text-sm',
+    playerCardFocus:
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+    playerAvatarInitial:
+      'bg-gradient-to-br from-blue-600/50 to-slate-800/75 text-white shadow-2xl border-slate-500/55 group-hover:border-blue-400/65',
     emptyStateCard: 'bg-slate-700/60 border border-slate-600/50',
   },
   light: {
@@ -91,6 +103,12 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     playerCardIdle:
       'hover:ring-2 hover:ring-slate-200/60 bg-gradient-to-br from-slate-600/60 to-slate-500/40 border-slate-500/40 hover:border-white/40',
     playerCardResponded: shared.playerCardResponded,
+    playerStatusIdlePill:
+      'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-slate-300/45 bg-slate-800/65 px-2 py-2 text-xs font-semibold text-slate-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-2 sm:px-4 sm:py-1 sm:text-sm',
+    playerCardFocus:
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-100 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800',
+    playerAvatarInitial:
+      'bg-gradient-to-br from-slate-500/55 to-slate-700/80 text-white shadow-2xl border-slate-400/45 group-hover:border-white/45',
     emptyStateCard: 'bg-slate-700/60 border border-slate-500/40',
   },
   red: {
@@ -122,6 +140,12 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     playerCardIdle:
       'hover:ring-2 hover:ring-rose-400/60 bg-gradient-to-br from-rose-950/60 to-rose-800/40 border-rose-800/40 hover:border-rose-400/40',
     playerCardResponded: shared.playerCardResponded,
+    playerStatusIdlePill:
+      'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-orange-400/40 bg-rose-950/55 px-2 py-2 text-xs font-semibold text-rose-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-2 sm:px-4 sm:py-1 sm:text-sm',
+    playerCardFocus:
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-rose-950',
+    playerAvatarInitial:
+      'bg-gradient-to-br from-rose-700/55 to-rose-950/85 text-rose-50 shadow-2xl border-rose-600/45 group-hover:border-orange-400/55',
     emptyStateCard: 'bg-rose-950/60 border border-rose-900/50',
   },
   green: {
@@ -153,6 +177,12 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     playerCardIdle:
       'hover:ring-2 hover:ring-emerald-400/60 bg-gradient-to-br from-emerald-950/60 to-teal-900/30 border-emerald-900/40 hover:border-emerald-400/40',
     playerCardResponded: shared.playerCardResponded,
+    playerStatusIdlePill:
+      'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-950/55 px-2 py-2 text-xs font-semibold text-emerald-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-2 sm:px-4 sm:py-1 sm:text-sm',
+    playerCardFocus:
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-200 focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-950',
+    playerAvatarInitial:
+      'bg-gradient-to-br from-emerald-600/50 to-emerald-950/85 text-emerald-50 shadow-2xl border-emerald-500/45 group-hover:border-teal-300/55',
     emptyStateCard: 'bg-emerald-950/60 border border-emerald-900/50',
   },
 }

@@ -9,6 +9,7 @@ import { validatePlayerPassword } from '@/lib/passwordUtils'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
 import { kioskThemes, KioskTheme } from '@/lib/kioskThemes'
+import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
 
 interface PlayerWithStatus extends Player {
   hasResponded: boolean
@@ -148,6 +149,13 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     setShowPlayerPasswordModal(true)
   }
 
+  const buildSurveyHref = (pid: string) => {
+    const q = new URLSearchParams({ playerId: pid })
+    const appearance = surveyThemeFromKiosk(kioskTheme)
+    if (appearance) q.set('surveyTheme', appearance)
+    return `/survey/${surveyId}?${q.toString()}`
+  }
+
   const handlePlayerPasswordSubmit = async () => {
     if (!selectedPlayer) return
     
@@ -170,7 +178,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               console.error('Error entering fullscreen:', error)
             }
           }
-          router.push(`/survey/${surveyId}?playerId=${selectedPlayer.id}`)
+          router.push(buildSurveyHref(selectedPlayer.id))
         }
       } else {
         // Automatically enter fullscreen for mobile devices
@@ -187,7 +195,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
             console.error('Error entering fullscreen:', error)
           }
         }
-        router.push(`/survey/${surveyId}?playerId=${selectedPlayer.id}`)
+        router.push(buildSurveyHref(selectedPlayer.id))
       }
       setShowPlayerPasswordModal(false)
       setPlayerPassword('')

@@ -15,12 +15,13 @@ interface SurveyPageProps {
   }>
   searchParams: Promise<{
     playerId?: string
+    surveyTheme?: string
   }>
 }
 
 export default async function SurveyPage({ params, searchParams }: SurveyPageProps) {
   const { id } = await params
-  const { playerId } = await searchParams
+  const { playerId, surveyTheme } = await searchParams
   
   let survey = null
   
@@ -114,7 +115,12 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
           
           {/* Survey Form */}
           <div className="px-6 py-6">
-            <SurveyForm survey={survey} player={player} />
+            <SurveyForm
+              survey={survey}
+              player={player}
+              surveyTheme={surveyTheme ?? null}
+              draftPlayerId={playerId ?? null}
+            />
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Survey, Question, Player } from '@prisma/client'
 import { CheckCircle } from 'lucide-react'
@@ -8,16 +8,34 @@ import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { parseSliderOptions } from '@/lib/sliderOptions'
+import {
+  getSurveyShellClasses,
+  resolveSurveyAppearanceTheme,
+  surveyDraftStorageKey,
+  surveyFieldFocusClasses,
+  surveyQuestionFingerprint,
+} from '@/lib/surveyFormAppearance'
 
 interface SurveyFormProps {
   survey: Survey & {
     questions: Question[]
   }
   player?: Player | null
+  /** URL: ?surveyTheme=soft | high (default omitted) */
+  surveyTheme?: string | null
+  /** Stable player id from URL for autosave key (recommended) */
+  draftPlayerId?: string | null
 }
 
-export default function SurveyForm({ survey, player }: SurveyFormProps) {
+export default function SurveyForm({
+  survey,
+  player,
+  surveyTheme,
+  draftPlayerId,
+}: SurveyFormProps) {
   const router = useRouter()
+  const appearance = resolveSurveyAppearanceTheme(surveyTheme)
+  const shell = getSurveyShellClasses(appearance)
   const [formData, setFormData] = useState<Record<string, string | string[]>>({})
   const [playerName, setPlayerName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -28,6 +46,17 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
   const [showBodyMap, setShowBodyMap] = useState(false)
   const [currentBodyMapQuestionId, setCurrentBodyMapQuestionId] = useState<string | null>(null)
   const [bodyMapView, setBodyMapView] = useState<'front' | 'back'>('front')
+  const [validationBanner, setValidationBanner] = useState<string | null>(null)
+
+  const fingerprint = useMemo(
+    () => surveyQuestionFingerprint(survey.questions.map((q) => q.id)),
+    [survey.questions]
+  )
+
+  const draftStorageKey = useMemo(
+    () => surveyDraftStorageKey(survey.id, draftPlayerId ?? undefined),
+    [survey.id, draftPlayerId]
+  )
 
   // Check for playerId in URL params or use player prop
   useEffect(() => {
@@ -65,22 +94,67 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
     }
   }, [player])
 
-  // Initialize slider questions with default value of 5
+  // Restore in-progress answers (same survey + player, max 24h)
   useEffect(() => {
-    if (survey?.questions) {
-      const initialFormData: Record<string, string | string[]> = {}
-      
-      survey.questions.forEach(question => {
-        if (question.type === 'SLIDER' && !formData[question.id]) {
-          initialFormData[question.id] = '5'
-        }
-      })
-      
-      if (Object.keys(initialFormData).length > 0) {
-        setFormData(prev => ({ ...prev, ...initialFormData }))
+    if (typeof window === 'undefined') return
+    try {
+      const raw = sessionStorage.getItem(draftStorageKey)
+      if (!raw) return
+      const d = JSON.parse(raw) as {
+        fingerprint?: string
+        savedAt?: number
+        formData?: Record<string, string | string[]>
+        bodyMapData?: Record<string, Record<string, number>>
       }
+      if (!d?.fingerprint || d.fingerprint !== fingerprint) return
+      if (!d.savedAt || Date.now() - d.savedAt > 86400000) return
+      if (d.formData && typeof d.formData === 'object') {
+        setFormData((prev) => ({ ...prev, ...d.formData }))
+      }
+      if (d.bodyMapData && typeof d.bodyMapData === 'object') {
+        setBodyMapData(d.bodyMapData)
+      }
+    } catch {
+      /* ignore corrupted draft */
     }
-  }, [survey?.questions])
+  }, [draftStorageKey, fingerprint])
+
+  // Default slider midpoint when value still missing after draft restore
+  useEffect(() => {
+    if (!survey?.questions?.length) return
+    setFormData((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const question of survey.questions) {
+        if (question.type === 'SLIDER' && next[question.id] === undefined) {
+          next[question.id] = '5'
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [survey.questions])
+
+  // Autosave draft (debounced)
+  useEffect(() => {
+    if (typeof window === 'undefined' || isSubmitted) return
+    const t = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem(
+          draftStorageKey,
+          JSON.stringify({
+            fingerprint,
+            savedAt: Date.now(),
+            formData,
+            bodyMapData,
+          })
+        )
+      } catch {
+        /* quota / private mode */
+      }
+    }, 720)
+    return () => window.clearTimeout(t)
+  }, [bodyMapData, draftStorageKey, fingerprint, formData, isSubmitted])
 
   const fetchPlayer = async (id: string) => {
     try {
@@ -96,6 +170,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
   }
 
   const handleInputChange = (questionId: string, value: string | string[]) => {
+    setValidationBanner(null)
     setFormData(prev => ({
       ...prev,
       [questionId]: value
@@ -150,9 +225,22 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
     )
 
     if (missingRequired.length > 0) {
-      alert('Please fill in all required questions.')
+      setValidationBanner('Please fill in all required questions.')
+      const first = missingRequired[0]
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`survey-q-${first.id}`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        window.setTimeout(() => {
+          const focusable = el?.querySelector<HTMLElement>(
+            'input:not([type="hidden"]):not(.sr-only), select, textarea, button'
+          )
+          focusable?.focus({ preventScroll: true })
+        }, 420)
+      })
       return
     }
+
+    setValidationBanner(null)
 
     setIsSubmitting(true)
     try {
@@ -200,6 +288,11 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
       
       if (response.ok) {
         console.log('Survey submitted successfully, playerId:', playerId)
+        try {
+          sessionStorage.removeItem(draftStorageKey)
+        } catch {
+          /* ignore */
+        }
         // If accessed from kiosk mode, redirect back to kiosk immediately
         if (playerId) {
           console.log('Redirecting to kiosk:', `/kiosk/${survey.id}`)
@@ -363,8 +456,31 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
             0 8px 28px rgba(0, 0, 0, 0.45),
             0 0 0 4px rgba(255, 255, 255, 0.95);
         }
+
+        @keyframes surveyFormEnter {
+          from {
+            opacity: 0;
+            transform: translateY(14px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .survey-form-enter {
+          animation: surveyFormEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .survey-form-enter {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        }
       `}</style>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 w-full overflow-x-hidden overflow-y-auto fixed inset-0 z-50">
+      <div className={`min-h-screen ${shell.root} w-full overflow-x-hidden overflow-y-auto fixed inset-0 z-50`}>
         {/* Close Button */}
         <button
           type="button"
@@ -379,14 +495,15 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
               router.push('/')
             }
           }}
-          className="absolute top-4 left-4 z-10 text-slate-400 hover:text-white transition-colors bg-slate-800/50 hover:bg-slate-700/50 rounded-full p-2 backdrop-blur-sm"
-          data-title="Close survey"
+          className="absolute top-4 left-4 z-[60] text-slate-400 hover:text-white transition-colors bg-slate-800/50 hover:bg-slate-700/50 rounded-full p-2 backdrop-blur-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 min-w-[44px] min-h-[44px] flex items-center justify-center"
+          aria-label="Close survey"
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
         
+        <div className="survey-form-enter opacity-0">
         <form onSubmit={handleSubmit} className="min-h-screen flex flex-col w-full">
         {/* Mobile-Optimized Player Name as Title with Image */}
         {playerName && (
@@ -416,20 +533,32 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
           </div>
         )}
 
+        {validationBanner ? (
+          <div
+            role="alert"
+            className="mx-4 mt-2 mb-3 px-4 py-3 rounded-xl bg-red-500/18 border border-red-400/45 text-red-50 text-sm text-center shadow-lg backdrop-blur-md [font-family:var(--font-geist-sans)]"
+          >
+            {validationBanner}
+          </div>
+        ) : null}
+
         <div className="flex-1 px-3 sm:px-4 pb-4 relative w-full">
 
           <div className="space-y-3 sm:space-y-4 w-full">
             {survey.questions.map((question, index) => (
-              <div key={question.id} className={`relative bg-gradient-to-br from-slate-800/80 to-gray-800/80 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/50 transition-all duration-300 w-full ${
-                question.type === 'BODY_MAP' ? 'p-6 sm:p-8' : 'p-3 sm:p-4'
-              }`}>
+              <div
+                key={question.id}
+                id={`survey-q-${question.id}`}
+                className={`relative ${shell.card} backdrop-blur-sm rounded-xl border transition-all duration-300 w-full scroll-mt-28 ${
+                  question.type === 'BODY_MAP' ? 'p-6 sm:p-8' : 'p-3 sm:p-4'
+                }`}>
                 <div className="mb-3 sm:mb-4">
                   <div className="flex items-center space-x-2 mb-2">
                     <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-br from-gray-400 to-gray-500 rounded-md flex items-center justify-center shadow-lg flex-shrink-0">
                       <span className="text-white font-bold text-xs">{index + 1}</span>
                     </div>
                     <div className="flex-grow">
-                      <label className="block text-sm sm:text-base font-medium text-white leading-tight tracking-wide">
+                      <label className={`block font-medium text-white leading-snug tracking-wide ${shell.questionTitle}`}>
                         {question.text}
                         {question.required && <span className="text-red-400 ml-1 text-sm">*</span>}
                       </label>
@@ -443,7 +572,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                 type="text"
                 value={formData[question.id] as string || ''}
                 onChange={(e) => handleInputChange(question.id, e.target.value)}
-                className="w-full px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation"
+                className={`w-full px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${surveyFieldFocusClasses}`}
                 placeholder="Enter your answer..."
                 required={question.required}
               />
@@ -454,7 +583,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                 type="number"
                 value={formData[question.id] as string || ''}
                 onChange={(e) => handleInputChange(question.id, e.target.value)}
-                className="w-full px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation"
+                className={`w-full px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${surveyFieldFocusClasses}`}
                 placeholder="Enter a number..."
                 required={question.required}
               />
@@ -465,7 +594,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                 type="email"
                 value={formData[question.id] as string || ''}
                 onChange={(e) => handleInputChange(question.id, e.target.value)}
-                className="w-full px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation"
+                className={`w-full px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${surveyFieldFocusClasses}`}
                 placeholder="Enter your email..."
                 required={question.required}
               />
@@ -481,7 +610,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                     type="time"
                     value={formData[question.id] as string || ''}
                     onChange={(e) => handleInputChange(question.id, e.target.value)}
-                    className="flex-1 px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm touch-manipulation"
+                    className={`flex-1 px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm touch-manipulation ${surveyFieldFocusClasses}`}
                     required={question.required}
                   />
                   <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -503,7 +632,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                 return (
                   <label 
                     key={option} 
-                    className={`relative flex items-center justify-center px-3 py-2 sm:px-4 sm:py-2 md:px-6 md:py-3 rounded-lg border-2 cursor-pointer transition-all duration-300 backdrop-blur-sm w-16 sm:w-20 md:w-auto ${
+                    className={`relative flex items-center justify-center gap-2 min-h-[52px] min-w-[5.25rem] sm:min-w-0 px-4 py-3 sm:px-5 sm:py-3 rounded-xl border-2 cursor-pointer transition-all duration-300 backdrop-blur-sm ${
                       isSelected
                         ? isYes
                           ? 'bg-gradient-to-br from-red-500/80 to-red-600/80 border-red-400/60 text-white shadow-lg shadow-red-500/25'
@@ -599,7 +728,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-10 h-10 rounded-lg font-bold transition-all duration-200 text-sm border-2 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -633,7 +762,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-10 h-10 rounded-lg font-bold transition-all duration-200 text-sm border-2 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -692,7 +821,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-10 h-10 rounded-lg font-bold transition-all duration-200 text-sm border-2 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -726,7 +855,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-10 h-10 rounded-lg font-bold transition-all duration-200 text-sm border-2 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -789,7 +918,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-10 h-10 rounded-lg font-bold transition-all duration-200 text-sm border-2 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -827,7 +956,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-10 h-10 rounded-lg font-bold transition-all duration-200 text-sm border-2 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -986,7 +1115,10 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
             {(question.type === 'SELECT' || question.type === 'MULTIPLE_SELECT') && question.options && (
               <div className="mt-2 space-y-2">
                 {JSON.parse(question.options).map((option: string, optionIndex: number) => (
-                  <label key={optionIndex} className="flex items-center">
+                  <label
+                    key={optionIndex}
+                    className="flex items-center gap-3 min-h-[52px] px-3 py-2.5 rounded-xl border border-slate-600/40 bg-slate-800/30 cursor-pointer transition-colors hover:bg-slate-700/40 focus-within:ring-2 focus-within:ring-cyan-400 focus-within:ring-offset-2 focus-within:ring-offset-slate-900"
+                  >
                     <input
                       type={question.type === 'MULTIPLE_SELECT' ? 'checkbox' : 'radio'}
                       name={question.type === 'SELECT' ? question.id : undefined}
@@ -1007,10 +1139,10 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
                           handleInputChange(question.id, newValues)
                         }
                       }}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      className="h-5 w-5 shrink-0 accent-cyan-500 border-slate-500 bg-slate-800 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
                       required={question.required && question.type === 'SELECT'}
                     />
-                    <span className="ml-2 text-sm text-white">{option}</span>
+                    <span className="text-sm sm:text-base text-white leading-snug flex-1">{option}</span>
                   </label>
                 ))}
               </div>
@@ -1024,7 +1156,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="relative w-auto max-w-xs mx-auto flex justify-center py-3 px-6 border border-transparent rounded-xl shadow-2xl text-base font-bold text-white bg-gradient-to-r from-green-500/90 to-emerald-500/90 hover:from-green-400 hover:to-emerald-400 focus:outline-none focus:ring-4 focus:ring-green-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-500 backdrop-blur-xl border border-green-400/50 touch-manipulation group hover:scale-105 overflow-hidden"
+            className="relative w-auto max-w-xs mx-auto flex justify-center py-3 px-6 min-h-[48px] border border-transparent rounded-xl shadow-2xl text-base font-bold text-white bg-gradient-to-r from-green-500/90 to-emerald-500/90 hover:from-green-400 hover:to-emerald-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-500 backdrop-blur-xl border border-green-400/50 touch-manipulation group hover:scale-105 overflow-hidden"
           >
             {/* Animated background glow */}
             <div className="absolute inset-0 bg-gradient-to-r from-green-300/20 to-emerald-300/20 rounded-xl animate-pulse group-hover:animate-none group-hover:from-green-300/30 group-hover:to-emerald-300/30"></div>
@@ -1039,6 +1171,7 @@ export default function SurveyForm({ survey, player }: SurveyFormProps) {
         </div>
         </div>
       </form>
+      </div>
       
       {/* Body Map - Full Screen Flip using Portal */}
       {showBodyMap && currentBodyMapQuestionId && typeof window !== 'undefined' && 

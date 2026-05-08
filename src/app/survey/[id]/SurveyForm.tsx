@@ -1148,7 +1148,7 @@ export default function SurveyForm({
             ))}
           </div>
 
-        <div className="pt-4 pb-4 px-2 sm:px-3 relative">
+        <div className="pt-4 px-2 sm:px-3 relative shrink-0 max-md:pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))] md:pb-6">
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 to-transparent"></div>
           <button
             type="submit"

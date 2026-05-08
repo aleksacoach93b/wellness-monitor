@@ -7,6 +7,10 @@ import PowerBILink from '@/components/PowerBILink'
 import { format } from 'date-fns'
 import CSVLinkModal from './CSVLinkModal'
 
+/** Huge surveys hit RSC serialization limits if we pass thousands of nested answers to the client */
+const RESULTS_PAGE_RESPONSE_LIMIT = 200
+
+export const dynamic = 'force-dynamic'
 
 interface SurveyResultsPageProps {
   params: Promise<{
@@ -23,16 +27,20 @@ export default async function SurveyResultsPage({ params }: SurveyResultsPagePro
         orderBy: { order: 'asc' }
       },
       responses: {
+        take: RESULTS_PAGE_RESPONSE_LIMIT,
         include: {
           answers: {
             include: {
-              question: true
-            }
-          }
+              question: true,
+            },
+          },
         },
-        orderBy: { submittedAt: 'desc' }
-      }
-    }
+        orderBy: { submittedAt: 'desc' },
+      },
+      _count: {
+        select: { responses: true },
+      },
+    },
   })
 
   if (!survey) {
@@ -50,8 +58,10 @@ export default async function SurveyResultsPage({ params }: SurveyResultsPagePro
     response.playerId && validPlayerIds.has(response.playerId)
   )
   
-  // Update survey object with filtered responses
   survey.responses = filteredResponses
+
+  const totalResponseCount = survey._count.responses
+  const trimmedForUi = totalResponseCount > RESULTS_PAGE_RESPONSE_LIMIT
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -74,7 +84,12 @@ export default async function SurveyResultsPage({ params }: SurveyResultsPagePro
                 <div className="text-right">
                   <div className="flex items-center text-sm text-gray-600">
                     <Users className="h-4 w-4 mr-1" />
-                    {survey.responses.length} responses
+                    {totalResponseCount} responses
+                    {trimmedForUi ? (
+                      <span className="ml-1 text-amber-700">
+                        (lista: poslednjih {RESULTS_PAGE_RESPONSE_LIMIT})
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex items-center text-sm text-gray-600 mt-1">
                     <BarChart3 className="h-4 w-4 mr-1" />
@@ -97,6 +112,12 @@ export default async function SurveyResultsPage({ params }: SurveyResultsPagePro
               </div>
             </div>
           </div>
+          {trimmedForUi ? (
+            <div className="px-6 py-2 bg-amber-50 border-b border-amber-100 text-sm text-amber-900">
+              Tabela prikazuje samo najnovije {RESULTS_PAGE_RESPONSE_LIMIT} zapisa da stranica ne puca.
+              Za kompletan istorijat koristi CSV / Power BI link iznad (obuhvata sve zapise iz baze).
+            </div>
+          ) : null}
           <ResultsTable responses={survey.responses} />
         </div>
       </div>

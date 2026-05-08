@@ -63,33 +63,93 @@ export async function PUT(
     const validatedData = updateSurveySchema.parse(body)
     console.log('Validated data:', JSON.stringify(validatedData, null, 2))
 
-    // Update the survey
-    const updatedSurvey = await prisma.survey.update({
-      where: { id: surveyId },
-      data: {
-        title: validatedData.title,
-        description: validatedData.description || null
-      }
+    const payloadStableIds = validatedData.questions
+      .map((q) => q.id)
+      .filter(
+        (id): id is string =>
+          typeof id === 'string' && id.length > 0 && !id.startsWith('temp-'),
+      )
+
+    const existingCount = await prisma.question.count({
+      where: { surveyId },
     })
 
-    // Delete existing questions
-    await prisma.question.deleteMany({
-      where: { surveyId: surveyId }
-    })
-
-    // Create new questions
-    for (const questionData of validatedData.questions) {
-      await prisma.question.create({
-        data: {
-          surveyId: surveyId,
-          text: questionData.text,
-          type: questionData.type,
-          options: questionData.options,
-          required: questionData.required,
-          order: questionData.order
-        }
-      })
+    if (
+      existingCount > 0 &&
+      validatedData.questions.length > 0 &&
+      payloadStableIds.length === 0
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Survey save rejected: no question IDs sent. Reload the edit page so each question keeps its database id; otherwise saving would wipe all answers.',
+        },
+        { status: 400 },
+      )
     }
+
+    /**
+     * IMPORTANT: Never `deleteMany` all questions — Answer rows reference Question with
+     * `onDelete: Cascade`, so wiping questions wipes every historical response answer.
+     * Update in place when the client sends a real id; create only for new rows; delete
+     * only questions explicitly removed from the form.
+     */
+    const updatedSurvey = await prisma.$transaction(async (tx) => {
+      const survey = await tx.survey.update({
+        where: { id: surveyId },
+        data: {
+          title: validatedData.title,
+          description: validatedData.description || null,
+        },
+      })
+
+      const existing = await tx.question.findMany({
+        where: { surveyId },
+        select: { id: true },
+      })
+      const existingIdSet = new Set(existing.map((q) => q.id))
+
+      const payloadIdSet = new Set(payloadStableIds)
+
+      for (const row of existing) {
+        if (!payloadIdSet.has(row.id)) {
+          await tx.question.delete({ where: { id: row.id } })
+        }
+      }
+
+      for (const questionData of validatedData.questions) {
+        const incomingId =
+          questionData.id && !questionData.id.startsWith('temp-')
+            ? questionData.id
+            : null
+
+        if (incomingId && existingIdSet.has(incomingId)) {
+          await tx.question.update({
+            where: { id: incomingId },
+            data: {
+              text: questionData.text,
+              type: questionData.type,
+              options: questionData.options,
+              required: questionData.required,
+              order: questionData.order,
+            },
+          })
+        } else {
+          await tx.question.create({
+            data: {
+              surveyId,
+              text: questionData.text,
+              type: questionData.type,
+              options: questionData.options,
+              required: questionData.required,
+              order: questionData.order,
+            },
+          })
+        }
+      }
+
+      return survey
+    })
 
     console.log('Survey updated successfully:', updatedSurvey.id)
     console.log('=== SURVEY UPDATE END ===')

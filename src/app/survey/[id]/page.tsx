@@ -5,6 +5,7 @@ import BackButton from '@/components/BackButton'
 import { Heart, Activity, Clock } from 'lucide-react'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
 import Image from 'next/image'
+import { getSurveyBackdropClass, resolveSurveyAppearanceTheme } from '@/lib/surveyFormAppearance'
 
 // Force dynamic rendering to avoid build-time database calls
 export const dynamic = 'force-dynamic'
@@ -55,6 +56,21 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
         id: playerId
       }
     })
+  }
+
+  const appearanceResolved = resolveSurveyAppearanceTheme(surveyTheme ?? null)
+
+  if (playerId) {
+    return (
+      <div className={getSurveyBackdropClass(appearanceResolved)}>
+        <SurveyForm
+          survey={survey}
+          player={player}
+          surveyTheme={surveyTheme ?? null}
+          draftPlayerId={playerId}
+        />
+      </div>
+    )
   }
 
   return (

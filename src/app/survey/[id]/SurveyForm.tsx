@@ -10,9 +10,9 @@ import Image from 'next/image'
 import { parseSliderOptions } from '@/lib/sliderOptions'
 import {
   getSurveyShellClasses,
+  getSurveyUiTokens,
   resolveSurveyAppearanceTheme,
   surveyDraftStorageKey,
-  surveyFieldFocusClasses,
   surveyQuestionFingerprint,
 } from '@/lib/surveyFormAppearance'
 
@@ -36,6 +36,7 @@ export default function SurveyForm({
   const router = useRouter()
   const appearance = resolveSurveyAppearanceTheme(surveyTheme)
   const shell = getSurveyShellClasses(appearance)
+  const tokens = getSurveyUiTokens(appearance)
   const [formData, setFormData] = useState<Record<string, string | string[]>>({})
   const [playerName, setPlayerName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -495,7 +496,7 @@ export default function SurveyForm({
               router.push('/')
             }
           }}
-          className="absolute top-4 left-4 z-[60] text-slate-400 hover:text-white transition-colors bg-slate-800/50 hover:bg-slate-700/50 rounded-full p-2 backdrop-blur-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className={`absolute top-4 left-4 z-[60] transition-colors rounded-full p-2 backdrop-blur-sm min-w-[44px] min-h-[44px] flex items-center justify-center ${tokens.closeButton}`}
           aria-label="Close survey"
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -508,7 +509,7 @@ export default function SurveyForm({
         {/* Mobile-Optimized Player Name as Title with Image */}
         {playerName && (
           <div className="text-center pt-6 pb-4 px-4 relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-cyan-600/20 blur-3xl"></div>
+            <div className={`absolute inset-0 ${tokens.headerBackdropBlur}`}></div>
             
             {/* Player Image */}
             {playerData?.image && (
@@ -521,7 +522,7 @@ export default function SurveyForm({
                     height={96}
                     className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-white/20 shadow-2xl object-cover"
                   />
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-cyan-500/20 animate-pulse"></div>
+                  <div className={`absolute inset-0 rounded-full ${tokens.avatarPulse}`}></div>
                 </div>
               </div>
             )}
@@ -529,7 +530,7 @@ export default function SurveyForm({
             <h2 className="relative text-2xl sm:text-3xl font-light text-white tracking-wide drop-shadow-lg">
               {playerName}
             </h2>
-            <div className="relative mt-2 w-16 h-0.5 bg-gradient-to-r from-blue-400 to-cyan-400 mx-auto rounded-full"></div>
+            <div className={`relative mt-2 w-16 h-0.5 mx-auto rounded-full ${tokens.headerUnderline}`}></div>
           </div>
         )}
 
@@ -572,7 +573,7 @@ export default function SurveyForm({
                 type="text"
                 value={formData[question.id] as string || ''}
                 onChange={(e) => handleInputChange(question.id, e.target.value)}
-                className={`w-full px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${surveyFieldFocusClasses}`}
+                className={`w-full px-3 py-2.5 sm:py-3 text-white text-sm sm:text-base transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${tokens.inputFieldBase} ${tokens.focusVisibleRing}`}
                 placeholder="Enter your answer..."
                 required={question.required}
               />
@@ -583,7 +584,7 @@ export default function SurveyForm({
                 type="number"
                 value={formData[question.id] as string || ''}
                 onChange={(e) => handleInputChange(question.id, e.target.value)}
-                className={`w-full px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${surveyFieldFocusClasses}`}
+                className={`w-full px-3 py-2.5 sm:py-3 text-white text-sm sm:text-base transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${tokens.inputFieldBase} ${tokens.focusVisibleRing}`}
                 placeholder="Enter a number..."
                 required={question.required}
               />
@@ -594,7 +595,7 @@ export default function SurveyForm({
                 type="email"
                 value={formData[question.id] as string || ''}
                 onChange={(e) => handleInputChange(question.id, e.target.value)}
-                className={`w-full px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${surveyFieldFocusClasses}`}
+                className={`w-full px-3 py-2.5 sm:py-3 text-white text-sm sm:text-base transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${tokens.inputFieldBase} ${tokens.focusVisibleRing}`}
                 placeholder="Enter your email..."
                 required={question.required}
               />
@@ -602,7 +603,7 @@ export default function SurveyForm({
 
             {question.type === 'TIME' && (
               <div className="space-y-3">
-                <p className="text-sm text-blue-300">
+                <p className={`text-sm ${tokens.hintText}`}>
                   Select the time. Pay attention to hour format.
                 </p>
                 <div className="flex items-center space-x-3">
@@ -610,10 +611,10 @@ export default function SurveyForm({
                     type="time"
                     value={formData[question.id] as string || ''}
                     onChange={(e) => handleInputChange(question.id, e.target.value)}
-                    className={`flex-1 px-3 py-2.5 sm:py-3 bg-slate-700/50 border border-slate-600/50 text-white rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-slate-600/50 transition-all duration-300 backdrop-blur-sm touch-manipulation ${surveyFieldFocusClasses}`}
+                    className={`flex-1 px-3 py-2.5 sm:py-3 text-white text-sm sm:text-base transition-all duration-300 backdrop-blur-sm touch-manipulation ${tokens.inputFieldBase} ${tokens.focusVisibleRing}`}
                     required={question.required}
                   />
-                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <div className={`w-10 h-10 flex items-center justify-center shrink-0 ${tokens.timeAddonButton}`}>
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -637,7 +638,7 @@ export default function SurveyForm({
                         ? isYes
                           ? 'bg-gradient-to-br from-red-500/80 to-red-600/80 border-red-400/60 text-white shadow-lg shadow-red-500/25'
                           : 'bg-gradient-to-br from-green-500/80 to-green-600/80 border-green-400/60 text-white shadow-lg shadow-green-500/25'
-                        : 'bg-slate-700/50 border-slate-600/50 text-gray-200 hover:border-blue-400/50 hover:bg-slate-600/50'
+                        : tokens.booleanUnselected
                     }`}
                   >
                       <input
@@ -689,7 +690,7 @@ export default function SurveyForm({
                             }
                           }
                         }}
-                        className="w-auto mx-auto block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 sm:py-3 sm:px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm:text-base relative overflow-hidden group hover:scale-105"
+                        className={`w-auto mx-auto block text-white font-medium py-2 px-4 sm:py-3 sm:px-6 transition-all duration-300 text-sm sm:text-base relative overflow-hidden group hover:scale-105 ${tokens.primaryCtaButton}`}
                       >
                         
                         <div className="flex items-center justify-center space-x-2 relative z-10">
@@ -704,7 +705,7 @@ export default function SurveyForm({
 
             {question.type === 'SCALE' && (
               <div className="mt-4">
-                <div className="bg-gray-600 rounded-xl p-4 border border-gray-500">
+                <div className={`${tokens.nestedScaleCard}`}>
                   <div className="flex flex-col items-center space-y-3">
                     {/* First row: 1-5 */}
                     <div className="flex space-x-2">
@@ -728,7 +729,7 @@ export default function SurveyForm({
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation ${tokens.scaleButtonFocusTail} ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -762,7 +763,7 @@ export default function SurveyForm({
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation ${tokens.scaleButtonFocusTail} ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -784,8 +785,8 @@ export default function SurveyForm({
                   {/* Selected value display */}
                   {formData[question.id] && (
                     <div className="mt-3 text-center">
-                      <div className="inline-flex items-center px-3 py-1.5 bg-blue-900/30 rounded-lg">
-                        <span className="text-sm font-semibold text-blue-300">
+                      <div className={`inline-flex items-center px-3 py-1.5 ${tokens.selectedValuePill}`}>
+                        <span className={`text-sm font-semibold ${tokens.selectedValueText}`}>
                           Selected: {formData[question.id]}/10
                         </span>
                       </div>
@@ -797,7 +798,7 @@ export default function SurveyForm({
 
             {(question.type as string) === 'RATING_SCALE' && (
               <div className="mt-4">
-                <div className="bg-gray-600 rounded-xl p-4 border border-gray-500">
+                <div className={`${tokens.nestedScaleCard}`}>
                   <div className="flex flex-col items-center space-y-3">
                     {/* First row: 1-5 */}
                     <div className="flex space-x-2">
@@ -821,7 +822,7 @@ export default function SurveyForm({
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation ${tokens.scaleButtonFocusTail} ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -855,7 +856,7 @@ export default function SurveyForm({
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation ${tokens.scaleButtonFocusTail} ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -877,8 +878,8 @@ export default function SurveyForm({
                   {/* Selected value display */}
                   {formData[question.id] && (
                     <div className="mt-3 text-center">
-                      <div className="inline-flex items-center px-3 py-1.5 bg-blue-900/30 rounded-lg">
-                        <span className="text-sm font-semibold text-blue-300">
+                      <div className={`inline-flex items-center px-3 py-1.5 ${tokens.selectedValuePill}`}>
+                        <span className={`text-sm font-semibold ${tokens.selectedValueText}`}>
                           Selected: {formData[question.id]}/10
                         </span>
                       </div>
@@ -890,7 +891,7 @@ export default function SurveyForm({
 
             {(question.type as string) === 'RPE' && (
               <div className="mt-4">
-                <div className="bg-gray-600 rounded-xl p-4 border border-gray-500">
+                <div className={`${tokens.nestedScaleCard}`}>
                   <div className="flex flex-col items-center space-y-3">
                     {/* First row: 1-5 */}
                     <div className="flex space-x-2">
@@ -918,7 +919,7 @@ export default function SurveyForm({
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation ${tokens.scaleButtonFocusTail} ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -956,7 +957,7 @@ export default function SurveyForm({
                             key={rating}
                             type="button"
                             onClick={() => handleInputChange(question.id, rating.toString())}
-                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
+                            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg font-bold transition-all duration-200 text-sm border-2 touch-manipulation ${tokens.scaleButtonFocusTail} ${
                               isSelected
                                 ? `${colorClasses} border-white shadow-lg scale-105`
                                 : `bg-gray-500 text-gray-200 hover:bg-gray-400 border-gray-400 hover:border-gray-300 shadow-sm`
@@ -978,8 +979,8 @@ export default function SurveyForm({
                   {/* Selected value display with RPE description */}
                   {formData[question.id] && (
                     <div className="mt-3 text-center">
-                      <div className="inline-flex items-center px-3 py-1.5 bg-blue-900/30 rounded-lg">
-                        <span className="text-sm font-semibold text-blue-300">
+                      <div className={`inline-flex items-center px-3 py-1.5 ${tokens.selectedValuePill}`}>
+                        <span className={`text-sm font-semibold ${tokens.selectedValueText}`}>
                           RPE: {formData[question.id]}/10
                           {formData[question.id] === '1' && ' - Very Light'}
                           {formData[question.id] === '2' && ' - Light'}
@@ -1013,9 +1014,9 @@ export default function SurveyForm({
 
           return (
           <div className="mt-6">
-            <div className="bg-gradient-to-br from-slate-800/90 via-slate-900/85 to-slate-950/90 backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-slate-500/25 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.45)] relative overflow-hidden ring-1 ring-white/[0.06]">
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.07] via-transparent to-cyan-500/[0.06] pointer-events-none" />
-              <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+            <div className={`${tokens.sliderCardBorder} backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.45)] relative overflow-hidden`}>
+              <div className={`absolute inset-0 ${tokens.sliderGlowOverlay} pointer-events-none`} />
+              <div className={`absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl pointer-events-none ${tokens.sliderGlowBlobTop}`} />
               <div className="absolute -bottom-20 -left-16 w-40 h-40 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
               
               <div className="relative mb-6 sm:mb-8">
@@ -1117,7 +1118,7 @@ export default function SurveyForm({
                 {JSON.parse(question.options).map((option: string, optionIndex: number) => (
                   <label
                     key={optionIndex}
-                    className="flex items-center gap-3 min-h-[52px] px-3 py-2.5 rounded-xl border border-slate-600/40 bg-slate-800/30 cursor-pointer transition-colors hover:bg-slate-700/40 focus-within:ring-2 focus-within:ring-cyan-400 focus-within:ring-offset-2 focus-within:ring-offset-slate-900"
+                    className={`flex items-center gap-3 min-h-[52px] px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${tokens.selectChoiceRow}`}
                   >
                     <input
                       type={question.type === 'MULTIPLE_SELECT' ? 'checkbox' : 'radio'}
@@ -1139,7 +1140,7 @@ export default function SurveyForm({
                           handleInputChange(question.id, newValues)
                         }
                       }}
-                      className="h-5 w-5 shrink-0 accent-cyan-500 border-slate-500 bg-slate-800 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+                      className={`h-5 w-5 shrink-0 ${tokens.selectControl}`}
                       required={question.required && question.type === 'SELECT'}
                     />
                     <span className="text-sm sm:text-base text-white leading-snug flex-1">{option}</span>
@@ -1156,7 +1157,7 @@ export default function SurveyForm({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="relative w-auto max-w-xs mx-auto flex justify-center py-3 px-6 min-h-[48px] border border-transparent rounded-xl shadow-2xl text-base font-bold text-white bg-gradient-to-r from-green-500/90 to-emerald-500/90 hover:from-green-400 hover:to-emerald-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-500 backdrop-blur-xl border border-green-400/50 touch-manipulation group hover:scale-105 overflow-hidden"
+            className={`relative w-auto max-w-xs mx-auto flex justify-center py-3 px-6 min-h-[48px] border border-transparent rounded-xl shadow-2xl text-base font-bold text-white bg-gradient-to-r from-green-500/90 to-emerald-500/90 hover:from-green-400 hover:to-emerald-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-400/60 focus-visible:ring-offset-2 ${tokens.submitRingOffsetClass} disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-500 backdrop-blur-xl border border-green-400/50 touch-manipulation group hover:scale-105 overflow-hidden`}
           >
             {/* Animated background glow */}
             <div className="absolute inset-0 bg-gradient-to-r from-green-300/20 to-emerald-300/20 rounded-xl animate-pulse group-hover:animate-none group-hover:from-green-300/30 group-hover:to-emerald-300/30"></div>

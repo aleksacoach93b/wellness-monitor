@@ -245,34 +245,33 @@ export default function SurveyForm({
 
     setIsSubmitting(true)
     try {
-      const validQuestionIds = new Set(survey.questions.map((q) => q.id))
       const submissionData = {
         surveyId: survey.id,
         playerId: playerId || null,
         playerName: playerName.trim() || null,
         playerEmail: null, // Remove email from submission
-        answers: Object.entries(formData)
-          .filter(([questionId]) => validQuestionIds.has(questionId))
-          .map(([questionId, value]) => {
-            const question = survey.questions.find((q) => q.id === questionId)
+        answers: [
+          ...Object.entries(formData).map(([questionId, value]) => {
+            // Check if this is a body map question and we have body map data
+            const question = survey.questions.find(q => q.id === questionId)
             if (question && isBodyMapQuestion(question)) {
               const questionBodyMapData = bodyMapData[questionId] || {}
-
-              // If we have body map coordinates, persist JSON chart
+              
+              // If we have body map data, append it to the answer
               if (Object.keys(questionBodyMapData).length > 0) {
                 return {
                   questionId,
-                  value: JSON.stringify(questionBodyMapData),
+                  value: JSON.stringify(questionBodyMapData)
                 }
               }
             }
-
-            const v = Array.isArray(value) ? JSON.stringify(value) : String(value ?? '')
+            
             return {
               questionId,
-              value: v,
+              value: Array.isArray(value) ? JSON.stringify(value) : value
             }
-          }),
+          })
+        ]
       }
       
       console.log('Submitting survey data:', submissionData)

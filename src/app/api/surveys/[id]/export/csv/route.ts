@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-/** Large exports can exceed default serverless limits on cold starts. */
-export const maxDuration = 60
-export const dynamic = 'force-dynamic'
-
 // Body Map path ID to muscle name mapping
 const getMuscleName = (areaId: string): string => {
   const muscleNames: Record<string, string> = {
@@ -221,9 +217,9 @@ export async function GET(
             },
             answers: {
               include: {
-                question: true,
-              },
-            },
+                question: true
+              }
+            }
           },
           orderBy: { submittedAt: 'desc' }
         }
@@ -325,10 +321,9 @@ export async function GET(
     if (csvData.length === 0) {
       return new NextResponse('No data available', {
         headers: {
-          'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`,
-          'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
-        },
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`
+        }
       })
     }
 
@@ -342,27 +337,23 @@ export async function GET(
         }
         return header
       }).join(','),
-      ...csvData.map(row =>
+      ...csvData.map(row => 
         headers.map(header => {
           const value = row[header as keyof typeof row]
-          const normalized = value === null || value === undefined ? '' : value
-          if (
-            typeof normalized === 'string' &&
-            (normalized.includes(',') || normalized.includes('"') || normalized.includes('\n'))
-          ) {
-            return `"${normalized.replace(/"/g, '""')}"`
+          // Escape CSV values that contain commas or quotes
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+            return `"${value.replace(/"/g, '""')}"`
           }
-          return normalized === '' ? '' : String(normalized)
+          return value
         }).join(',')
       )
     ].join('\n')
 
     return new NextResponse(csvContent, {
       headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`,
-        'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
-      },
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`
+      }
     })
 
   } catch (error) {

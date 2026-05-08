@@ -645,9 +645,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   </div>
                 ) : (
                   <div className={`mt-3 ${activeTheme.playerStatusIdlePill}`}>
-                    <Play className="h-3 w-3 shrink-0 opacity-95 sm:h-4 sm:w-4" aria-hidden />
-                    <span className="hidden sm:inline">Click to start</span>
-                    <span className="sm:hidden">Start</span>
+                    <Play className="h-3 w-3 shrink-0 opacity-90 sm:h-3.5 sm:w-3.5" aria-hidden />
+                    <span>Start</span>
                   </div>
                 )}
               </div>

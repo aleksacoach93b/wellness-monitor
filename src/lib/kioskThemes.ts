@@ -67,7 +67,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
       'hover:ring-2 hover:ring-blue-400/60 bg-gradient-to-br from-slate-700/60 to-blue-900/20 border-slate-600/30 hover:border-blue-400/30',
     playerCardResponded: shared.playerCardResponded,
     playerStatusIdlePill:
-      'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-blue-400/35 bg-slate-900/55 px-2 py-2 text-xs font-semibold text-blue-200 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-2 sm:px-4 sm:py-1 sm:text-sm',
+      'inline-flex min-h-8 items-center justify-center gap-1 rounded-md border border-blue-400/35 bg-slate-900/55 px-2.5 py-1 text-[11px] font-semibold text-blue-200 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs',
     playerCardFocus:
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
     playerAvatarInitial:
@@ -104,7 +104,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
       'hover:ring-2 hover:ring-slate-200/60 bg-gradient-to-br from-slate-600/60 to-slate-500/40 border-slate-500/40 hover:border-white/40',
     playerCardResponded: shared.playerCardResponded,
     playerStatusIdlePill:
-      'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-slate-300/45 bg-slate-800/65 px-2 py-2 text-xs font-semibold text-slate-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-2 sm:px-4 sm:py-1 sm:text-sm',
+      'inline-flex min-h-8 items-center justify-center gap-1 rounded-md border border-slate-300/45 bg-slate-800/65 px-2.5 py-1 text-[11px] font-semibold text-slate-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs',
     playerCardFocus:
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-100 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800',
     playerAvatarInitial:
@@ -141,7 +141,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
       'hover:ring-2 hover:ring-rose-400/60 bg-gradient-to-br from-rose-950/60 to-rose-800/40 border-rose-800/40 hover:border-rose-400/40',
     playerCardResponded: shared.playerCardResponded,
     playerStatusIdlePill:
-      'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-orange-400/40 bg-rose-950/55 px-2 py-2 text-xs font-semibold text-rose-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-2 sm:px-4 sm:py-1 sm:text-sm',
+      'inline-flex min-h-8 items-center justify-center gap-1 rounded-md border border-orange-400/40 bg-rose-950/55 px-2.5 py-1 text-[11px] font-semibold text-rose-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs',
     playerCardFocus:
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-rose-950',
     playerAvatarInitial:
@@ -178,7 +178,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
       'hover:ring-2 hover:ring-emerald-400/60 bg-gradient-to-br from-emerald-950/60 to-teal-900/30 border-emerald-900/40 hover:border-emerald-400/40',
     playerCardResponded: shared.playerCardResponded,
     playerStatusIdlePill:
-      'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-950/55 px-2 py-2 text-xs font-semibold text-emerald-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-2 sm:px-4 sm:py-1 sm:text-sm',
+      'inline-flex min-h-8 items-center justify-center gap-1 rounded-md border border-emerald-400/40 bg-emerald-950/55 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs',
     playerCardFocus:
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-200 focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-950',
     playerAvatarInitial:

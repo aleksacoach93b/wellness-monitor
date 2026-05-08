@@ -136,6 +136,22 @@ export default function SurveyForm({
     })
   }, [survey.questions])
 
+  // Default BODY_MAP (Painful / Sore areas) to "No" when unset — after draft restore
+  useEffect(() => {
+    if (!survey?.questions?.length) return
+    setFormData((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const question of survey.questions) {
+        if (question.type === 'BODY_MAP' && next[question.id] === undefined) {
+          next[question.id] = 'No'
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [survey.questions])
+
   // Autosave draft (debounced)
   useEffect(() => {
     if (typeof window === 'undefined' || isSubmitted) return
@@ -172,10 +188,42 @@ export default function SurveyForm({
 
   const handleInputChange = (questionId: string, value: string | string[]) => {
     setValidationBanner(null)
-    setFormData(prev => ({
+
+    const question = survey.questions.find((q) => q.id === questionId)
+    if (question?.type === 'BODY_MAP' && value === 'No') {
+      setBodyMapData((prev) => {
+        const n = { ...prev }
+        delete n[questionId]
+        return n
+      })
+      setCurrentBodyMapQuestionId((id) => {
+        if (id === questionId) {
+          setShowBodyMap(false)
+          return null
+        }
+        return id
+      })
+    }
+
+    setFormData((prev) => ({
       ...prev,
-      [questionId]: value
+      [questionId]: value,
     }))
+
+    if (question?.type === 'BODY_MAP' && value === 'Yes') {
+      setCurrentBodyMapQuestionId(questionId)
+      setShowBodyMap(true)
+      if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+        const element = document.documentElement
+        if (element.requestFullscreen) {
+          void element.requestFullscreen()
+        } else if ((element as HTMLElement & { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen) {
+          ;(element as HTMLElement & { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen!()
+        } else if ((element as HTMLElement & { msRequestFullscreen?: () => void }).msRequestFullscreen) {
+          ;(element as HTMLElement & { msRequestFullscreen?: () => void }).msRequestFullscreen!()
+        }
+      }
+    }
   }
 
 

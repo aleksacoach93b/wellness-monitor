@@ -37,11 +37,13 @@ export default function CSVLinkModal({ surveyId }: CSVLinkModalProps) {
   return (
     <>
       <button
+        type="button"
+        title="CSV export link for Power BI"
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200/90 bg-emerald-50/90 px-3 py-1.5 text-xs font-medium text-emerald-900 shadow-sm transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
       >
-        <Download className="h-4 w-4 mr-2" />
-        CSV Link for Power BI
+        <Download className="h-4 w-4 shrink-0 text-emerald-700" />
+        CSV (Power BI)
       </button>
 
       {isOpen && (

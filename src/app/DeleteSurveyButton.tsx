@@ -64,8 +64,9 @@ export default function DeleteSurveyButton({ surveyId, surveyTitle }: DeleteSurv
 
   return (
     <button
+      type="button"
       onClick={() => setShowConfirm(true)}
-      className="text-red-600 hover:text-red-900 text-sm font-medium"
+      className="inline-flex items-center rounded-lg border border-red-200/90 bg-white px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm transition hover:bg-red-50 hover:border-red-300 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2"
     >
       Delete
     </button>

@@ -647,15 +647,18 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 
                 {/* Futuristic Status Text */}
                 {player.hasResponded ? (
-                  <div className="mt-3 inline-flex items-center px-2 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-green-900/40 text-green-300 border border-green-400/30 backdrop-blur-sm shadow-lg">
-                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                    <span className="hidden sm:inline">Completed</span>
-                    <span className="sm:hidden">Done</span>
+                  <div className="mt-3 flex w-full justify-center">
+                    <div className="inline-flex items-center gap-1 rounded-full border border-green-400/30 bg-green-900/40 px-2 py-1 text-xs font-semibold text-green-300 backdrop-blur-sm shadow-lg sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-sm">
+                      <CheckCircle className="h-3 w-3 shrink-0 sm:h-4 sm:w-4" aria-hidden />
+                      <span>Done</span>
+                    </div>
                   </div>
                 ) : (
-                  <div className={`mt-3 ${activeTheme.playerStatusIdlePill}`}>
-                    <Play className="h-3 w-3 shrink-0 opacity-90 sm:h-3.5 sm:w-3.5" aria-hidden />
-                    <span>Start</span>
+                  <div className="mt-3 flex w-full justify-center">
+                    <div className={`${activeTheme.playerStatusIdlePill}`}>
+                      <Play className="h-3 w-3 shrink-0 opacity-90 sm:h-3.5 sm:w-3.5" aria-hidden />
+                      <span>Start</span>
+                    </div>
                   </div>
                 )}
               </div>

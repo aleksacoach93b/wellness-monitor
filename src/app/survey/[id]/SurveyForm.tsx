@@ -37,6 +37,36 @@ export default function SurveyForm({
   const appearance = resolveSurveyAppearanceTheme(surveyTheme)
   const shell = getSurveyShellClasses(appearance)
   const tokens = getSurveyUiTokens(appearance)
+  const questionChrome = useMemo(() => {
+    switch (appearance) {
+      case 'green':
+        return {
+          stepWell: 'bg-gradient-to-br from-emerald-600/95 to-teal-800/92',
+          stepDivider: 'bg-gradient-to-r from-emerald-400/90 to-teal-400/80',
+        }
+      case 'rose':
+        return {
+          stepWell: 'bg-gradient-to-br from-rose-600/95 to-orange-950/85',
+          stepDivider: 'bg-gradient-to-r from-rose-400/90 to-orange-400/85',
+        }
+      case 'dark':
+        return {
+          stepWell: 'bg-gradient-to-br from-slate-600 to-slate-700',
+          stepDivider: 'bg-gradient-to-r from-sky-400/90 to-cyan-400/80',
+        }
+      case 'high':
+        return {
+          stepWell: 'bg-gradient-to-br from-zinc-600 to-zinc-800',
+          stepDivider: 'bg-gradient-to-r from-cyan-300/90 to-teal-500/75',
+        }
+      case 'soft':
+      default:
+        return {
+          stepWell: 'bg-gradient-to-br from-slate-500 to-slate-600',
+          stepDivider: 'bg-gradient-to-r from-slate-400 to-slate-500',
+        }
+    }
+  }, [appearance])
   const [formData, setFormData] = useState<Record<string, string | string[]>>({})
   const [playerName, setPlayerName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -547,7 +577,25 @@ export default function SurveyForm({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        
+
+        {!playerName ? (
+          <div className="relative px-4 pb-4 pt-12 text-center sm:pt-14">
+            <div className={`pointer-events-none absolute inset-x-0 top-10 h-28 ${tokens.headerBackdropBlur}`} aria-hidden />
+            <p className="relative text-[10px] font-semibold uppercase tracking-[0.22em] text-white/55">
+              Survey preview
+            </p>
+            <h1 className="relative mx-auto mt-2 max-w-2xl text-xl font-semibold tracking-tight text-white drop-shadow-sm sm:text-2xl md:text-3xl">
+              {survey.title}
+            </h1>
+            {survey.description ? (
+              <p className="relative mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/72">
+                {survey.description}
+              </p>
+            ) : null}
+            <div className={`relative mx-auto mt-4 h-0.5 w-14 rounded-full ${tokens.headerUnderline}`} aria-hidden />
+          </div>
+        ) : null}
+
         <div className="survey-form-enter opacity-0">
         <form onSubmit={handleSubmit} className="min-h-screen flex flex-col w-full">
         {/* Mobile-Optimized Player Name as Title with Image */}
@@ -598,18 +646,20 @@ export default function SurveyForm({
                   question.type === 'BODY_MAP' ? 'p-6 sm:p-8' : 'p-3 sm:p-4'
                 }`}>
                 <div className="mb-3 sm:mb-4">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-br from-gray-400 to-gray-500 rounded-md flex items-center justify-center shadow-lg flex-shrink-0">
-                      <span className="text-white font-bold text-xs">{index + 1}</span>
+                  <div className="mb-2 flex items-center space-x-2">
+                    <div
+                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md shadow-lg sm:h-6 sm:w-6 ${questionChrome.stepWell}`}
+                    >
+                      <span className="text-xs font-bold text-white">{index + 1}</span>
                     </div>
-                    <div className="flex-grow">
-                      <label className={`block font-medium text-white leading-snug tracking-wide ${shell.questionTitle}`}>
+                    <div className="min-w-0 flex-grow">
+                      <label className={`block font-medium leading-snug tracking-wide text-white ${shell.questionTitle}`}>
                         {question.text}
-                        {question.required && <span className="text-red-400 ml-1 text-sm">*</span>}
+                        {question.required && <span className="ml-1 text-sm text-red-400">*</span>}
                       </label>
                     </div>
                   </div>
-                  <div className="w-6 sm:w-8 h-0.5 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full"></div>
+                  <div className={`h-0.5 w-6 rounded-full sm:w-8 ${questionChrome.stepDivider}`} />
                 </div>
 
             {question.type === 'TEXT' && (

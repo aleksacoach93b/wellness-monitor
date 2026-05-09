@@ -350,3 +350,9 @@ export function surveyThemeFromKiosk(kioskTheme: KioskTheme): SurveyAppearanceTh
   if (kioskTheme === 'light') return 'soft'
   return null
 }
+
+/** `surveyTheme` query value from kiosk DB theme — always safe for URLs / SurveyForm. */
+export function surveyThemeQueryFromKioskTheme(kioskTheme: KioskTheme | string | null | undefined): string {
+  const mapped = surveyThemeFromKiosk(kioskTheme as KioskTheme)
+  return mapped ?? 'green'
+}

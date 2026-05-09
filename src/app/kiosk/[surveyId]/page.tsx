@@ -22,6 +22,15 @@ function kioskPlayerInitial(player: Pick<Player, 'firstName' | 'lastName'>): str
   return s.slice(0, 1).toLocaleUpperCase()
 }
 
+/** Title-case each word: "DOBROSAVLEVICI" / "DE KAMPS" → "Dobrosavlevici" / "De Kamps" */
+function formatKioskSurname(lastName: string): string {
+  return lastName
+    .trim()
+    .split(/\s+/)
+    .map((w) => (w ? w.charAt(0).toLocaleUpperCase() + w.slice(1).toLocaleLowerCase() : ''))
+    .join(' ')
+}
+
 export default function KioskModePage({ params }: { params: Promise<{ surveyId: string }> }) {
   const router = useRouter()
   const { surveyId } = use(params)
@@ -578,6 +587,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               onClick={() => handlePlayerClick(player)}
               className={`group relative m-0 min-w-0 w-full appearance-none text-left backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-solid shadow-2xl hover:shadow-3xl cursor-pointer transition-[transform,box-shadow] duration-300 ease-out transform hover:scale-[1.02] hover:-translate-y-px focus-visible:z-10 focus-visible:scale-[1.02] focus-visible:-translate-y-px p-3 sm:p-6 lg:p-8 ${activeTheme.playerCardFocus} ${
                 player.hasResponded ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
+              } ${
+                !player.hasResponded
+                  ? 'ring-1 ring-inset ring-red-500/45 drop-shadow-[0_0_10px_rgba(248,113,113,0.22)]'
+                  : ''
               }`}
             >
               {/* Futuristic Status Badge */}
@@ -632,8 +645,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 <h3 className="text-[11px] sm:text-sm lg:text-base font-medium leading-tight text-white/50 tracking-wide transition-colors duration-300 group-hover:text-white/70">
                   {player.firstName}
                 </h3>
-                <p className="mt-0.5 w-full max-w-full break-words text-[10px] font-bold uppercase leading-tight tracking-tight text-white transition-colors duration-300 sm:text-[11px] md:text-xs lg:text-sm group-hover:text-sky-100">
-                  {player.lastName}
+                <p className="mt-0.5 w-full max-w-full break-words text-[10px] font-bold normal-case leading-tight tracking-tight text-white transition-colors duration-300 sm:text-[11px] md:text-xs lg:text-sm group-hover:text-sky-100">
+                  {formatKioskSurname(player.lastName)}
                 </p>
                 
                 {/* Futuristic Status Text */}

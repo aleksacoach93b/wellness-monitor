@@ -33,7 +33,7 @@ interface ThemeClasses {
 const shared = {
   letterDisabled: 'bg-slate-600/30 text-gray-500 cursor-not-allowed border-slate-600/30',
   playerCardResponded:
-    'ring-2 ring-green-400/60 bg-gradient-to-br from-green-900/30 to-slate-700/60 border-green-400/30',
+    'border border-emerald-300/35 ring-2 ring-green-400/55 bg-gradient-to-br from-green-900/38 to-slate-800/60 [box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.06),0_0_26px_-4px_rgba(34,197,94,0.32)]',
 }
 
 export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
@@ -64,7 +64,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     letterDisabled: shared.letterDisabled,
     gridOverlay: 'bg-gradient-to-br from-blue-600/10 via-purple-600/10 to-cyan-600/10',
     playerCardIdle:
-      'hover:ring-2 hover:ring-blue-400/60 bg-gradient-to-br from-slate-700/60 to-blue-900/20 border-slate-600/30 hover:border-blue-400/30',
+      'border border-white/14 bg-gradient-to-br from-slate-700/60 to-blue-900/25 [box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.06),0_14px_44px_-14px_rgba(56,189,248,0.16)] hover:border-sky-300/38 hover:[box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.09),0_18px_50px_-12px_rgba(56,189,248,0.22)] hover:shadow-2xl',
     playerCardResponded: shared.playerCardResponded,
     playerStatusIdlePill:
       'inline-flex min-h-8 items-center justify-center gap-1 rounded-md border border-blue-400/35 bg-slate-900/55 px-2.5 py-1 text-[11px] font-semibold text-blue-200 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs',
@@ -101,7 +101,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     letterDisabled: shared.letterDisabled,
     gridOverlay: 'bg-gradient-to-br from-slate-500/15 via-slate-400/15 to-slate-500/15',
     playerCardIdle:
-      'hover:ring-2 hover:ring-slate-200/60 bg-gradient-to-br from-slate-600/60 to-slate-500/40 border-slate-500/40 hover:border-white/40',
+      'border border-white/18 bg-gradient-to-br from-slate-600/60 to-slate-500/42 [box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.08),0_14px_44px_-14px_rgba(255,255,255,0.07)] hover:border-white/38 hover:[box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.11),0_18px_50px_-14px_rgba(255,255,255,0.1)] hover:shadow-2xl',
     playerCardResponded: shared.playerCardResponded,
     playerStatusIdlePill:
       'inline-flex min-h-8 items-center justify-center gap-1 rounded-md border border-slate-300/45 bg-slate-800/65 px-2.5 py-1 text-[11px] font-semibold text-slate-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs',
@@ -138,7 +138,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     letterDisabled: shared.letterDisabled,
     gridOverlay: 'bg-gradient-to-br from-rose-600/10 via-pink-600/10 to-orange-500/10',
     playerCardIdle:
-      'hover:ring-2 hover:ring-rose-400/60 bg-gradient-to-br from-rose-950/60 to-rose-800/40 border-rose-800/40 hover:border-rose-400/40',
+      'border border-orange-300/35 bg-gradient-to-br from-rose-950/60 to-rose-900/38 [box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.06),0_14px_44px_-14px_rgba(251,146,60,0.14)] hover:border-orange-300/52 hover:[box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.09),0_18px_50px_-12px_rgba(251,113,133,0.18)] hover:shadow-2xl',
     playerCardResponded: shared.playerCardResponded,
     playerStatusIdlePill:
       'inline-flex min-h-8 items-center justify-center gap-1 rounded-md border border-orange-400/40 bg-rose-950/55 px-2.5 py-1 text-[11px] font-semibold text-rose-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs',
@@ -175,7 +175,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     letterDisabled: shared.letterDisabled,
     gridOverlay: 'bg-gradient-to-br from-emerald-600/10 via-teal-600/10 to-lime-500/10',
     playerCardIdle:
-      'hover:ring-2 hover:ring-emerald-400/60 bg-gradient-to-br from-emerald-950/60 to-teal-900/30 border-emerald-900/40 hover:border-emerald-400/40',
+      'border border-white/15 bg-gradient-to-br from-emerald-950/65 to-teal-950/34 [box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.07),0_0_0_1px_rgba(251,146,60,0.14),0_14px_44px_-14px_rgba(45,212,191,0.15)] hover:border-teal-200/42 hover:[box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.09),0_0_0_1px_rgba(45,212,191,0.22),0_18px_50px_-12px_rgba(16,185,129,0.18)] hover:shadow-2xl',
     playerCardResponded: shared.playerCardResponded,
     playerStatusIdlePill:
       'inline-flex min-h-8 items-center justify-center gap-1 rounded-md border border-emerald-400/40 bg-emerald-950/55 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs',

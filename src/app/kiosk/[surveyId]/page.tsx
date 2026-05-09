@@ -585,12 +585,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               key={player.id}
               type="button"
               onClick={() => handlePlayerClick(player)}
-              className={`group relative m-0 min-w-0 w-full appearance-none text-left backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-solid shadow-2xl hover:shadow-3xl cursor-pointer transition-[transform,box-shadow] duration-300 ease-out transform hover:scale-[1.02] hover:-translate-y-px focus-visible:z-10 focus-visible:scale-[1.02] focus-visible:-translate-y-px p-3 sm:p-6 lg:p-8 ${activeTheme.playerCardFocus} ${
+              className={`group relative m-0 min-w-0 w-full appearance-none text-left backdrop-blur-xl rounded-2xl sm:rounded-3xl border-solid shadow-2xl hover:shadow-3xl cursor-pointer transition-[transform,box-shadow] duration-300 ease-out transform hover:scale-[1.02] hover:-translate-y-px focus-visible:z-10 focus-visible:scale-[1.02] focus-visible:-translate-y-px p-3 sm:p-6 lg:p-8 ${activeTheme.playerCardFocus} ${
                 player.hasResponded ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
-              } ${
-                !player.hasResponded
-                  ? 'ring-1 ring-inset ring-red-500/45 drop-shadow-[0_0_10px_rgba(248,113,113,0.22)]'
-                  : ''
               }`}
             >
               {/* Futuristic Status Badge */}
@@ -607,16 +603,16 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                     <Image
                       src={player.image}
                       alt={`${player.firstName} ${player.lastName}`}
-                      width={96}
-                      height={96}
-                      className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full object-cover border-2 sm:border-4 border-slate-600/50 shadow-2xl group-hover:border-blue-400/60 transition-all duration-500 backdrop-blur-sm"
+                      width={128}
+                      height={128}
+                      className="h-20 w-20 rounded-full border-2 border-slate-600/50 object-cover shadow-2xl backdrop-blur-sm transition-all duration-500 group-hover:border-blue-400/60 sm:h-24 sm:w-24 sm:border-[3px] lg:h-28 lg:w-28"
                     />
                   ) : (
                     <div
-                      className={`relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-slate-600/50 shadow-2xl transition-all duration-500 backdrop-blur-sm sm:h-20 sm:w-20 sm:border-4 lg:h-24 lg:w-24 ${activeTheme.playerAvatarInitial}`}
+                      className={`relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-slate-600/50 shadow-2xl backdrop-blur-sm transition-all duration-500 sm:h-24 sm:w-24 sm:border-[3px] lg:h-28 lg:w-28 ${activeTheme.playerAvatarInitial}`}
                     >
                       <span
-                        className="select-none text-xl font-bold leading-none tracking-tight sm:text-2xl lg:text-3xl"
+                        className="select-none text-2xl font-bold leading-none tracking-tight sm:text-3xl lg:text-4xl"
                         aria-hidden
                       >
                         {kioskPlayerInitial(player)}

@@ -576,7 +576,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               key={player.id}
               type="button"
               onClick={() => handlePlayerClick(player)}
-              className={`group relative m-0 w-full appearance-none text-left backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-solid shadow-2xl hover:shadow-3xl cursor-pointer transition-[transform,box-shadow] duration-300 ease-out transform hover:scale-[1.02] hover:-translate-y-px focus-visible:z-10 focus-visible:scale-[1.02] focus-visible:-translate-y-px p-3 sm:p-6 lg:p-8 ${activeTheme.playerCardFocus} ${
+              className={`group relative m-0 min-w-0 w-full appearance-none text-left backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-solid shadow-2xl hover:shadow-3xl cursor-pointer transition-[transform,box-shadow] duration-300 ease-out transform hover:scale-[1.02] hover:-translate-y-px focus-visible:z-10 focus-visible:scale-[1.02] focus-visible:-translate-y-px p-3 sm:p-6 lg:p-8 ${activeTheme.playerCardFocus} ${
                 player.hasResponded ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
               }`}
             >
@@ -628,11 +628,11 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               </div>
 
               {/* Futuristic Player Name */}
-              <div className="text-center">
+              <div className="w-full min-w-0 px-1 text-center sm:px-1.5">
                 <h3 className="text-[11px] sm:text-sm lg:text-base font-medium leading-tight text-white/50 tracking-wide transition-colors duration-300 group-hover:text-white/70">
                   {player.firstName}
                 </h3>
-                <p className="mt-0.5 text-xs sm:text-base lg:text-lg font-bold uppercase tracking-wide text-white transition-colors duration-300 group-hover:text-sky-100">
+                <p className="mt-0.5 w-full max-w-full break-words text-[10px] font-bold uppercase leading-tight tracking-tight text-white transition-colors duration-300 sm:text-[11px] md:text-xs lg:text-sm group-hover:text-sky-100">
                   {player.lastName}
                 </p>
                 

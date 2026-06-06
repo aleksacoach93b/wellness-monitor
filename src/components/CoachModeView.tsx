@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Survey, Question, Player } from '@prisma/client'
-import { CheckCircle, AlertTriangle, Clock, Send, User } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Clock, Send, ArrowDownAZ, ArrowUpZA } from 'lucide-react'
 import Image from 'next/image'
 import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
@@ -42,6 +42,32 @@ const RPE_COLORS: Record<number, string> = {
   8: 'from-red-500 to-red-600 border-red-400/50',
   9: 'from-red-600 to-red-700 border-red-400/50',
   10: 'from-red-700 to-red-800 border-red-400/50',
+}
+
+const RPE_IDLE_TINT: Record<number, string> = {
+  1: 'bg-green-900/30 border-green-700/30 text-green-300/80',
+  2: 'bg-green-900/25 border-green-700/25 text-green-300/70',
+  3: 'bg-lime-900/25 border-lime-700/25 text-lime-300/70',
+  4: 'bg-yellow-900/25 border-yellow-700/25 text-yellow-300/70',
+  5: 'bg-amber-900/25 border-amber-700/25 text-amber-300/70',
+  6: 'bg-orange-900/25 border-orange-700/25 text-orange-300/70',
+  7: 'bg-orange-900/30 border-orange-700/30 text-orange-300/70',
+  8: 'bg-red-900/25 border-red-700/25 text-red-300/70',
+  9: 'bg-red-900/30 border-red-700/30 text-red-300/70',
+  10: 'bg-red-900/35 border-red-700/35 text-red-300/80',
+}
+
+const RPE_LABELS: Record<number, string> = {
+  1: 'Rest',
+  2: 'Very Easy',
+  3: 'Easy',
+  4: 'Moderate',
+  5: 'Somewhat Hard',
+  6: 'Hard',
+  7: 'Very Hard',
+  8: 'Very Hard+',
+  9: 'Near Max',
+  10: 'Max Effort',
 }
 
 export default function CoachModeView({
@@ -87,11 +113,23 @@ export default function CoachModeView({
     return s
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [sortAsc, setSortAsc] = useState(true)
 
   const [showBodyMap, setShowBodyMap] = useState(false)
   const [bodyMapPlayerId, setBodyMapPlayerId] = useState<string | null>(null)
   const [bodyMapQuestionId, setBodyMapQuestionId] = useState<string | null>(null)
   const [bodyMapView, setBodyMapView] = useState<'front' | 'back'>('front')
+
+  const sortedPlayers = useMemo(() => {
+    const sorted = [...players].sort((a, b) => {
+      const aSubmitted = submitted[a.id] ? 1 : 0
+      const bSubmitted = submitted[b.id] ? 1 : 0
+      if (aSubmitted !== bSubmitted) return aSubmitted - bSubmitted
+      const cmp = a.lastName.localeCompare(b.lastName, undefined, { sensitivity: 'base' })
+      return sortAsc ? cmp : -cmp
+    })
+    return sorted
+  }, [players, submitted, sortAsc])
 
   const setAnswer = useCallback(
     (playerId: string, questionId: string, value: string) => {
@@ -234,14 +272,15 @@ export default function CoachModeView({
   const pendingWithData = players.filter(
     (p) => !submitted[p.id] && hasRequiredAnswers(p.id)
   ).length
+  const progressPct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
   const bodyMapAppearance = surveyThemeFromKiosk(kioskTheme) ?? 'default'
 
   return (
     <>
-      <div className="relative max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+      <div className="relative max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         {/* Header bar */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div>
             <div className="flex items-center gap-3">
               <button
@@ -254,17 +293,35 @@ export default function CoachModeView({
               <h2 className="text-lg sm:text-2xl font-semibold text-white tracking-wide">
                 Coach Mode
               </h2>
+              <button
+                type="button"
+                onClick={() => setSortAsc((v) => !v)}
+                className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[11px] font-medium text-gray-300 transition-all hover:bg-white/10"
+                title={sortAsc ? 'Sorted A → Z (click to reverse)' : 'Sorted Z → A (click to reverse)'}
+              >
+                {sortAsc ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpZA className="h-3.5 w-3.5" />}
+                {sortAsc ? 'A–Z' : 'Z–A'}
+              </button>
             </div>
-            <p className="mt-1 text-sm text-gray-400">
-              {completedCount}/{totalCount} completed
-            </p>
+            {/* Progress bar */}
+            <div className="mt-2 flex items-center gap-2.5">
+              <div className="h-1.5 flex-1 max-w-[180px] rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-500 transition-all duration-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <span className="text-xs text-gray-400">
+                <span className="font-semibold text-white">{completedCount}</span>/{totalCount}
+              </span>
+            </div>
           </div>
 
           {/* Global Duration */}
           {(sliderQuestions.length > 0 || survey.questions.some((q) => q.type === 'NUMBER')) && (
             <div className="flex items-center gap-2 flex-wrap">
               <Clock className="h-4 w-4 text-gray-400 shrink-0" />
-              <span className="text-sm text-gray-300 whitespace-nowrap">Training Duration:</span>
+              <span className="text-sm text-gray-300 whitespace-nowrap">Duration:</span>
               <input
                 type="number"
                 min={1}
@@ -286,8 +343,8 @@ export default function CoachModeView({
         </div>
 
         {/* Player list */}
-        <div className="space-y-2 sm:space-y-3">
-          {players.map((player) => {
+        <div className="space-y-1.5 sm:space-y-2">
+          {sortedPlayers.map((player) => {
             const pd = playerData[player.id]
             const isSubmitted = submitted[player.id]
             const isSubmitting = submitting[player.id]
@@ -296,40 +353,35 @@ export default function CoachModeView({
             return (
               <div
                 key={player.id}
-                className={`relative rounded-xl sm:rounded-2xl border backdrop-blur-xl p-3 sm:p-4 transition-all duration-300 ${
+                className={`group/row relative rounded-xl border backdrop-blur-xl px-3 py-2 sm:px-4 sm:py-2.5 transition-all duration-200 ${
                   isSubmitted
                     ? activeTheme.playerCardResponded
                     : activeTheme.playerCardIdle
-                } ${isSubmitted ? 'opacity-70' : ''}`}
+                } ${isSubmitted ? 'opacity-60' : 'hover:brightness-125 hover:border-white/25'}`}
               >
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
                   {/* Player info */}
-                  <div className="flex items-center gap-3 lg:w-48 lg:shrink-0">
+                  <div className="flex items-center gap-2.5 lg:w-44 lg:shrink-0">
                     {player.image ? (
                       <Image
                         src={player.image}
                         alt={`${player.firstName} ${player.lastName}`}
-                        width={44}
-                        height={44}
-                        className="h-10 w-10 rounded-full border border-white/20 object-cover shadow sm:h-11 sm:w-11"
+                        width={36}
+                        height={36}
+                        className="h-9 w-9 rounded-full border border-white/20 object-cover shadow"
                       />
                     ) : (
-                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 shadow sm:h-11 sm:w-11 ${activeTheme.playerAvatarInitial}`}>
-                        <span className="text-sm font-bold" aria-hidden>
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
+                        <span className="text-xs font-bold" aria-hidden>
                           {(player.firstName?.[0] ?? '').toLocaleUpperCase()}
                         </span>
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">
+                      <p className="text-sm font-semibold text-white truncate leading-tight">
                         {player.firstName}{' '}
                         <span className="font-bold">{player.lastName}</span>
                       </p>
-                      {isSubmitted && (
-                        <span className="text-[10px] text-green-300 flex items-center gap-1">
-                          <CheckCircle className="h-3 w-3" /> Submitted
-                        </span>
-                      )}
                       {error && (
                         <span className="text-[10px] text-red-300 flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" /> {error}
@@ -339,14 +391,14 @@ export default function CoachModeView({
                   </div>
 
                   {/* Questions inline */}
-                  <div className="flex flex-1 flex-wrap items-center gap-3 lg:gap-4">
+                  <div className="flex flex-1 flex-wrap items-center gap-2.5 lg:gap-3">
                     {/* Scale / RPE questions — 1-10 buttons */}
                     {scaleQuestions.map((q) => (
-                      <div key={q.id} className="flex flex-col gap-1">
-                        <span className="text-[10px] text-gray-400 truncate max-w-[180px]">
+                      <div key={q.id} className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
                           {q.text}
                         </span>
-                        <div className="flex gap-0.5 sm:gap-1">
+                        <div className="flex gap-0.5">
                           {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
                             const selected = pd?.answers[q.id] === String(n)
                             return (
@@ -355,10 +407,11 @@ export default function CoachModeView({
                                 type="button"
                                 disabled={isSubmitted}
                                 onClick={() => setAnswer(player.id, q.id, String(n))}
-                                className={`h-8 w-7 sm:h-9 sm:w-8 rounded text-xs sm:text-sm font-bold transition-all border ${
+                                title={RPE_LABELS[n]}
+                                className={`relative h-7 w-6 sm:h-8 sm:w-7 rounded text-[11px] sm:text-xs font-bold transition-all border ${
                                   selected
-                                    ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110`
-                                    : 'bg-white/10 border-white/15 text-gray-300 hover:bg-white/20'
+                                    ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
+                                    : `${RPE_IDLE_TINT[n]} hover:brightness-150`
                                 } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                               >
                                 {n}
@@ -371,8 +424,8 @@ export default function CoachModeView({
 
                     {/* Slider / Number questions (training duration) */}
                     {sliderQuestions.concat(textQuestions.filter((q) => q.type === 'NUMBER')).map((q) => (
-                      <div key={q.id} className="flex flex-col gap-1">
-                        <span className="text-[10px] text-gray-400 truncate max-w-[180px]">
+                      <div key={q.id} className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
                           {q.text}
                         </span>
                         <input
@@ -382,15 +435,15 @@ export default function CoachModeView({
                           disabled={isSubmitted}
                           value={pd?.answers[q.id] ?? ''}
                           onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
-                          className={`w-20 px-2 py-1.5 rounded-lg text-center text-sm text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+                          className={`w-16 px-1.5 py-1 rounded-lg text-center text-sm text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
                         />
                       </div>
                     ))}
 
                     {/* Boolean questions */}
                     {booleanQuestions.map((q) => (
-                      <div key={q.id} className="flex flex-col gap-1">
-                        <span className="text-[10px] text-gray-400 truncate max-w-[180px]">
+                      <div key={q.id} className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
                           {q.text}
                         </span>
                         <div className="flex gap-1">
@@ -400,7 +453,7 @@ export default function CoachModeView({
                               type="button"
                               disabled={isSubmitted}
                               onClick={() => setAnswer(player.id, q.id, opt)}
-                              className={`px-2.5 py-1 rounded text-xs font-semibold transition-all border ${
+                              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all border ${
                                 pd?.answers[q.id] === opt
                                   ? opt === 'Yes'
                                     ? 'bg-red-500/80 border-red-400/60 text-white'
@@ -420,15 +473,15 @@ export default function CoachModeView({
                       const bmData = pd?.bodyMapData[q.id] || {}
                       const areaCount = Object.keys(bmData).length
                       return (
-                        <div key={q.id} className="flex flex-col gap-1">
-                          <span className="text-[10px] text-gray-400 truncate max-w-[180px]">
+                        <div key={q.id} className="flex flex-col gap-0.5">
+                          <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
                             {q.text}
                           </span>
                           <button
                             type="button"
                             disabled={isSubmitted}
                             onClick={() => openBodyMap(player.id, q.id)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border ${
                               areaCount > 0
                                 ? 'bg-orange-500/80 border-orange-400/60 text-white'
                                 : 'bg-white/10 border-white/15 text-gray-300 hover:bg-white/20'
@@ -444,8 +497,8 @@ export default function CoachModeView({
                     {textQuestions
                       .filter((q) => q.type !== 'NUMBER')
                       .map((q) => (
-                        <div key={q.id} className="flex flex-col gap-1">
-                          <span className="text-[10px] text-gray-400 truncate max-w-[180px]">
+                        <div key={q.id} className="flex flex-col gap-0.5">
+                          <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
                             {q.text}
                           </span>
                           <input
@@ -453,17 +506,17 @@ export default function CoachModeView({
                             disabled={isSubmitted}
                             value={pd?.answers[q.id] ?? ''}
                             onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
-                            className={`w-28 px-2 py-1.5 rounded-lg text-sm text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+                            className={`w-24 px-1.5 py-1 rounded-lg text-sm text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
                           />
                         </div>
                       ))}
                   </div>
 
-                  {/* Submit button per player */}
+                  {/* Done indicator / Submit */}
                   <div className="flex items-center gap-2 lg:shrink-0">
                     {isSubmitted ? (
-                      <div className="inline-flex items-center gap-1 rounded-lg bg-green-900/50 border border-green-400/30 px-3 py-1.5 text-xs font-semibold text-green-300">
-                        <CheckCircle className="h-3.5 w-3.5" /> Done
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-green-500/90 to-emerald-500/90 shadow-lg border border-green-400/40">
+                        <CheckCircle className="h-4.5 w-4.5 text-white" />
                       </div>
                     ) : (
                       <button
@@ -492,13 +545,21 @@ export default function CoachModeView({
         </div>
 
         {/* Bottom bar — Submit All */}
-        <div className="sticky bottom-4 mt-8 flex items-center justify-between rounded-2xl border border-white/15 bg-black/60 px-4 py-3 backdrop-blur-xl shadow-2xl sm:px-6">
-          <p className="text-sm text-gray-300">
-            <span className="font-semibold text-white">{completedCount}</span>/{totalCount} done
-            {pendingWithData > 0 && (
-              <span className="ml-2 text-emerald-300">· {pendingWithData} ready to submit</span>
-            )}
-          </p>
+        <div className="sticky bottom-4 mt-6 flex items-center justify-between rounded-2xl border border-white/15 bg-black/60 px-4 py-3 backdrop-blur-xl shadow-2xl sm:px-6">
+          <div className="flex items-center gap-3">
+            <div className="h-2 w-24 rounded-full bg-white/10 overflow-hidden sm:w-32">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-500 transition-all duration-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <p className="text-sm text-gray-300">
+              <span className="font-semibold text-white">{completedCount}</span>/{totalCount}
+              {pendingWithData > 0 && (
+                <span className="ml-2 text-emerald-300">· {pendingWithData} ready</span>
+              )}
+            </p>
+          </div>
           <button
             type="button"
             disabled={pendingWithData === 0}

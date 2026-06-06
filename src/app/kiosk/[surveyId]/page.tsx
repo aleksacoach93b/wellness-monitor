@@ -2,14 +2,15 @@
 
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { Survey, Player } from '@prisma/client'
-import { CheckCircle, Play, User, Home, Maximize, Minimize } from 'lucide-react'
+import { Survey, Player, Question } from '@prisma/client'
+import { CheckCircle, Play, User, Home, Maximize, Minimize, ClipboardList, Users } from 'lucide-react'
 import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
 import { kioskThemes, KioskTheme } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
+import CoachModeView from '@/components/CoachModeView'
 
 interface PlayerWithStatus extends Player {
   hasResponded: boolean
@@ -49,6 +50,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [surveyNotActive, setSurveyNotActive] = useState(false)
   const [surveyStatusMessage, setSurveyStatusMessage] = useState('')
   const [kioskTheme, setKioskTheme] = useState<KioskTheme>('dark')
+  const [isCoachMode, setIsCoachMode] = useState(false)
+  const [surveyQuestions, setSurveyQuestions] = useState<Question[]>([])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -73,6 +76,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         if (surveyResponse.ok) {
           const surveyData = await surveyResponse.json()
           setSurvey(surveyData)
+          if (surveyData.questions) setSurveyQuestions(surveyData.questions)
           
           // Check if recurring survey is currently active
           if (surveyData.isRecurring) {
@@ -127,6 +131,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       if (surveyResponse.ok) {
         const surveyData = await surveyResponse.json()
         setSurvey(surveyData)
+        if (surveyData.questions) setSurveyQuestions(surveyData.questions)
         
         // Check if recurring survey is currently active
         if (surveyData.isRecurring) {
@@ -400,6 +405,14 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               </h1>
               <div className="flex items-center space-x-2">
                 <button
+                  onClick={() => setIsCoachMode((v) => !v)}
+                  className={`${isCoachMode ? activeTheme.primaryButton : activeTheme.secondaryButton} text-white px-3 py-2 rounded-lg shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all duration-300 backdrop-blur-sm`}
+                  title={isCoachMode ? 'Switch to Player Mode' : 'Switch to Coach Mode'}
+                >
+                  {isCoachMode ? <Users className="h-3 w-3" /> : <ClipboardList className="h-3 w-3" />}
+                  <span>{isCoachMode ? 'Players' : 'Coach'}</span>
+                </button>
+                <button
                   onClick={handleHomeClick}
                   className={`${activeTheme.secondaryButton} text-white px-3 py-2 rounded-lg shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all duration-300 backdrop-blur-sm`}
                   title="Home (Admin Access Required)"
@@ -417,7 +430,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 </button>
               </div>
             </div>
-            <p className="text-gray-300 text-sm tracking-wide">Select your name to begin the survey</p>
+            <p className="text-gray-300 text-sm tracking-wide">
+              {isCoachMode ? 'Fill in data for each player' : 'Select your name to begin the survey'}
+            </p>
           </div>
           
           {/* Desktop Layout */}
@@ -429,9 +444,19 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   {survey.title}
                 </h1>
                 <div className={`relative mt-2 w-32 h-0.5 ${activeTheme.accentLine} rounded-full`}></div>
-                <p className="relative mt-3 text-gray-300 text-base tracking-wide">Select your name to begin the survey</p>
+                <p className="relative mt-3 text-gray-300 text-base tracking-wide">
+                  {isCoachMode ? 'Fill in data for each player' : 'Select your name to begin the survey'}
+                </p>
               </div>
               <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setIsCoachMode((v) => !v)}
+                  className={`relative ${isCoachMode ? activeTheme.primaryButton : activeTheme.secondaryButton} text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm`}
+                  title={isCoachMode ? 'Switch to Player Mode' : 'Switch to Coach Mode'}
+                >
+                  {isCoachMode ? <Users className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
+                  <span className="tracking-wide">{isCoachMode ? 'Player Mode' : 'Coach Mode'}</span>
+                </button>
                 <button
                   onClick={toggleFullscreen}
                   className={`relative ${activeTheme.primaryButton} text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm`}
@@ -531,6 +556,16 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         </div>
       )}
 
+      {isCoachMode && survey && surveyQuestions.length > 0 ? (
+        <CoachModeView
+          survey={{ ...survey, questions: surveyQuestions }}
+          players={players}
+          kioskTheme={kioskTheme}
+          onBack={() => setIsCoachMode(false)}
+          onRefresh={fetchData}
+        />
+      ) : (
+      <>
       {/* Futuristic Alphabet Navigation - Mobile Optimized */}
       <div className={`relative ${activeTheme.panelBackground} backdrop-blur-xl py-4 sm:py-8`}>
         <div className={`absolute inset-0 ${activeTheme.panelOverlay}`}></div>
@@ -690,6 +725,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           </div>
         )}
       </section>
+      </>
+      )}
     </div>
     </>
   )

@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Eye, EyeOff, Lock, Unlock, RefreshCw, Palette } from '
 interface KioskSettings {
   id: string
   password: string
+  coachPassword: string
   isEnabled: boolean
   theme: KioskTheme
   createdAt: string
@@ -51,8 +52,10 @@ export default function KioskSettingsPage() {
   const router = useRouter()
   const [settings, setSettings] = useState<KioskSettings | null>(null)
   const [password, setPassword] = useState('')
+  const [coachPassword, setCoachPassword] = useState('')
   const [theme, setTheme] = useState<KioskTheme>('dark')
   const [showPassword, setShowPassword] = useState(false)
+  const [showCoachPassword, setShowCoachPassword] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -69,6 +72,7 @@ export default function KioskSettingsPage() {
         const data = await response.json()
         setSettings(data)
         setPassword(data.password)
+        setCoachPassword(data.coachPassword ?? '')
         setTheme(data.theme ?? 'dark')
       }
     } catch (error) {
@@ -95,6 +99,7 @@ export default function KioskSettingsPage() {
         },
         body: JSON.stringify({
           password: password.trim(),
+          coachPassword: coachPassword.trim(),
           isEnabled: password.trim() !== '',
           theme
         }),
@@ -104,6 +109,7 @@ export default function KioskSettingsPage() {
         const updatedSettings = await response.json()
         setSettings(updatedSettings)
         setPassword(updatedSettings.password)
+        setCoachPassword(updatedSettings.coachPassword ?? '')
         setTheme(updatedSettings.theme ?? 'dark')
         setMessage('Kiosk settings saved successfully!')
       } else {
@@ -134,6 +140,7 @@ export default function KioskSettingsPage() {
         },
         body: JSON.stringify({
           password: password.trim(),
+          coachPassword: coachPassword.trim(),
           isEnabled: password.trim() !== '',
           theme
         }),
@@ -143,6 +150,7 @@ export default function KioskSettingsPage() {
         const updatedSettings = await response.json()
         setSettings(updatedSettings)
         setPassword(updatedSettings.password)
+        setCoachPassword(updatedSettings.coachPassword ?? '')
         setTheme(updatedSettings.theme ?? 'dark')
         setMessage('Password updated successfully!')
       } else {
@@ -215,6 +223,32 @@ export default function KioskSettingsPage() {
               </div>
               <p className="mt-2 text-sm text-gray-500">
                 Players will need to enter this password to access kiosk mode
+              </p>
+            </div>
+
+            {/* Coach Password Section */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Coach Mode Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showCoachPassword ? 'text' : 'password'}
+                  value={coachPassword}
+                  onChange={(e) => setCoachPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Leave empty to allow open access"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCoachPassword(!showCoachPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showCoachPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              <p className="mt-2 text-sm text-gray-500">
+                Required to enter Coach Mode on the kiosk. Leave empty to allow anyone to switch to Coach Mode.
               </p>
             </div>
 

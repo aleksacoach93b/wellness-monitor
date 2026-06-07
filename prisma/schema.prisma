@@ -96,12 +96,13 @@ model Answer {
 }
 
 model KioskSettings {
-  id        String   @id @default(cuid())
-  password  String   @default("")
-  isEnabled Boolean  @default(false)
-  theme     String   @default("dark")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  password      String   @default("")
+  coachPassword String   @default("")
+  isEnabled     Boolean  @default(false)
+  theme         String   @default("dark")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   
   @@map("kiosk_settings")
 }

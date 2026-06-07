@@ -52,6 +52,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [kioskTheme, setKioskTheme] = useState<KioskTheme>('dark')
   const [isCoachMode, setIsCoachMode] = useState(false)
   const [surveyQuestions, setSurveyQuestions] = useState<Question[]>([])
+  const [coachPassword, setCoachPassword] = useState('')
+  const [storedCoachPassword, setStoredCoachPassword] = useState('')
+  const [showCoachPasswordModal, setShowCoachPasswordModal] = useState(false)
+  const [coachAuthenticated, setCoachAuthenticated] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,6 +65,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         if (kioskResponse.ok) {
           const kioskSettings = await kioskResponse.json()
           setKioskTheme(kioskSettings.theme ?? 'dark')
+          setStoredCoachPassword(kioskSettings.coachPassword ?? '')
           // Always show password prompt if password is set
           if (kioskSettings.password && kioskSettings.password.trim() !== '') {
             setShowKioskPassword(true)
@@ -297,6 +302,35 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     }
   }, [surveyId])
 
+  const handleCoachToggle = () => {
+    if (isCoachMode) {
+      setIsCoachMode(false)
+      return
+    }
+    if (storedCoachPassword && storedCoachPassword.trim() !== '' && !coachAuthenticated) {
+      setShowCoachPasswordModal(true)
+      return
+    }
+    setIsCoachMode(true)
+  }
+
+  const handleCoachPasswordSubmit = () => {
+    if (coachPassword.trim() === storedCoachPassword.trim()) {
+      setCoachAuthenticated(true)
+      setShowCoachPasswordModal(false)
+      setCoachPassword('')
+      setIsCoachMode(true)
+    } else {
+      alert('Incorrect password. Please try again.')
+      setCoachPassword('')
+    }
+  }
+
+  const handleCoachPasswordCancel = () => {
+    setShowCoachPasswordModal(false)
+    setCoachPassword('')
+  }
+
   const getPlayersByLetter = (letter: string) => {
     if (!letter) return players
     return players.filter(player => 
@@ -405,7 +439,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               </h1>
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setIsCoachMode((v) => !v)}
+                  onClick={handleCoachToggle}
                   className={`${isCoachMode ? activeTheme.primaryButton : activeTheme.secondaryButton} text-white px-3 py-2 rounded-lg shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all duration-300 backdrop-blur-sm`}
                   title={isCoachMode ? 'Switch to Player Mode' : 'Switch to Coach Mode'}
                 >
@@ -450,7 +484,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               </div>
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => setIsCoachMode((v) => !v)}
+                  onClick={handleCoachToggle}
                   className={`relative ${isCoachMode ? activeTheme.primaryButton : activeTheme.secondaryButton} text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm`}
                   title={isCoachMode ? 'Switch to Player Mode' : 'Switch to Coach Mode'}
                 >
@@ -546,6 +580,45 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 </button>
                 <button
                   onClick={handlePlayerPasswordCancel}
+                  className={`flex-1 ${activeTheme.adminButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Coach Password Modal */}
+      {showCoachPasswordModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4`}>
+            <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`}></div>
+            <div className="relative">
+              <h3 className="text-2xl font-light text-white mb-2 text-center tracking-wide">Coach Access</h3>
+              <div className={`w-16 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-6`}></div>
+              <p className="text-base text-gray-300 mb-6 text-center tracking-wide">
+                Enter password to access Coach Mode
+              </p>
+              <input
+                type="password"
+                value={coachPassword}
+                onChange={(e) => setCoachPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCoachPasswordSubmit()}
+                className={`w-full px-4 py-4 rounded-xl backdrop-blur-sm text-base tracking-wide focus:outline-none ${activeTheme.inputField} mb-6`}
+                placeholder="Enter coach password..."
+                autoFocus
+              />
+              <div className="flex space-x-4">
+                <button
+                  onClick={handleCoachPasswordSubmit}
+                  className={`flex-1 ${activeTheme.primaryButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
+                >
+                  Enter Coach Mode
+                </button>
+                <button
+                  onClick={handleCoachPasswordCancel}
                   className={`flex-1 ${activeTheme.adminButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                 >
                   Cancel

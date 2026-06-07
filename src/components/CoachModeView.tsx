@@ -58,16 +58,16 @@ const RPE_IDLE_TINT: Record<number, string> = {
 }
 
 const RPE_LABELS: Record<number, string> = {
-  1: 'Rest',
-  2: 'Very Easy',
-  3: 'Easy',
-  4: 'Moderate',
-  5: 'Somewhat Hard',
-  6: 'Hard',
+  1: 'Very Light',
+  2: 'Light',
+  3: 'Moderate',
+  4: 'Somewhat Hard',
+  5: 'Hard',
+  6: 'Hard+',
   7: 'Very Hard',
   8: 'Very Hard+',
-  9: 'Near Max',
-  10: 'Max Effort',
+  9: 'Very Very Hard',
+  10: 'Maximal',
 }
 
 export default function CoachModeView({
@@ -451,34 +451,44 @@ export default function CoachModeView({
                   {/* Questions inline */}
                   <div className="flex flex-1 flex-wrap items-center gap-2.5 lg:gap-3">
                     {/* Scale / RPE questions — 1-10 buttons */}
-                    {scaleQuestions.map((q) => (
-                      <div key={q.id} className="flex flex-col gap-0.5">
-                        <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
-                          {q.text}
-                        </span>
-                        <div className="flex gap-0.5">
-                          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
-                            const selected = pd?.answers[q.id] === String(n)
-                            return (
-                              <button
-                                key={n}
-                                type="button"
-                                disabled={isSubmitted}
-                                onClick={() => setAnswer(player.id, q.id, String(n))}
-                                title={RPE_LABELS[n]}
-                                className={`relative h-7 w-6 sm:h-8 sm:w-7 rounded text-[11px] sm:text-xs font-bold transition-all border ${
-                                  selected
-                                    ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
-                                    : `${RPE_IDLE_TINT[n]} hover:brightness-150`
-                                } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                              >
-                                {n}
-                              </button>
-                            )
-                          })}
+                    {scaleQuestions.map((q) => {
+                      const selectedVal = pd?.answers[q.id] ? Number(pd.answers[q.id]) : null
+                      return (
+                        <div key={q.id} className="flex flex-col gap-0.5">
+                          <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
+                            {q.text}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex gap-0.5">
+                              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+                                const selected = selectedVal === n
+                                return (
+                                  <button
+                                    key={n}
+                                    type="button"
+                                    disabled={isSubmitted}
+                                    onClick={() => setAnswer(player.id, q.id, String(n))}
+                                    title={RPE_LABELS[n]}
+                                    className={`relative h-7 w-6 sm:h-8 sm:w-7 rounded text-[11px] sm:text-xs font-bold transition-all border ${
+                                      selected
+                                        ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
+                                        : `${RPE_IDLE_TINT[n]} hover:brightness-150`
+                                    } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                  >
+                                    {n}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            {selectedVal && RPE_LABELS[selectedVal] && (
+                              <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold text-white bg-gradient-to-br ${RPE_COLORS[selectedVal]} border whitespace-nowrap animate-in fade-in`}>
+                                {RPE_LABELS[selectedVal]}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
 
                     {/* Slider / Number questions (training duration) */}
                     {sliderQuestions.concat(textQuestions.filter((q) => q.type === 'NUMBER')).map((q) => (

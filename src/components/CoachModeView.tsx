@@ -104,6 +104,7 @@ export default function CoachModeView({
   })
 
   const [globalDuration, setGlobalDuration] = useState('60')
+  const [globalRpe, setGlobalRpe] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({})
   const [submitted, setSubmitted] = useState<Record<string, boolean>>(() => {
     const s: Record<string, boolean> = {}
@@ -114,6 +115,7 @@ export default function CoachModeView({
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [sortAsc, setSortAsc] = useState(true)
+  const [showConfirmAll, setShowConfirmAll] = useState(false)
 
   const [showBodyMap, setShowBodyMap] = useState(false)
   const [bodyMapPlayerId, setBodyMapPlayerId] = useState<string | null>(null)
@@ -164,6 +166,23 @@ export default function CoachModeView({
       return next
     })
   }, [globalDuration, survey.questions, submitted])
+
+  const applyGlobalRpe = useCallback(() => {
+    if (globalRpe === null) return
+    if (scaleQuestions.length === 0) return
+    setPlayerData((prev) => {
+      const next = { ...prev }
+      for (const pid of Object.keys(next)) {
+        if (submitted[pid]) continue
+        const answers = { ...next[pid].answers }
+        for (const sq of scaleQuestions) {
+          answers[sq.id] = String(globalRpe)
+        }
+        next[pid] = { ...next[pid], answers }
+      }
+      return next
+    })
+  }, [globalRpe, scaleQuestions, submitted])
 
   const openBodyMap = (playerId: string, questionId: string) => {
     setBodyMapPlayerId(playerId)
@@ -250,7 +269,12 @@ export default function CoachModeView({
     }
   }
 
-  const submitAll = async () => {
+  const confirmAndSubmitAll = () => {
+    setShowConfirmAll(true)
+  }
+
+  const executeSubmitAll = async () => {
+    setShowConfirmAll(false)
     const toSubmit = players.filter((p) => !submitted[p.id] && hasRequiredAnswers(p.id))
     for (const p of toSubmit) {
       await submitPlayer(p.id)
@@ -317,29 +341,63 @@ export default function CoachModeView({
             </div>
           </div>
 
-          {/* Global Duration */}
-          {(sliderQuestions.length > 0 || survey.questions.some((q) => q.type === 'NUMBER')) && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <Clock className="h-4 w-4 text-gray-400 shrink-0" />
-              <span className="text-sm text-gray-300 whitespace-nowrap">Duration:</span>
-              <input
-                type="number"
-                min={1}
-                max={300}
-                value={globalDuration}
-                onChange={(e) => setGlobalDuration(e.target.value)}
-                className={`w-20 px-2 py-1.5 rounded-lg text-center text-sm text-white ${activeTheme.inputField}`}
-              />
-              <span className="text-sm text-gray-400">min</span>
-              <button
-                type="button"
-                onClick={applyGlobalDuration}
-                className={`${activeTheme.primaryButton} text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-all backdrop-blur-sm`}
-              >
-                Apply to All
-              </button>
-            </div>
-          )}
+          {/* Global presets */}
+          <div className="flex flex-col gap-2 sm:items-end">
+            {/* Global RPE */}
+            {scaleQuestions.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs text-gray-300 whitespace-nowrap">RPE:</span>
+                <div className="flex gap-0.5">
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setGlobalRpe(n)}
+                      title={RPE_LABELS[n]}
+                      className={`h-7 w-6 rounded text-[11px] font-bold transition-all border ${
+                        globalRpe === n
+                          ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
+                          : `${RPE_IDLE_TINT[n]} hover:brightness-150 cursor-pointer`
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  disabled={globalRpe === null}
+                  onClick={applyGlobalRpe}
+                  className={`${globalRpe !== null ? activeTheme.primaryButton + ' text-white shadow' : 'bg-white/10 text-gray-500 cursor-not-allowed'} px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                >
+                  Apply to All
+                </button>
+              </div>
+            )}
+            {/* Global Duration */}
+            {(sliderQuestions.length > 0 || survey.questions.some((q) => q.type === 'NUMBER')) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Clock className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                <span className="text-xs text-gray-300 whitespace-nowrap">Duration:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={300}
+                  value={globalDuration}
+                  onChange={(e) => setGlobalDuration(e.target.value)}
+                  className={`w-16 px-2 py-1 rounded-lg text-center text-sm text-white ${activeTheme.inputField}`}
+                />
+                <span className="text-xs text-gray-400">min</span>
+                <button
+                  type="button"
+                  onClick={applyGlobalDuration}
+                  className={`${activeTheme.primaryButton} text-white px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                >
+                  Apply to All
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Player list */}
@@ -563,7 +621,7 @@ export default function CoachModeView({
           <button
             type="button"
             disabled={pendingWithData === 0}
-            onClick={submitAll}
+            onClick={confirmAndSubmitAll}
             className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
               pendingWithData > 0
                 ? `${activeTheme.primaryButton} text-white shadow-lg`
@@ -575,6 +633,40 @@ export default function CoachModeView({
           </button>
         </div>
       </div>
+
+      {/* Confirm Submit All Modal */}
+      {showConfirmAll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6`}>
+            <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`} />
+            <div className="relative">
+              <h3 className="text-xl font-semibold text-white mb-2">Confirm Submission</h3>
+              <div className={`w-12 h-0.5 ${activeTheme.accentLine} rounded-full mb-4`} />
+              <p className="text-sm text-gray-300 mb-6">
+                Submit survey data for{' '}
+                <span className="font-bold text-white">{pendingWithData} player{pendingWithData !== 1 ? 's' : ''}</span>?
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={executeSubmitAll}
+                  className={`flex-1 ${activeTheme.primaryButton} text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all`}
+                >
+                  Yes, Submit All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmAll(false)}
+                  className={`flex-1 ${activeTheme.adminButton} text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Body Map Portal */}
       {showBodyMap &&

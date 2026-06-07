@@ -480,11 +480,13 @@ export default function CoachModeView({
                                 )
                               })}
                             </div>
-                            {selectedVal && RPE_LABELS[selectedVal] && (
-                              <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold text-white bg-gradient-to-br ${RPE_COLORS[selectedVal]} border whitespace-nowrap animate-in fade-in`}>
-                                {RPE_LABELS[selectedVal]}
-                              </span>
-                            )}
+                            <span className="inline-flex w-[90px] shrink-0">
+                              {selectedVal && RPE_LABELS[selectedVal] && (
+                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold text-white bg-gradient-to-br ${RPE_COLORS[selectedVal]} border whitespace-nowrap`}>
+                                  {RPE_LABELS[selectedVal]}
+                                </span>
+                              )}
+                            </span>
                           </div>
                         </div>
                       )

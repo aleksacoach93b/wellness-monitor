@@ -66,10 +66,13 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           const kioskSettings = await kioskResponse.json()
           setKioskTheme(kioskSettings.theme ?? 'dark')
           setStoredCoachPassword(kioskSettings.coachPassword ?? '')
-          // Always show password prompt if password is set
+          // Show password prompt if password is set and not already authenticated this session
           if (kioskSettings.password && kioskSettings.password.trim() !== '') {
-            setShowKioskPassword(true)
-            return
+            const alreadyAuthed = typeof window !== 'undefined' && sessionStorage.getItem(`kiosk-auth-${surveyId}`) === 'true'
+            if (!alreadyAuthed) {
+              setShowKioskPassword(true)
+              return
+            }
           }
         }
         
@@ -164,7 +167,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
   const handleKioskPasswordCorrect = () => {
     setShowKioskPassword(false)
-    // Fetch data after password is correct
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`kiosk-auth-${surveyId}`, 'true')
+    }
     fetchData()
   }
 

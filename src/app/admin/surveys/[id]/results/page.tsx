@@ -41,6 +41,7 @@ export default async function SurveyResultsPage({ params }: SurveyResultsPagePro
     select: { id: true }
   })
   const validPlayerIds = Array.from(new Set(validPlayers.map(p => p.id)))
+  const validQuestionIds = survey.questions.map(q => q.id)
 
   const displayResponses = await prisma.response.findMany({
     where: {
@@ -50,6 +51,9 @@ export default async function SurveyResultsPage({ params }: SurveyResultsPagePro
     take: RESULTS_PAGE_RESPONSE_LIMIT,
     include: {
       answers: {
+        where: {
+          questionId: { in: validQuestionIds },
+        },
         include: {
           question: true,
         },

@@ -20,22 +20,12 @@ interface SurveyResultsPageProps {
 
 export default async function SurveyResultsPage({ params }: SurveyResultsPageProps) {
   const { id } = await params
+
   const survey = await prisma.survey.findUnique({
     where: { id },
     include: {
       questions: {
         orderBy: { order: 'asc' }
-      },
-      responses: {
-        take: RESULTS_PAGE_RESPONSE_LIMIT,
-        include: {
-          answers: {
-            include: {
-              question: true,
-            },
-          },
-        },
-        orderBy: { submittedAt: 'desc' },
       },
       _count: {
         select: { responses: true },
@@ -47,20 +37,29 @@ export default async function SurveyResultsPage({ params }: SurveyResultsPagePro
     notFound()
   }
 
-  // Get all valid player IDs to filter responses
-  const players = await prisma.player.findMany({
+  const validPlayers = await prisma.player.findMany({
     select: { id: true }
   })
-  const validPlayerIds = new Set(players.map(p => p.id))
-  
-  // Filter responses to only include players that exist in the players table
-  const filteredResponses = survey.responses.filter(response => 
-    response.playerId && validPlayerIds.has(response.playerId)
-  )
-  
-  survey.responses = filteredResponses
+  const validPlayerIds = Array.from(new Set(validPlayers.map(p => p.id)))
+
+  const displayResponses = await prisma.response.findMany({
+    where: {
+      surveyId: id,
+      playerId: { in: validPlayerIds },
+    },
+    take: RESULTS_PAGE_RESPONSE_LIMIT,
+    include: {
+      answers: {
+        include: {
+          question: true,
+        },
+      },
+    },
+    orderBy: { submittedAt: 'desc' },
+  })
 
   const totalResponseCount = survey._count.responses
+
   const trimmedForUi = totalResponseCount > RESULTS_PAGE_RESPONSE_LIMIT
 
   return (
@@ -118,7 +117,7 @@ export default async function SurveyResultsPage({ params }: SurveyResultsPagePro
               Za kompletan istorijat koristi CSV / Power BI link iznad (obuhvata sve zapise iz baze).
             </div>
           ) : null}
-          <ResultsTable responses={survey.responses} />
+          <ResultsTable responses={displayResponses} />
         </div>
       </div>
     </div>

@@ -116,6 +116,7 @@ export default function CoachModeView({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [sortAsc, setSortAsc] = useState(true)
   const [showConfirmAll, setShowConfirmAll] = useState(false)
+  const [selectedLetter, setSelectedLetter] = useState('')
 
   const [showBodyMap, setShowBodyMap] = useState(false)
   const [bodyMapPlayerId, setBodyMapPlayerId] = useState<string | null>(null)
@@ -123,15 +124,19 @@ export default function CoachModeView({
   const [bodyMapView, setBodyMapView] = useState<'front' | 'back'>('front')
 
   const sortedPlayers = useMemo(() => {
-    const sorted = [...players].sort((a, b) => {
+    let list = [...players]
+    if (selectedLetter) {
+      list = list.filter((p) => p.lastName.toUpperCase().startsWith(selectedLetter))
+    }
+    list.sort((a, b) => {
       const aSubmitted = submitted[a.id] ? 1 : 0
       const bSubmitted = submitted[b.id] ? 1 : 0
       if (aSubmitted !== bSubmitted) return aSubmitted - bSubmitted
       const cmp = a.lastName.localeCompare(b.lastName, undefined, { sensitivity: 'base' })
       return sortAsc ? cmp : -cmp
     })
-    return sorted
-  }, [players, submitted, sortAsc])
+    return list
+  }, [players, submitted, sortAsc, selectedLetter])
 
   const setAnswer = useCallback(
     (playerId: string, questionId: string, value: string) => {
@@ -398,6 +403,41 @@ export default function CoachModeView({
               </div>
             )}
           </div>
+        </div>
+
+        {/* Alphabet filter */}
+        <div className="flex flex-wrap gap-1 sm:gap-1.5 mb-3">
+          <button
+            type="button"
+            onClick={() => setSelectedLetter('')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              !selectedLetter
+                ? `${activeTheme.primaryButton} text-white shadow`
+                : 'bg-white/10 border border-white/15 text-gray-300 hover:bg-white/20'
+            }`}
+          >
+            All
+          </button>
+          {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letter) => {
+            const hasPlayers = players.some((p) => p.lastName.toUpperCase().startsWith(letter))
+            return (
+              <button
+                key={letter}
+                type="button"
+                disabled={!hasPlayers}
+                onClick={() => setSelectedLetter(letter)}
+                className={`px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  selectedLetter === letter
+                    ? `${activeTheme.primaryButton} text-white shadow`
+                    : hasPlayers
+                    ? 'bg-white/10 border border-white/15 text-gray-300 hover:bg-white/20'
+                    : 'bg-white/5 border border-white/5 text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                {letter}
+              </button>
+            )
+          })}
         </div>
 
         {/* Player list */}

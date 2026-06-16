@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
-const kioskThemeSchema = z.enum(['dark', 'light', 'red', 'green'])
+const kioskThemeSchema = z.enum(['dark', 'light', 'red', 'green', 'sky', 'graphite', 'sand', 'violet'])
 
 const updateKioskSettingsSchema = z.object({
   password: z.string(),

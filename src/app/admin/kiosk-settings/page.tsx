@@ -14,7 +14,7 @@ interface KioskSettings {
   updatedAt: string
 }
 
-type KioskTheme = 'dark' | 'light' | 'red' | 'green'
+type KioskTheme = 'dark' | 'light' | 'red' | 'green' | 'sky' | 'graphite' | 'sand' | 'violet'
 
 const themeOptions: Array<{
   value: KioskTheme
@@ -45,6 +45,30 @@ const themeOptions: Array<{
     label: 'Green Focus',
     description: 'Emerald palette with calm highlights',
     preview: 'bg-gradient-to-br from-emerald-900 via-emerald-800 to-emerald-900'
+  },
+  {
+    value: 'sky',
+    label: 'Sky Blue',
+    description: 'Bright sky & cyan accents on a deep blue base',
+    preview: 'bg-gradient-to-br from-sky-700 via-blue-900 to-slate-900'
+  },
+  {
+    value: 'graphite',
+    label: 'Graphite',
+    description: 'Dark neutral gray with crisp light accents',
+    preview: 'bg-gradient-to-br from-zinc-800 via-neutral-900 to-zinc-950'
+  },
+  {
+    value: 'sand',
+    label: 'Sand Light',
+    description: 'Warm light neutral with soft amber glow',
+    preview: 'bg-gradient-to-br from-stone-500 via-stone-400 to-stone-500'
+  },
+  {
+    value: 'violet',
+    label: 'Violet Night',
+    description: 'Rich violet & fuchsia with electric highlights',
+    preview: 'bg-gradient-to-br from-violet-900 via-purple-900 to-fuchsia-900'
   },
 ]
 

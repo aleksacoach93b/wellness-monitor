@@ -348,6 +348,10 @@ export function surveyThemeFromKiosk(kioskTheme: KioskTheme): SurveyAppearanceTh
   if (kioskTheme === 'dark') return 'dark'
   if (kioskTheme === 'red') return 'rose'
   if (kioskTheme === 'light') return 'soft'
+  if (kioskTheme === 'sky') return 'dark'
+  if (kioskTheme === 'graphite') return 'high'
+  if (kioskTheme === 'sand') return 'soft'
+  if (kioskTheme === 'violet') return 'dark'
   return null
 }
 

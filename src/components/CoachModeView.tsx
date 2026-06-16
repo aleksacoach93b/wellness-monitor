@@ -679,7 +679,7 @@ export default function CoachModeView({
             key={col.id}
             className={`min-w-0 ${
               col.id === 'player'
-                ? `sticky left-0 z-10 self-stretch flex items-center ${activeTheme.rosterStickyBg} backdrop-blur-md rounded-l-lg pr-2`
+                ? `sticky left-0 z-10 self-stretch flex items-center ${activeTheme.rosterStickyFade} backdrop-blur-md rounded-l-lg pr-3`
                 : 'relative z-[1]'
             }`}
           >

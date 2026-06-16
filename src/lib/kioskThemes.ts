@@ -30,6 +30,8 @@ interface ThemeClasses {
   emptyStateCard: string
   /** Opaque background used behind sticky roster header / first column */
   rosterStickyBg: string
+  /** Soft, reduced-intensity gradient for the sticky name column that fades into the row */
+  rosterStickyFade: string
 }
 
 const shared = {
@@ -76,6 +78,8 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
       'bg-gradient-to-br from-blue-600/50 to-slate-800/75 text-white shadow-2xl border-slate-500/55 group-hover:border-blue-400/65',
     emptyStateCard: 'bg-slate-700/60 border border-slate-600/50',
     rosterStickyBg: 'bg-slate-900/95',
+    rosterStickyFade:
+      'bg-gradient-to-r from-slate-900/55 from-55% via-slate-900/30 via-80% to-transparent shadow-[10px_0_22px_-14px_rgba(56,189,248,0.45)]',
   },
   light: {
     rootBackground: 'bg-gradient-to-br from-slate-700 via-slate-600 to-slate-700',
@@ -114,6 +118,8 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
       'bg-gradient-to-br from-slate-500/55 to-slate-700/80 text-white shadow-2xl border-slate-400/45 group-hover:border-white/45',
     emptyStateCard: 'bg-slate-700/60 border border-slate-500/40',
     rosterStickyBg: 'bg-slate-700/95',
+    rosterStickyFade:
+      'bg-gradient-to-r from-slate-700/55 from-55% via-slate-700/30 via-80% to-transparent shadow-[10px_0_22px_-14px_rgba(255,255,255,0.35)]',
   },
   red: {
     rootBackground: 'bg-gradient-to-br from-rose-950 via-rose-900 to-rose-950',
@@ -152,6 +158,8 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
       'bg-gradient-to-br from-rose-700/55 to-rose-950/85 text-rose-50 shadow-2xl border-rose-600/45 group-hover:border-orange-400/55',
     emptyStateCard: 'bg-rose-950/60 border border-rose-900/50',
     rosterStickyBg: 'bg-rose-950/95',
+    rosterStickyFade:
+      'bg-gradient-to-r from-rose-950/55 from-55% via-rose-950/30 via-80% to-transparent shadow-[10px_0_22px_-14px_rgba(251,146,60,0.4)]',
   },
   green: {
     rootBackground: 'bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-950',
@@ -190,6 +198,8 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
       'bg-gradient-to-br from-emerald-600/50 to-emerald-950/85 text-emerald-50 shadow-2xl border-emerald-500/45 group-hover:border-teal-300/55',
     emptyStateCard: 'bg-emerald-950/60 border border-emerald-900/50',
     rosterStickyBg: 'bg-emerald-950/95',
+    rosterStickyFade:
+      'bg-gradient-to-r from-emerald-950/55 from-55% via-emerald-950/30 via-80% to-transparent shadow-[10px_0_22px_-14px_rgba(45,212,191,0.4)]',
   },
 }
 

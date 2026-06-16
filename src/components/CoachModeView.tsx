@@ -370,7 +370,7 @@ export default function CoachModeView({
     {
       id: 'player',
       label: 'Player',
-      width: '188px',
+      width: '208px',
       cell: (player) => {
         const pd = playerData[player.id]
         const error = errors[player.id]
@@ -379,28 +379,28 @@ export default function CoachModeView({
             ? Number(pd.answers[scaleQuestions[0].id])
             : null
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <span
-              className={`h-8 w-1 shrink-0 rounded-full ${primaryRpe ? RPE_ACCENT[primaryRpe] : 'bg-white/10'}`}
+              className={`h-10 w-1.5 shrink-0 rounded-full ${primaryRpe ? RPE_ACCENT[primaryRpe] : 'bg-white/10'}`}
               aria-hidden
             />
             {player.image ? (
               <Image
                 src={player.image}
                 alt={`${player.firstName} ${player.lastName}`}
-                width={32}
-                height={32}
-                className="h-8 w-8 rounded-full border border-white/20 object-cover shadow"
+                width={40}
+                height={40}
+                className="h-10 w-10 rounded-full border border-white/20 object-cover shadow"
               />
             ) : (
-              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
-                <span className="text-[11px] font-bold" aria-hidden>
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
+                <span className="text-sm font-bold" aria-hidden>
                   {(player.firstName?.[0] ?? '').toLocaleUpperCase()}
                 </span>
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-[13px] font-semibold text-white truncate leading-tight">
+              <p className="text-sm font-semibold text-white truncate leading-tight">
                 {player.firstName} <span className="font-bold">{player.lastName}</span>
               </p>
               {error && (
@@ -413,56 +413,10 @@ export default function CoachModeView({
         )
       },
     },
-    ...(showSession
-      ? [{
-          id: 'session',
-          label: 'Session',
-          width: '108px',
-          cell: (player: PlayerWithStatus) => {
-            const isSubmitted = submitted[player.id]
-            return (
-              <select
-                disabled={isSubmitted}
-                value={sessions[player.id] ?? ''}
-                onChange={(e) => setSessions((prev) => ({ ...prev, [player.id]: e.target.value }))}
-                className={`h-8 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
-              >
-                <option value="">—</option>
-                {sessionTags.map((t) => (
-                  <option key={t} value={t} className="text-black">{t}</option>
-                ))}
-              </select>
-            )
-          },
-        }]
-      : []),
-    ...(showMatchDay
-      ? [{
-          id: 'matchday',
-          label: 'Match Day',
-          width: '108px',
-          cell: (player: PlayerWithStatus) => {
-            const isSubmitted = submitted[player.id]
-            return (
-              <select
-                disabled={isSubmitted}
-                value={matchDays[player.id] ?? ''}
-                onChange={(e) => setMatchDays((prev) => ({ ...prev, [player.id]: e.target.value }))}
-                className={`h-8 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
-              >
-                <option value="">—</option>
-                {matchDayTags.map((t) => (
-                  <option key={t} value={t} className="text-black">{t}</option>
-                ))}
-              </select>
-            )
-          },
-        }]
-      : []),
     ...scaleQuestions.map((q) => ({
       id: q.id,
       label: q.text,
-      width: '356px',
+      width: '404px',
       cell: (player: PlayerWithStatus) => {
         const pd = playerData[player.id]
         const isSubmitted = submitted[player.id]
@@ -479,7 +433,7 @@ export default function CoachModeView({
                     disabled={isSubmitted}
                     onClick={() => setAnswer(player.id, q.id, String(n))}
                     title={RPE_LABELS[n]}
-                    className={`relative h-7 w-6 rounded text-[11px] font-bold transition-all border ${
+                    className={`relative h-9 w-7 rounded-md text-xs font-bold transition-all border ${
                       selected
                         ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
                         : `${RPE_IDLE_TINT[n]} hover:brightness-150`
@@ -503,8 +457,8 @@ export default function CoachModeView({
     })),
     ...durationQuestionsForGrid.map((q) => ({
       id: q.id,
-      label: q.text,
-      width: '92px',
+      label: 'Duration',
+      width: '104px',
       cell: (player: PlayerWithStatus) => {
         const pd = playerData[player.id]
         const isSubmitted = submitted[player.id]
@@ -516,7 +470,7 @@ export default function CoachModeView({
             disabled={isSubmitted}
             value={pd?.answers[q.id] ?? ''}
             onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
-            className={`h-8 w-16 px-1.5 rounded-lg text-center text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+            className={`h-9 w-16 px-1.5 rounded-lg text-center text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
           />
         )
       },
@@ -565,7 +519,7 @@ export default function CoachModeView({
             type="button"
             disabled={isSubmitted}
             onClick={() => openBodyMap(player.id, q.id)}
-            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all border ${
+            className={`px-3 py-2 rounded-lg text-[11px] font-semibold transition-all border ${
               areaCount > 0
                 ? 'bg-orange-500/80 border-orange-400/60 text-white'
                 : 'bg-white/10 border-white/15 text-gray-300 hover:bg-white/20'
@@ -589,15 +543,61 @@ export default function CoachModeView({
             disabled={isSubmitted}
             value={pd?.answers[q.id] ?? ''}
             onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
-            className={`h-8 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+            className={`h-9 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
           />
         )
       },
     })),
+    ...(showSession
+      ? [{
+          id: 'session',
+          label: 'Session',
+          width: '116px',
+          cell: (player: PlayerWithStatus) => {
+            const isSubmitted = submitted[player.id]
+            return (
+              <select
+                disabled={isSubmitted}
+                value={sessions[player.id] ?? ''}
+                onChange={(e) => setSessions((prev) => ({ ...prev, [player.id]: e.target.value }))}
+                className={`h-9 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+              >
+                <option value="">—</option>
+                {sessionTags.map((t) => (
+                  <option key={t} value={t} className="text-black">{t}</option>
+                ))}
+              </select>
+            )
+          },
+        }]
+      : []),
+    ...(showMatchDay
+      ? [{
+          id: 'matchday',
+          label: 'Match Day',
+          width: '116px',
+          cell: (player: PlayerWithStatus) => {
+            const isSubmitted = submitted[player.id]
+            return (
+              <select
+                disabled={isSubmitted}
+                value={matchDays[player.id] ?? ''}
+                onChange={(e) => setMatchDays((prev) => ({ ...prev, [player.id]: e.target.value }))}
+                className={`h-9 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+              >
+                <option value="">—</option>
+                {matchDayTags.map((t) => (
+                  <option key={t} value={t} className="text-black">{t}</option>
+                ))}
+              </select>
+            )
+          },
+        }]
+      : []),
     {
       id: 'action',
-      label: 'Status',
-      width: '128px',
+      label: '',
+      width: '132px',
       cell: (player) => {
         const isSubmitted = submitted[player.id]
         const isSubmitting = submitting[player.id]
@@ -823,7 +823,7 @@ export default function CoachModeView({
           <div className="min-w-max">
             {/* Column header */}
             <div
-              className="grid items-end gap-x-2 px-2 pb-2"
+              className="grid items-end gap-x-3 px-2.5 pb-2"
               style={{ gridTemplateColumns: gridTemplate }}
             >
               {gridColumns.map((col) => (
@@ -838,13 +838,13 @@ export default function CoachModeView({
             </div>
 
             {/* Player rows */}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {sortedPlayers.map((player) => {
                 const isSubmitted = submitted[player.id]
                 return (
                   <div
                     key={player.id}
-                    className={`grid items-center gap-x-2 rounded-xl border px-2 py-1.5 backdrop-blur-xl transition-all duration-200 ${
+                    className={`grid items-center gap-x-3 rounded-xl border px-2.5 py-3 backdrop-blur-xl transition-all duration-200 ${
                       isSubmitted ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
                     } ${isSubmitted ? 'opacity-60' : 'hover:brightness-125 hover:border-white/25'}`}
                     style={{ gridTemplateColumns: gridTemplate }}

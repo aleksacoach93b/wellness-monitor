@@ -444,7 +444,7 @@ export default function CoachModeView({
                 <select
                   value={globalSession}
                   onChange={(e) => setGlobalSession(e.target.value)}
-                  className={`px-2 py-1 rounded-lg text-sm text-white ${activeTheme.inputField}`}
+                  className={`h-7 px-2 py-0.5 rounded-lg text-xs text-white ${activeTheme.inputField}`}
                 >
                   <option value="">—</option>
                   {sessionTags.map((t) => (
@@ -469,7 +469,7 @@ export default function CoachModeView({
                 <select
                   value={globalMatchDay}
                   onChange={(e) => setGlobalMatchDay(e.target.value)}
-                  className={`px-2 py-1 rounded-lg text-sm text-white ${activeTheme.inputField}`}
+                  className={`h-7 px-2 py-0.5 rounded-lg text-xs text-white ${activeTheme.inputField}`}
                 >
                   <option value="">—</option>
                   {matchDayTags.map((t) => (
@@ -533,6 +533,30 @@ export default function CoachModeView({
             const isSubmitting = submitting[player.id]
             const error = errors[player.id]
 
+            const actions = isSubmitted ? (
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-green-500/90 to-emerald-500/90 shadow-lg border border-green-400/40">
+                <CheckCircle className="h-4 w-4 text-white" />
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={isSubmitting || !hasRequiredAnswers(player.id)}
+                onClick={() => submitPlayer(player.id)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                  hasRequiredAnswers(player.id)
+                    ? `${activeTheme.primaryButton} text-white shadow-lg`
+                    : 'bg-white/10 border border-white/15 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {isSubmitting ? (
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+                {isSubmitting ? 'Saving…' : 'Submit'}
+              </button>
+            )
+
             return (
               <div
                 key={player.id}
@@ -542,26 +566,26 @@ export default function CoachModeView({
                     : activeTheme.playerCardIdle
                 } ${isSubmitted ? 'opacity-60' : 'hover:brightness-125 hover:border-white/25'}`}
               >
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
+                <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-4">
                   {/* Player info */}
-                  <div className="flex items-center gap-2.5 lg:w-44 lg:shrink-0">
+                  <div className="flex items-center gap-2 lg:w-40 lg:shrink-0">
                     {player.image ? (
                       <Image
                         src={player.image}
                         alt={`${player.firstName} ${player.lastName}`}
-                        width={36}
-                        height={36}
-                        className="h-9 w-9 rounded-full border border-white/20 object-cover shadow"
+                        width={32}
+                        height={32}
+                        className="h-8 w-8 rounded-full border border-white/20 object-cover shadow"
                       />
                     ) : (
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
-                        <span className="text-xs font-bold" aria-hidden>
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
+                        <span className="text-[11px] font-bold" aria-hidden>
                           {(player.firstName?.[0] ?? '').toLocaleUpperCase()}
                         </span>
                       </div>
                     )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate leading-tight">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-semibold text-white truncate leading-tight">
                         {player.firstName}{' '}
                         <span className="font-bold">{player.lastName}</span>
                       </p>
@@ -571,10 +595,12 @@ export default function CoachModeView({
                         </span>
                       )}
                     </div>
+                    {/* Submit/Done top-right on stacked layouts */}
+                    <div className="lg:hidden">{actions}</div>
                   </div>
 
                   {/* Questions inline */}
-                  <div className="flex flex-1 flex-wrap items-center gap-2.5 lg:gap-3">
+                  <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 lg:gap-3">
                     {/* Session Type override */}
                     {showSession && (
                       <div className="flex flex-col gap-0.5">
@@ -585,7 +611,7 @@ export default function CoachModeView({
                           onChange={(e) =>
                             setSessions((prev) => ({ ...prev, [player.id]: e.target.value }))
                           }
-                          className={`px-1.5 py-1 rounded-lg text-sm text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+                          className={`h-7 w-24 px-1.5 py-0.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
                         >
                           <option value="">—</option>
                           {sessionTags.map((t) => (
@@ -607,7 +633,7 @@ export default function CoachModeView({
                           onChange={(e) =>
                             setMatchDays((prev) => ({ ...prev, [player.id]: e.target.value }))
                           }
-                          className={`px-1.5 py-1 rounded-lg text-sm text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+                          className={`h-7 w-24 px-1.5 py-0.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
                         >
                           <option value="">—</option>
                           {matchDayTags.map((t) => (
@@ -674,7 +700,7 @@ export default function CoachModeView({
                           disabled={isSubmitted}
                           value={pd?.answers[q.id] ?? ''}
                           onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
-                          className={`w-16 px-1.5 py-1 rounded-lg text-center text-sm text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+                          className={`h-7 w-14 px-1.5 py-0.5 rounded-lg text-center text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
                         />
                       </div>
                     ))}
@@ -745,37 +771,15 @@ export default function CoachModeView({
                             disabled={isSubmitted}
                             value={pd?.answers[q.id] ?? ''}
                             onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
-                            className={`w-24 px-1.5 py-1 rounded-lg text-sm text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+                            className={`h-7 w-24 px-1.5 py-0.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
                           />
                         </div>
                       ))}
                   </div>
 
-                  {/* Done indicator / Submit */}
-                  <div className="flex items-center gap-2 lg:shrink-0">
-                    {isSubmitted ? (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-green-500/90 to-emerald-500/90 shadow-lg border border-green-400/40">
-                        <CheckCircle className="h-4.5 w-4.5 text-white" />
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={isSubmitting || !hasRequiredAnswers(player.id)}
-                        onClick={() => submitPlayer(player.id)}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                          hasRequiredAnswers(player.id)
-                            ? `${activeTheme.primaryButton} text-white shadow-lg`
-                            : 'bg-white/10 border border-white/15 text-gray-500 cursor-not-allowed'
-                        }`}
-                      >
-                        {isSubmitting ? (
-                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                        ) : (
-                          <Send className="h-3.5 w-3.5" />
-                        )}
-                        {isSubmitting ? 'Saving…' : 'Submit'}
-                      </button>
-                    )}
+                  {/* Done indicator / Submit (desktop / wide screens) */}
+                  <div className="hidden items-center gap-2 lg:flex lg:shrink-0">
+                    {actions}
                   </div>
                 </div>
               </div>

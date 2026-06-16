@@ -28,6 +28,8 @@ interface ThemeClasses {
   /** Placeholder avatar (no photo): initial letter circle */
   playerAvatarInitial: string
   emptyStateCard: string
+  /** Opaque background used behind sticky roster header / first column */
+  rosterStickyBg: string
 }
 
 const shared = {
@@ -73,6 +75,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     playerAvatarInitial:
       'bg-gradient-to-br from-blue-600/50 to-slate-800/75 text-white shadow-2xl border-slate-500/55 group-hover:border-blue-400/65',
     emptyStateCard: 'bg-slate-700/60 border border-slate-600/50',
+    rosterStickyBg: 'bg-slate-900/95',
   },
   light: {
     rootBackground: 'bg-gradient-to-br from-slate-700 via-slate-600 to-slate-700',
@@ -110,6 +113,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     playerAvatarInitial:
       'bg-gradient-to-br from-slate-500/55 to-slate-700/80 text-white shadow-2xl border-slate-400/45 group-hover:border-white/45',
     emptyStateCard: 'bg-slate-700/60 border border-slate-500/40',
+    rosterStickyBg: 'bg-slate-700/95',
   },
   red: {
     rootBackground: 'bg-gradient-to-br from-rose-950 via-rose-900 to-rose-950',
@@ -147,6 +151,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     playerAvatarInitial:
       'bg-gradient-to-br from-rose-700/55 to-rose-950/85 text-rose-50 shadow-2xl border-rose-600/45 group-hover:border-orange-400/55',
     emptyStateCard: 'bg-rose-950/60 border border-rose-900/50',
+    rosterStickyBg: 'bg-rose-950/95',
   },
   green: {
     rootBackground: 'bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-950',
@@ -184,6 +189,7 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     playerAvatarInitial:
       'bg-gradient-to-br from-emerald-600/50 to-emerald-950/85 text-emerald-50 shadow-2xl border-emerald-500/45 group-hover:border-teal-300/55',
     emptyStateCard: 'bg-emerald-950/60 border border-emerald-900/50',
+    rosterStickyBg: 'bg-emerald-950/95',
   },
 }
 

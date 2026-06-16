@@ -86,6 +86,20 @@ const RPE_ACCENT: Record<number, string> = {
   10: 'bg-red-700',
 }
 
+// Subtle full-row tint overlay per RPE value (green -> red)
+const RPE_ROW_OVERLAY: Record<number, string> = {
+  1: 'bg-green-500/10',
+  2: 'bg-green-500/10',
+  3: 'bg-lime-500/10',
+  4: 'bg-yellow-500/10',
+  5: 'bg-amber-500/12',
+  6: 'bg-orange-500/12',
+  7: 'bg-orange-500/16',
+  8: 'bg-red-500/14',
+  9: 'bg-red-500/18',
+  10: 'bg-red-600/20',
+}
+
 export default function CoachModeView({
   survey,
   players,
@@ -142,6 +156,7 @@ export default function CoachModeView({
   const [sortAsc, setSortAsc] = useState(true)
   const [showConfirmAll, setShowConfirmAll] = useState(false)
   const [selectedLetter, setSelectedLetter] = useState('')
+  const [query, setQuery] = useState('')
 
   const [showBodyMap, setShowBodyMap] = useState(false)
   const [bodyMapPlayerId, setBodyMapPlayerId] = useState<string | null>(null)
@@ -153,6 +168,12 @@ export default function CoachModeView({
     if (selectedLetter) {
       list = list.filter((p) => p.lastName.toUpperCase().startsWith(selectedLetter))
     }
+    const q = query.trim().toLowerCase()
+    if (q) {
+      list = list.filter((p) =>
+        `${p.firstName} ${p.lastName}`.toLowerCase().includes(q)
+      )
+    }
     list.sort((a, b) => {
       const aSubmitted = submitted[a.id] ? 1 : 0
       const bSubmitted = submitted[b.id] ? 1 : 0
@@ -161,7 +182,7 @@ export default function CoachModeView({
       return sortAsc ? cmp : -cmp
     })
     return list
-  }, [players, submitted, sortAsc, selectedLetter])
+  }, [players, submitted, sortAsc, selectedLetter, query])
 
   const setAnswer = useCallback(
     (playerId: string, questionId: string, value: string) => {
@@ -370,7 +391,7 @@ export default function CoachModeView({
     {
       id: 'player',
       label: 'Player',
-      width: '208px',
+      width: '224px',
       cell: (player) => {
         const pd = playerData[player.id]
         const error = errors[player.id]
@@ -381,20 +402,20 @@ export default function CoachModeView({
         return (
           <div className="flex items-center gap-2.5">
             <span
-              className={`h-10 w-1.5 shrink-0 rounded-full ${primaryRpe ? RPE_ACCENT[primaryRpe] : 'bg-white/10'}`}
+              className={`h-14 w-1.5 shrink-0 rounded-full ${primaryRpe ? RPE_ACCENT[primaryRpe] : 'bg-white/10'}`}
               aria-hidden
             />
             {player.image ? (
               <Image
                 src={player.image}
                 alt={`${player.firstName} ${player.lastName}`}
-                width={40}
-                height={40}
-                className="h-10 w-10 rounded-full border border-white/20 object-cover shadow"
+                width={56}
+                height={56}
+                className="h-14 w-14 rounded-full border border-white/20 object-cover shadow"
               />
             ) : (
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
-                <span className="text-sm font-bold" aria-hidden>
+              <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
+                <span className="text-lg font-bold" aria-hidden>
                   {(player.firstName?.[0] ?? '').toLocaleUpperCase()}
                 </span>
               </div>
@@ -416,7 +437,7 @@ export default function CoachModeView({
     ...scaleQuestions.map((q) => ({
       id: q.id,
       label: q.text,
-      width: '404px',
+      width: '452px',
       cell: (player: PlayerWithStatus) => {
         const pd = playerData[player.id]
         const isSubmitted = submitted[player.id]
@@ -433,9 +454,9 @@ export default function CoachModeView({
                     disabled={isSubmitted}
                     onClick={() => setAnswer(player.id, q.id, String(n))}
                     title={RPE_LABELS[n]}
-                    className={`relative h-9 w-7 rounded-md text-xs font-bold transition-all border ${
+                    className={`relative h-10 w-8 rounded-md text-sm font-bold transition-all border ${
                       selected
-                        ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
+                        ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10 ring-2 ring-white/50`
                         : `${RPE_IDLE_TINT[n]} hover:brightness-150`
                     } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                   >
@@ -633,6 +654,43 @@ export default function CoachModeView({
 
   const gridTemplate = gridColumns.map((c) => c.width).join(' ')
 
+  const pendingPlayers = sortedPlayers.filter((p) => !submitted[p.id])
+  const donePlayers = sortedPlayers.filter((p) => submitted[p.id])
+
+  const renderRosterRow = (player: PlayerWithStatus) => {
+    const isSubmitted = submitted[player.id]
+    const pd = playerData[player.id]
+    const primaryRpe =
+      scaleQuestions[0] && pd?.answers[scaleQuestions[0].id]
+        ? Number(pd.answers[scaleQuestions[0].id])
+        : null
+    return (
+      <div
+        key={player.id}
+        className={`relative grid min-h-[100px] items-center gap-x-3 rounded-xl border px-2.5 py-3 backdrop-blur-xl transition-all duration-200 ${
+          isSubmitted ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
+        } ${isSubmitted ? 'opacity-60' : 'hover:brightness-125 hover:border-white/25'}`}
+        style={{ gridTemplateColumns: gridTemplate }}
+      >
+        {!isSubmitted && primaryRpe && RPE_ROW_OVERLAY[primaryRpe] && (
+          <span className={`pointer-events-none absolute inset-0 rounded-xl ${RPE_ROW_OVERLAY[primaryRpe]}`} aria-hidden />
+        )}
+        {gridColumns.map((col) => (
+          <div
+            key={col.id}
+            className={`min-w-0 ${
+              col.id === 'player'
+                ? `sticky left-0 z-10 self-stretch flex items-center ${activeTheme.rosterStickyBg} backdrop-blur-md rounded-l-lg pr-2`
+                : 'relative z-[1]'
+            }`}
+          >
+            {col.cell(player)}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="relative max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
@@ -650,6 +708,27 @@ export default function CoachModeView({
               <h2 className="text-lg sm:text-2xl font-semibold text-white tracking-wide">
                 Coach Mode
               </h2>
+              {/* Progress ring */}
+              <div className="relative h-12 w-12 shrink-0" title={`${completedCount} of ${totalCount} submitted`}>
+                <svg className="h-12 w-12 -rotate-90" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="4" className="text-white/10" />
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r="18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    className="text-emerald-400 transition-all duration-500"
+                    strokeDasharray={2 * Math.PI * 18}
+                    strokeDashoffset={(2 * Math.PI * 18) * (1 - progressPct / 100)}
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">
+                  {Math.round(progressPct)}%
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() => setSortAsc((v) => !v)}
@@ -660,17 +739,8 @@ export default function CoachModeView({
                 {sortAsc ? 'A–Z' : 'Z–A'}
               </button>
             </div>
-            {/* Progress bar */}
-            <div className="mt-2 flex items-center gap-2.5">
-              <div className="h-1.5 flex-1 max-w-[180px] rounded-full bg-white/10 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-500 transition-all duration-500"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <span className="text-xs text-gray-400">
-                <span className="font-semibold text-white">{completedCount}</span>/{totalCount}
-              </span>
+            <div className="mt-1.5 text-xs text-gray-400">
+              <span className="font-semibold text-white">{completedCount}</span>/{totalCount} submitted
             </div>
           </div>
 
@@ -783,8 +853,28 @@ export default function CoachModeView({
           </div>
         </div>
 
-        {/* Alphabet filter */}
-        <div className="flex flex-wrap gap-1 sm:gap-1.5 mb-3">
+        {/* Search + alphabet filter */}
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative sm:w-64 shrink-0">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search player…"
+              className={`w-full pl-3 pr-8 py-1.5 rounded-lg text-sm text-white ${activeTheme.inputField}`}
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-sm"
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        <div className="flex flex-wrap gap-1 sm:gap-1.5">
           <button
             type="button"
             onClick={() => setSelectedLetter('')}
@@ -817,19 +907,22 @@ export default function CoachModeView({
             )
           })}
         </div>
+        </div>
 
         {/* Roster grid */}
-        <div className="overflow-x-auto -mx-3 px-3 pb-2 sm:mx-0 sm:px-0">
-          <div className="min-w-max">
-            {/* Column header */}
+        <div className={`-mx-3 sm:mx-0 overflow-auto max-h-[72vh] rounded-2xl border border-white/10 ${activeTheme.rosterStickyBg}`}>
+          <div className="min-w-max px-2 sm:px-3 pb-3">
+            {/* Column header (sticky top) */}
             <div
-              className="grid items-end gap-x-3 px-2.5 pb-2"
+              className={`grid items-end gap-x-3 px-2.5 pt-3 pb-2 sticky top-0 z-20 ${activeTheme.rosterStickyBg} backdrop-blur-md`}
               style={{ gridTemplateColumns: gridTemplate }}
             >
               {gridColumns.map((col) => (
                 <div
                   key={col.id}
-                  className="truncate text-[10px] font-semibold uppercase tracking-wide text-gray-400"
+                  className={`truncate text-[10px] font-semibold uppercase tracking-wide text-gray-400 ${
+                    col.id === 'player' ? `sticky left-0 z-30 ${activeTheme.rosterStickyBg} backdrop-blur-md pr-2` : ''
+                  }`}
                   title={col.label}
                 >
                   {col.label}
@@ -838,25 +931,26 @@ export default function CoachModeView({
             </div>
 
             {/* Player rows */}
-            <div className="space-y-2">
-              {sortedPlayers.map((player) => {
-                const isSubmitted = submitted[player.id]
-                return (
-                  <div
-                    key={player.id}
-                    className={`grid items-center gap-x-3 rounded-xl border px-2.5 py-3 backdrop-blur-xl transition-all duration-200 ${
-                      isSubmitted ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
-                    } ${isSubmitted ? 'opacity-60' : 'hover:brightness-125 hover:border-white/25'}`}
-                    style={{ gridTemplateColumns: gridTemplate }}
-                  >
-                    {gridColumns.map((col) => (
-                      <div key={col.id} className="min-w-0">
-                        {col.cell(player)}
-                      </div>
-                    ))}
-                  </div>
-                )
-              })}
+            <div className="space-y-2 pt-2">
+              {pendingPlayers.map(renderRosterRow)}
+
+              {donePlayers.length > 0 && (
+                <div className="flex items-center gap-3 px-1 pt-4 pb-1">
+                  <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300/90 whitespace-nowrap">
+                    Submitted · {donePlayers.length}
+                  </span>
+                  <span className="h-px flex-1 bg-emerald-400/25" />
+                </div>
+              )}
+
+              {donePlayers.map(renderRosterRow)}
+
+              {sortedPlayers.length === 0 && (
+                <div className={`rounded-xl p-6 text-center text-sm text-gray-400 ${activeTheme.emptyStateCard}`}>
+                  No players match your search.
+                </div>
+              )}
             </div>
           </div>
         </div>

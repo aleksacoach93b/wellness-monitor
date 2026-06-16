@@ -390,7 +390,7 @@ export default function CoachModeView({
     {
       id: 'player',
       label: 'Player',
-      width: '224px',
+      width: '212px',
       cell: (player) => {
         const pd = playerData[player.id]
         const error = errors[player.id]
@@ -401,20 +401,20 @@ export default function CoachModeView({
         return (
           <div className="flex items-center gap-2.5">
             <span
-              className={`h-14 w-1.5 shrink-0 rounded-full ${primaryRpe ? RPE_ACCENT[primaryRpe] : 'bg-white/10'}`}
+              className={`h-12 w-1.5 shrink-0 rounded-full ${primaryRpe ? RPE_ACCENT[primaryRpe] : 'bg-white/10'}`}
               aria-hidden
             />
             {player.image ? (
               <Image
                 src={player.image}
                 alt={`${player.firstName} ${player.lastName}`}
-                width={56}
-                height={56}
-                className="h-14 w-14 rounded-full border border-white/20 object-cover shadow"
+                width={48}
+                height={48}
+                className="h-12 w-12 rounded-full border border-white/20 object-cover shadow"
               />
             ) : (
-              <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
-                <span className="text-lg font-bold" aria-hidden>
+              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
+                <span className="text-base font-bold" aria-hidden>
                   {(player.firstName?.[0] ?? '').toLocaleUpperCase()}
                 </span>
               </div>
@@ -436,7 +436,7 @@ export default function CoachModeView({
     ...scaleQuestions.map((q) => ({
       id: q.id,
       label: q.text,
-      width: '452px',
+      width: '420px',
       cell: (player: PlayerWithStatus) => {
         const pd = playerData[player.id]
         const isSubmitted = submitted[player.id]
@@ -453,7 +453,7 @@ export default function CoachModeView({
                     disabled={isSubmitted}
                     onClick={() => setAnswer(player.id, q.id, String(n))}
                     title={RPE_LABELS[n]}
-                    className={`relative h-10 w-8 rounded-md text-sm font-bold transition-all border ${
+                    className={`relative h-9 w-7 rounded-md text-sm font-bold transition-all border ${
                       selected
                         ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10 ring-2 ring-white/50`
                         : `${RPE_IDLE_TINT[n]} hover:brightness-150`
@@ -666,7 +666,7 @@ export default function CoachModeView({
     return (
       <div
         key={player.id}
-        className={`relative grid min-h-[100px] items-center gap-x-3 rounded-xl border px-2.5 py-3 backdrop-blur-xl transition-all duration-200 ${
+        className={`relative grid min-h-[85px] items-center gap-x-3 rounded-xl border px-2.5 py-2 backdrop-blur-xl transition-all duration-200 ${
           isSubmitted ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
         } ${isSubmitted ? 'opacity-60' : 'hover:brightness-125 hover:border-white/25'}`}
         style={{ gridTemplateColumns: gridTemplate }}
@@ -774,7 +774,7 @@ export default function CoachModeView({
                     type="button"
                     disabled={globalRpe === null}
                     onClick={applyGlobalRpe}
-                    className={`${globalRpe !== null ? activeTheme.primaryButton + ' text-white shadow' : 'bg-white/10 text-gray-500 cursor-not-allowed'} justify-self-start px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                    className={`${globalRpe !== null ? activeTheme.primaryButton + ' text-white shadow' : 'bg-white/10 text-gray-500 cursor-not-allowed'} w-full text-center px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
                   >
                     Apply to All
                   </button>
@@ -798,7 +798,7 @@ export default function CoachModeView({
                   <button
                     type="button"
                     onClick={applyGlobalDuration}
-                    className={`${activeTheme.primaryButton} justify-self-start text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                    className={`${activeTheme.primaryButton} w-full text-center text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
                   >
                     Apply to All
                   </button>
@@ -826,7 +826,7 @@ export default function CoachModeView({
                   <button
                     type="button"
                     onClick={applyGlobalSession}
-                    className={`${activeTheme.primaryButton} justify-self-start text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                    className={`${activeTheme.primaryButton} w-full text-center text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
                   >
                     Apply to All
                   </button>
@@ -854,7 +854,7 @@ export default function CoachModeView({
                   <button
                     type="button"
                     onClick={applyGlobalMatchDay}
-                    className={`${activeTheme.primaryButton} justify-self-start text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                    className={`${activeTheme.primaryButton} w-full text-center text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
                   >
                     Apply to All
                   </button>
@@ -921,7 +921,7 @@ export default function CoachModeView({
         </div>
 
         {/* Roster grid */}
-        <div className={`-mx-3 sm:mx-0 overflow-auto max-h-[72vh] rounded-2xl border border-white/10 ${activeTheme.rosterStickyBg}`}>
+        <div className="-mx-3 sm:mx-0 overflow-auto max-h-[72vh] rounded-2xl">
           <div className="min-w-max px-2 sm:px-3 pb-3">
             {/* Column header (sticky top) */}
             <div

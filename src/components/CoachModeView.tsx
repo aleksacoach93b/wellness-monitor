@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, type ReactNode } from 'react'
 import { Survey, Question, Player } from '@prisma/client'
 import { CheckCircle, AlertTriangle, Clock, Send, ArrowDownAZ, ArrowUpZA } from 'lucide-react'
 import Image from 'next/image'
@@ -70,6 +70,20 @@ const RPE_LABELS: Record<number, string> = {
   8: 'Very Hard+',
   9: 'Very Very Hard',
   10: 'Maximal',
+}
+
+// Solid accent background per RPE value (used on the roster row accent bar)
+const RPE_ACCENT: Record<number, string> = {
+  1: 'bg-green-500',
+  2: 'bg-green-500',
+  3: 'bg-lime-500',
+  4: 'bg-yellow-500',
+  5: 'bg-amber-500',
+  6: 'bg-orange-500',
+  7: 'bg-orange-600',
+  8: 'bg-red-500',
+  9: 'bg-red-600',
+  10: 'bg-red-700',
 }
 
 export default function CoachModeView({
@@ -340,6 +354,285 @@ export default function CoachModeView({
 
   const bodyMapAppearance = surveyThemeFromKiosk(kioskTheme) ?? 'default'
 
+  type GridCol = {
+    id: string
+    label: string
+    width: string
+    cell: (player: PlayerWithStatus) => ReactNode
+  }
+
+  const durationQuestionsForGrid = sliderQuestions.concat(
+    textQuestions.filter((q) => q.type === 'NUMBER')
+  )
+  const textTimeQuestions = textQuestions.filter((q) => q.type !== 'NUMBER')
+
+  const gridColumns: GridCol[] = [
+    {
+      id: 'player',
+      label: 'Player',
+      width: '188px',
+      cell: (player) => {
+        const pd = playerData[player.id]
+        const error = errors[player.id]
+        const primaryRpe =
+          scaleQuestions[0] && pd?.answers[scaleQuestions[0].id]
+            ? Number(pd.answers[scaleQuestions[0].id])
+            : null
+        return (
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-8 w-1 shrink-0 rounded-full ${primaryRpe ? RPE_ACCENT[primaryRpe] : 'bg-white/10'}`}
+              aria-hidden
+            />
+            {player.image ? (
+              <Image
+                src={player.image}
+                alt={`${player.firstName} ${player.lastName}`}
+                width={32}
+                height={32}
+                className="h-8 w-8 rounded-full border border-white/20 object-cover shadow"
+              />
+            ) : (
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
+                <span className="text-[11px] font-bold" aria-hidden>
+                  {(player.firstName?.[0] ?? '').toLocaleUpperCase()}
+                </span>
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold text-white truncate leading-tight">
+                {player.firstName} <span className="font-bold">{player.lastName}</span>
+              </p>
+              {error && (
+                <span className="text-[10px] text-red-300 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> {error}
+                </span>
+              )}
+            </div>
+          </div>
+        )
+      },
+    },
+    ...(showSession
+      ? [{
+          id: 'session',
+          label: 'Session',
+          width: '108px',
+          cell: (player: PlayerWithStatus) => {
+            const isSubmitted = submitted[player.id]
+            return (
+              <select
+                disabled={isSubmitted}
+                value={sessions[player.id] ?? ''}
+                onChange={(e) => setSessions((prev) => ({ ...prev, [player.id]: e.target.value }))}
+                className={`h-8 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+              >
+                <option value="">—</option>
+                {sessionTags.map((t) => (
+                  <option key={t} value={t} className="text-black">{t}</option>
+                ))}
+              </select>
+            )
+          },
+        }]
+      : []),
+    ...(showMatchDay
+      ? [{
+          id: 'matchday',
+          label: 'Match Day',
+          width: '108px',
+          cell: (player: PlayerWithStatus) => {
+            const isSubmitted = submitted[player.id]
+            return (
+              <select
+                disabled={isSubmitted}
+                value={matchDays[player.id] ?? ''}
+                onChange={(e) => setMatchDays((prev) => ({ ...prev, [player.id]: e.target.value }))}
+                className={`h-8 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+              >
+                <option value="">—</option>
+                {matchDayTags.map((t) => (
+                  <option key={t} value={t} className="text-black">{t}</option>
+                ))}
+              </select>
+            )
+          },
+        }]
+      : []),
+    ...scaleQuestions.map((q) => ({
+      id: q.id,
+      label: q.text,
+      width: '356px',
+      cell: (player: PlayerWithStatus) => {
+        const pd = playerData[player.id]
+        const isSubmitted = submitted[player.id]
+        const selectedVal = pd?.answers[q.id] ? Number(pd.answers[q.id]) : null
+        return (
+          <div className="flex items-center gap-1.5">
+            <div className="flex gap-0.5">
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+                const selected = selectedVal === n
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    disabled={isSubmitted}
+                    onClick={() => setAnswer(player.id, q.id, String(n))}
+                    title={RPE_LABELS[n]}
+                    className={`relative h-7 w-6 rounded text-[11px] font-bold transition-all border ${
+                      selected
+                        ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
+                        : `${RPE_IDLE_TINT[n]} hover:brightness-150`
+                    } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    {n}
+                  </button>
+                )
+              })}
+            </div>
+            <span className="inline-flex w-[96px] shrink-0">
+              {selectedVal && RPE_LABELS[selectedVal] && (
+                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold text-white bg-gradient-to-br ${RPE_COLORS[selectedVal]} border whitespace-nowrap`}>
+                  {RPE_LABELS[selectedVal]}
+                </span>
+              )}
+            </span>
+          </div>
+        )
+      },
+    })),
+    ...durationQuestionsForGrid.map((q) => ({
+      id: q.id,
+      label: q.text,
+      width: '92px',
+      cell: (player: PlayerWithStatus) => {
+        const pd = playerData[player.id]
+        const isSubmitted = submitted[player.id]
+        return (
+          <input
+            type="number"
+            min={0}
+            max={999}
+            disabled={isSubmitted}
+            value={pd?.answers[q.id] ?? ''}
+            onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
+            className={`h-8 w-16 px-1.5 rounded-lg text-center text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+          />
+        )
+      },
+    })),
+    ...booleanQuestions.map((q) => ({
+      id: q.id,
+      label: q.text,
+      width: '108px',
+      cell: (player: PlayerWithStatus) => {
+        const pd = playerData[player.id]
+        const isSubmitted = submitted[player.id]
+        return (
+          <div className="flex gap-1">
+            {['Yes', 'No'].map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                disabled={isSubmitted}
+                onClick={() => setAnswer(player.id, q.id, opt)}
+                className={`px-2 py-1 rounded text-[11px] font-semibold transition-all border ${
+                  pd?.answers[q.id] === opt
+                    ? opt === 'Yes'
+                      ? 'bg-red-500/80 border-red-400/60 text-white'
+                      : 'bg-green-500/80 border-green-400/60 text-white'
+                    : 'bg-white/10 border-white/15 text-gray-300 hover:bg-white/20'
+                } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )
+      },
+    })),
+    ...bodyMapQuestions.map((q) => ({
+      id: q.id,
+      label: q.text,
+      width: '112px',
+      cell: (player: PlayerWithStatus) => {
+        const pd = playerData[player.id]
+        const isSubmitted = submitted[player.id]
+        const bmData = pd?.bodyMapData[q.id] || {}
+        const areaCount = Object.keys(bmData).length
+        return (
+          <button
+            type="button"
+            disabled={isSubmitted}
+            onClick={() => openBodyMap(player.id, q.id)}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all border ${
+              areaCount > 0
+                ? 'bg-orange-500/80 border-orange-400/60 text-white'
+                : 'bg-white/10 border-white/15 text-gray-300 hover:bg-white/20'
+            } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+          >
+            {areaCount > 0 ? `${areaCount} area${areaCount > 1 ? 's' : ''}` : 'Body Map'}
+          </button>
+        )
+      },
+    })),
+    ...textTimeQuestions.map((q) => ({
+      id: q.id,
+      label: q.text,
+      width: '132px',
+      cell: (player: PlayerWithStatus) => {
+        const pd = playerData[player.id]
+        const isSubmitted = submitted[player.id]
+        return (
+          <input
+            type={q.type === 'TIME' ? 'time' : 'text'}
+            disabled={isSubmitted}
+            value={pd?.answers[q.id] ?? ''}
+            onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
+            className={`h-8 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+          />
+        )
+      },
+    })),
+    {
+      id: 'action',
+      label: 'Status',
+      width: '128px',
+      cell: (player) => {
+        const isSubmitted = submitted[player.id]
+        const isSubmitting = submitting[player.id]
+        if (isSubmitted) {
+          return (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-br from-green-500/90 to-emerald-500/90 px-3 py-1 text-xs font-semibold text-white shadow border border-green-400/40">
+              <CheckCircle className="h-3.5 w-3.5" /> Done
+            </span>
+          )
+        }
+        return (
+          <button
+            type="button"
+            disabled={isSubmitting || !hasRequiredAnswers(player.id)}
+            onClick={() => submitPlayer(player.id)}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              hasRequiredAnswers(player.id)
+                ? `${activeTheme.primaryButton} text-white shadow-lg`
+                : 'bg-white/10 border border-white/15 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {isSubmitting ? (
+              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <Send className="h-3.5 w-3.5" />
+            )}
+            {isSubmitting ? 'Saving…' : 'Submit'}
+          </button>
+        )
+      },
+    },
+  ]
+
+  const gridTemplate = gridColumns.map((c) => c.width).join(' ')
+
   return (
     <>
       <div className="relative max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
@@ -525,266 +818,47 @@ export default function CoachModeView({
           })}
         </div>
 
-        {/* Player list */}
-        <div className="space-y-1.5 sm:space-y-2">
-          {sortedPlayers.map((player) => {
-            const pd = playerData[player.id]
-            const isSubmitted = submitted[player.id]
-            const isSubmitting = submitting[player.id]
-            const error = errors[player.id]
-
-            const actions = isSubmitted ? (
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-green-500/90 to-emerald-500/90 shadow-lg border border-green-400/40">
-                <CheckCircle className="h-4 w-4 text-white" />
-              </div>
-            ) : (
-              <button
-                type="button"
-                disabled={isSubmitting || !hasRequiredAnswers(player.id)}
-                onClick={() => submitPlayer(player.id)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                  hasRequiredAnswers(player.id)
-                    ? `${activeTheme.primaryButton} text-white shadow-lg`
-                    : 'bg-white/10 border border-white/15 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {isSubmitting ? (
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" />
-                )}
-                {isSubmitting ? 'Saving…' : 'Submit'}
-              </button>
-            )
-
-            return (
-              <div
-                key={player.id}
-                className={`group/row relative rounded-xl border backdrop-blur-xl px-3 py-2 sm:px-4 sm:py-2.5 transition-all duration-200 ${
-                  isSubmitted
-                    ? activeTheme.playerCardResponded
-                    : activeTheme.playerCardIdle
-                } ${isSubmitted ? 'opacity-60' : 'hover:brightness-125 hover:border-white/25'}`}
-              >
-                <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-4">
-                  {/* Player info */}
-                  <div className="flex items-center gap-2 lg:w-40 lg:shrink-0">
-                    {player.image ? (
-                      <Image
-                        src={player.image}
-                        alt={`${player.firstName} ${player.lastName}`}
-                        width={32}
-                        height={32}
-                        className="h-8 w-8 rounded-full border border-white/20 object-cover shadow"
-                      />
-                    ) : (
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 shadow ${activeTheme.playerAvatarInitial}`}>
-                        <span className="text-[11px] font-bold" aria-hidden>
-                          {(player.firstName?.[0] ?? '').toLocaleUpperCase()}
-                        </span>
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-semibold text-white truncate leading-tight">
-                        {player.firstName}{' '}
-                        <span className="font-bold">{player.lastName}</span>
-                      </p>
-                      {error && (
-                        <span className="text-[10px] text-red-300 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" /> {error}
-                        </span>
-                      )}
-                    </div>
-                    {/* Submit/Done top-right on stacked layouts */}
-                    <div className="lg:hidden">{actions}</div>
-                  </div>
-
-                  {/* Questions inline */}
-                  <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 lg:gap-3">
-                    {/* Session Type override */}
-                    {showSession && (
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] text-gray-400">Session</span>
-                        <select
-                          disabled={isSubmitted}
-                          value={sessions[player.id] ?? ''}
-                          onChange={(e) =>
-                            setSessions((prev) => ({ ...prev, [player.id]: e.target.value }))
-                          }
-                          className={`h-7 w-24 px-1.5 py-0.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
-                        >
-                          <option value="">—</option>
-                          {sessionTags.map((t) => (
-                            <option key={t} value={t} className="text-black">
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Match Day override */}
-                    {showMatchDay && (
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] text-gray-400">Match Day</span>
-                        <select
-                          disabled={isSubmitted}
-                          value={matchDays[player.id] ?? ''}
-                          onChange={(e) =>
-                            setMatchDays((prev) => ({ ...prev, [player.id]: e.target.value }))
-                          }
-                          className={`h-7 w-24 px-1.5 py-0.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
-                        >
-                          <option value="">—</option>
-                          {matchDayTags.map((t) => (
-                            <option key={t} value={t} className="text-black">
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Scale / RPE questions — 1-10 buttons */}
-                    {scaleQuestions.map((q) => {
-                      const selectedVal = pd?.answers[q.id] ? Number(pd.answers[q.id]) : null
-                      return (
-                        <div key={q.id} className="flex flex-col gap-0.5">
-                          <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
-                            {q.text}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex gap-0.5">
-                              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
-                                const selected = selectedVal === n
-                                return (
-                                  <button
-                                    key={n}
-                                    type="button"
-                                    disabled={isSubmitted}
-                                    onClick={() => setAnswer(player.id, q.id, String(n))}
-                                    title={RPE_LABELS[n]}
-                                    className={`relative h-7 w-6 sm:h-8 sm:w-7 rounded text-[11px] sm:text-xs font-bold transition-all border ${
-                                      selected
-                                        ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
-                                        : `${RPE_IDLE_TINT[n]} hover:brightness-150`
-                                    } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                                  >
-                                    {n}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                            <span className="inline-flex w-[105px] shrink-0">
-                              {selectedVal && RPE_LABELS[selectedVal] && (
-                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold text-white bg-gradient-to-br ${RPE_COLORS[selectedVal]} border whitespace-nowrap`}>
-                                  {RPE_LABELS[selectedVal]}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })}
-
-                    {/* Slider / Number questions (training duration) */}
-                    {sliderQuestions.concat(textQuestions.filter((q) => q.type === 'NUMBER')).map((q) => (
-                      <div key={q.id} className="flex flex-col gap-0.5">
-                        <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
-                          {q.text}
-                        </span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={999}
-                          disabled={isSubmitted}
-                          value={pd?.answers[q.id] ?? ''}
-                          onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
-                          className={`h-7 w-14 px-1.5 py-0.5 rounded-lg text-center text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
-                        />
-                      </div>
-                    ))}
-
-                    {/* Boolean questions */}
-                    {booleanQuestions.map((q) => (
-                      <div key={q.id} className="flex flex-col gap-0.5">
-                        <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
-                          {q.text}
-                        </span>
-                        <div className="flex gap-1">
-                          {['Yes', 'No'].map((opt) => (
-                            <button
-                              key={opt}
-                              type="button"
-                              disabled={isSubmitted}
-                              onClick={() => setAnswer(player.id, q.id, opt)}
-                              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all border ${
-                                pd?.answers[q.id] === opt
-                                  ? opt === 'Yes'
-                                    ? 'bg-red-500/80 border-red-400/60 text-white'
-                                    : 'bg-green-500/80 border-green-400/60 text-white'
-                                  : 'bg-white/10 border-white/15 text-gray-300 hover:bg-white/20'
-                              } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                            >
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Body map questions */}
-                    {bodyMapQuestions.map((q) => {
-                      const bmData = pd?.bodyMapData[q.id] || {}
-                      const areaCount = Object.keys(bmData).length
-                      return (
-                        <div key={q.id} className="flex flex-col gap-0.5">
-                          <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
-                            {q.text}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={isSubmitted}
-                            onClick={() => openBodyMap(player.id, q.id)}
-                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border ${
-                              areaCount > 0
-                                ? 'bg-orange-500/80 border-orange-400/60 text-white'
-                                : 'bg-white/10 border-white/15 text-gray-300 hover:bg-white/20'
-                            } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                          >
-                            {areaCount > 0 ? `${areaCount} area${areaCount > 1 ? 's' : ''}` : 'Body Map'}
-                          </button>
-                        </div>
-                      )
-                    })}
-
-                    {/* Text / Time questions */}
-                    {textQuestions
-                      .filter((q) => q.type !== 'NUMBER')
-                      .map((q) => (
-                        <div key={q.id} className="flex flex-col gap-0.5">
-                          <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
-                            {q.text}
-                          </span>
-                          <input
-                            type={q.type === 'TIME' ? 'time' : 'text'}
-                            disabled={isSubmitted}
-                            value={pd?.answers[q.id] ?? ''}
-                            onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
-                            className={`h-7 w-24 px-1.5 py-0.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
-                          />
-                        </div>
-                      ))}
-                  </div>
-
-                  {/* Done indicator / Submit (desktop / wide screens) */}
-                  <div className="hidden items-center gap-2 lg:flex lg:shrink-0">
-                    {actions}
-                  </div>
+        {/* Roster grid */}
+        <div className="overflow-x-auto -mx-3 px-3 pb-2 sm:mx-0 sm:px-0">
+          <div className="min-w-max">
+            {/* Column header */}
+            <div
+              className="grid items-end gap-x-2 px-2 pb-2"
+              style={{ gridTemplateColumns: gridTemplate }}
+            >
+              {gridColumns.map((col) => (
+                <div
+                  key={col.id}
+                  className="truncate text-[10px] font-semibold uppercase tracking-wide text-gray-400"
+                  title={col.label}
+                >
+                  {col.label}
                 </div>
-              </div>
-            )
-          })}
+              ))}
+            </div>
+
+            {/* Player rows */}
+            <div className="space-y-1.5">
+              {sortedPlayers.map((player) => {
+                const isSubmitted = submitted[player.id]
+                return (
+                  <div
+                    key={player.id}
+                    className={`grid items-center gap-x-2 rounded-xl border px-2 py-1.5 backdrop-blur-xl transition-all duration-200 ${
+                      isSubmitted ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
+                    } ${isSubmitted ? 'opacity-60' : 'hover:brightness-125 hover:border-white/25'}`}
+                    style={{ gridTemplateColumns: gridTemplate }}
+                  >
+                    {gridColumns.map((col) => (
+                      <div key={col.id} className="min-w-0">
+                        {col.cell(player)}
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Bottom bar — Submit All */}

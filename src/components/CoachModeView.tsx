@@ -27,6 +27,8 @@ interface CoachModeViewProps {
   survey: SurveyWithQuestions
   players: PlayerWithStatus[]
   kioskTheme: KioskTheme
+  sessionTags?: string[]
+  matchDayTags?: string[]
   onBack: () => void
   onRefresh: () => void
 }
@@ -74,10 +76,15 @@ export default function CoachModeView({
   survey,
   players,
   kioskTheme,
+  sessionTags = [],
+  matchDayTags = [],
   onBack,
   onRefresh,
 }: CoachModeViewProps) {
   const activeTheme = kioskThemes[kioskTheme] ?? kioskThemes.dark
+
+  const showSession = Boolean(survey.trackSessionType) && sessionTags.length > 0
+  const showMatchDay = Boolean(survey.trackMatchDay) && matchDayTags.length > 0
 
   const scaleQuestions = survey.questions.filter(
     (q) => q.type === 'SCALE' || q.type === 'RPE' || q.type === 'RATING_SCALE'
@@ -105,6 +112,10 @@ export default function CoachModeView({
 
   const [globalDuration, setGlobalDuration] = useState('60')
   const [globalRpe, setGlobalRpe] = useState<number | null>(null)
+  const [globalSession, setGlobalSession] = useState('')
+  const [globalMatchDay, setGlobalMatchDay] = useState('')
+  const [sessions, setSessions] = useState<Record<string, string>>({})
+  const [matchDays, setMatchDays] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({})
   const [submitted, setSubmitted] = useState<Record<string, boolean>>(() => {
     const s: Record<string, boolean> = {}
@@ -189,6 +200,28 @@ export default function CoachModeView({
     })
   }, [globalRpe, scaleQuestions, submitted])
 
+  const applyGlobalSession = useCallback(() => {
+    setSessions(() => {
+      const next: Record<string, string> = {}
+      for (const p of players) {
+        if (submitted[p.id]) continue
+        next[p.id] = globalSession
+      }
+      return next
+    })
+  }, [globalSession, players, submitted])
+
+  const applyGlobalMatchDay = useCallback(() => {
+    setMatchDays(() => {
+      const next: Record<string, string> = {}
+      for (const p of players) {
+        if (submitted[p.id]) continue
+        next[p.id] = globalMatchDay
+      }
+      return next
+    })
+  }, [globalMatchDay, players, submitted])
+
   const openBodyMap = (playerId: string, questionId: string) => {
     setBodyMapPlayerId(playerId)
     setBodyMapQuestionId(questionId)
@@ -252,6 +285,8 @@ export default function CoachModeView({
           surveyId: survey.id,
           playerId,
           playerName: `${player.firstName} ${player.lastName}`,
+          ...(showSession && sessions[playerId] ? { sessionType: sessions[playerId] } : {}),
+          ...(showMatchDay && matchDays[playerId] ? { matchDay: matchDays[playerId] } : {}),
           answers,
         }),
       })
@@ -402,6 +437,56 @@ export default function CoachModeView({
                 </button>
               </div>
             )}
+            {/* Global Session Type */}
+            {showSession && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-300 whitespace-nowrap">Session:</span>
+                <select
+                  value={globalSession}
+                  onChange={(e) => setGlobalSession(e.target.value)}
+                  className={`px-2 py-1 rounded-lg text-sm text-white ${activeTheme.inputField}`}
+                >
+                  <option value="">—</option>
+                  {sessionTags.map((t) => (
+                    <option key={t} value={t} className="text-black">
+                      {t}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={applyGlobalSession}
+                  className={`${activeTheme.primaryButton} text-white px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                >
+                  Apply to All
+                </button>
+              </div>
+            )}
+            {/* Global Match Day */}
+            {showMatchDay && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-300 whitespace-nowrap">Match Day:</span>
+                <select
+                  value={globalMatchDay}
+                  onChange={(e) => setGlobalMatchDay(e.target.value)}
+                  className={`px-2 py-1 rounded-lg text-sm text-white ${activeTheme.inputField}`}
+                >
+                  <option value="">—</option>
+                  {matchDayTags.map((t) => (
+                    <option key={t} value={t} className="text-black">
+                      {t}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={applyGlobalMatchDay}
+                  className={`${activeTheme.primaryButton} text-white px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                >
+                  Apply to All
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -490,6 +575,50 @@ export default function CoachModeView({
 
                   {/* Questions inline */}
                   <div className="flex flex-1 flex-wrap items-center gap-2.5 lg:gap-3">
+                    {/* Session Type override */}
+                    {showSession && (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-gray-400">Session</span>
+                        <select
+                          disabled={isSubmitted}
+                          value={sessions[player.id] ?? ''}
+                          onChange={(e) =>
+                            setSessions((prev) => ({ ...prev, [player.id]: e.target.value }))
+                          }
+                          className={`px-1.5 py-1 rounded-lg text-sm text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+                        >
+                          <option value="">—</option>
+                          {sessionTags.map((t) => (
+                            <option key={t} value={t} className="text-black">
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Match Day override */}
+                    {showMatchDay && (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-gray-400">Match Day</span>
+                        <select
+                          disabled={isSubmitted}
+                          value={matchDays[player.id] ?? ''}
+                          onChange={(e) =>
+                            setMatchDays((prev) => ({ ...prev, [player.id]: e.target.value }))
+                          }
+                          className={`px-1.5 py-1 rounded-lg text-sm text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+                        >
+                          <option value="">—</option>
+                          {matchDayTags.map((t) => (
+                            <option key={t} value={t} className="text-black">
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
                     {/* Scale / RPE questions — 1-10 buttons */}
                     {scaleQuestions.map((q) => {
                       const selectedVal = pd?.answers[q.id] ? Number(pd.answers[q.id]) : null

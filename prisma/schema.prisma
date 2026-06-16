@@ -44,6 +44,10 @@ model Survey {
   dailyStartTime  String?  // Format: "06:00"
   dailyEndTime    String?  // Format: "11:00"
   timezone        String   @default("Europe/Belgrade")
+
+  // Session / match-day tagging (per-survey opt-in, used mainly for RPE)
+  trackSessionType Boolean @default(false)
+  trackMatchDay    Boolean @default(false)
   
   questions   Question[]
   responses   Response[]
@@ -74,6 +78,10 @@ model Response {
   playerName  String?  // Optional player identifier (for anonymous responses)
   playerEmail String?  // Optional player email (for anonymous responses)
   submittedAt DateTime @default(now())
+
+  // Snapshot labels (stored as text so renaming/deleting a Tag never corrupts history)
+  sessionType String?  // e.g. "Gym", "Pitch", "Rehab"
+  matchDay    String?  // e.g. "MD", "MD-1", "MD+1"
   
   survey      Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
   player      Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
@@ -114,6 +122,21 @@ model AdminAccessSettings {
   updatedAt DateTime @updatedAt
 
   @@map("admin_access_settings")
+}
+
+// Coach-managed labels used for tagging RPE sessions.
+// category: "SESSION" (Gym/Pitch/Rehab...) or "MATCHDAY" (MD/MD-1/MD+1...)
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  category  String
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("tags")
 }
 
 enum QuestionType {

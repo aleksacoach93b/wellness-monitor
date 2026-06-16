@@ -52,6 +52,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [kioskTheme, setKioskTheme] = useState<KioskTheme>('dark')
   const [isCoachMode, setIsCoachMode] = useState(false)
   const [surveyQuestions, setSurveyQuestions] = useState<Question[]>([])
+  const [sessionTags, setSessionTags] = useState<string[]>([])
+  const [matchDayTags, setMatchDayTags] = useState<string[]>([])
   const [coachPassword, setCoachPassword] = useState('')
   const [storedCoachPassword, setStoredCoachPassword] = useState('')
   const [showCoachPasswordModal, setShowCoachPasswordModal] = useState(false)
@@ -129,6 +131,23 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     }
 
     loadAdminAccessPassword()
+  }, [])
+
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        const response = await fetch('/api/tags')
+        if (response.ok) {
+          const data: Array<{ name: string; category: string }> = await response.json()
+          setSessionTags(data.filter((t) => t.category === 'SESSION').map((t) => t.name))
+          setMatchDayTags(data.filter((t) => t.category === 'MATCHDAY').map((t) => t.name))
+        }
+      } catch (error) {
+        console.error('Error loading tags:', error)
+      }
+    }
+
+    loadTags()
   }, [])
 
   const fetchData = async () => {
@@ -639,6 +658,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           survey={{ ...survey, questions: surveyQuestions }}
           players={players}
           kioskTheme={kioskTheme}
+          sessionTags={sessionTags}
+          matchDayTags={matchDayTags}
           onBack={() => setIsCoachMode(false)}
           onRefresh={fetchData}
         />

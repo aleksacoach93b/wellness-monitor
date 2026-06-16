@@ -5,6 +5,8 @@ import { z } from 'zod'
 const updateSurveySchema = z.object({
   title: z.string().min(1),
   description: z.string().nullable().optional(),
+  trackSessionType: z.boolean().optional(),
+  trackMatchDay: z.boolean().optional(),
   questions: z.array(z.object({
     id: z.string().optional(), // Allow undefined for new questions
     text: z.string().min(1),
@@ -100,6 +102,12 @@ export async function PUT(
         data: {
           title: validatedData.title,
           description: validatedData.description || null,
+          ...(validatedData.trackSessionType !== undefined
+            ? { trackSessionType: validatedData.trackSessionType }
+            : {}),
+          ...(validatedData.trackMatchDay !== undefined
+            ? { trackMatchDay: validatedData.trackMatchDay }
+            : {}),
         },
       })
 

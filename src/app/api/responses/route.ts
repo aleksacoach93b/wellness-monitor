@@ -7,6 +7,8 @@ const submitResponseSchema = z.object({
   playerId: z.string().optional().nullable(),
   playerName: z.string().optional().nullable(),
   playerEmail: z.string().optional().nullable(),
+  sessionType: z.string().trim().min(1).optional().nullable(),
+  matchDay: z.string().trim().min(1).optional().nullable(),
   answers: z.array(z.object({
     questionId: z.string(),
     value: z.coerce.string(),
@@ -38,10 +40,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if player already has a response for today and delete it
+    const sessionType = validatedData.sessionType?.trim() || null
+    const matchDay = validatedData.matchDay?.trim() || null
+
+    // Check if player already has a response for today and delete it.
+    // Dedup is per session type: a player can log e.g. "Gym" and "Pitch" the same
+    // day as two separate responses, but re-submitting the same session type overwrites.
     if (validatedData.playerId) {
       console.log('=== DAILY RESPONSE LOGIC START ===')
-      console.log('Player ID:', validatedData.playerId)
+      console.log('Player ID:', validatedData.playerId, 'Session type:', sessionType)
       
       const today = new Date()
       today.setHours(0, 0, 0, 0)
@@ -54,6 +61,7 @@ export async function POST(request: NextRequest) {
         where: {
           surveyId: validatedData.surveyId,
           playerId: validatedData.playerId,
+          sessionType: sessionType,
           submittedAt: {
             gte: today,
             lt: tomorrow
@@ -103,6 +111,8 @@ export async function POST(request: NextRequest) {
         ...(validatedData.playerId && { playerId: validatedData.playerId }),
         ...(validatedData.playerName && { playerName: validatedData.playerName }),
         ...(validatedData.playerEmail && { playerEmail: validatedData.playerEmail }),
+        ...(sessionType && { sessionType }),
+        ...(matchDay && { matchDay }),
         answers: {
           create: validatedData.answers.map(answer => ({
             questionId: answer.questionId,

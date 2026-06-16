@@ -57,6 +57,20 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
     })
   }
 
+  let sessionTags: string[] = []
+  let matchDayTags: string[] = []
+  if (survey.trackSessionType || survey.trackMatchDay) {
+    const tags = await prisma.tag
+      .findMany({
+        where: { isActive: true },
+        orderBy: [{ category: 'asc' }, { order: 'asc' }],
+        select: { name: true, category: true },
+      })
+      .catch(() => [])
+    sessionTags = tags.filter((t) => t.category === 'SESSION').map((t) => t.name)
+    matchDayTags = tags.filter((t) => t.category === 'MATCHDAY').map((t) => t.name)
+  }
+
   let effectiveSurveyTheme = surveyTheme?.trim()
   if (!effectiveSurveyTheme) {
     const ks = await prisma.kioskSettings.findFirst().catch(() => null)
@@ -72,6 +86,8 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
         player={player}
         surveyTheme={effectiveSurveyTheme}
         draftPlayerId={playerId ?? null}
+        sessionTags={sessionTags}
+        matchDayTags={matchDayTags}
       />
     </div>
   )

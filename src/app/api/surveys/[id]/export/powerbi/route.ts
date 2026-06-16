@@ -215,7 +215,9 @@ export async function GET(
                   questionText: `${question.text} - ${muscleName}`,
                   questionType: question.type,
                   answerValue: value as number,
-                  surveyTitle: survey.title
+                  surveyTitle: survey.title,
+                  sessionType: response.sessionType ?? null,
+                  matchDay: response.matchDay ?? null
                 })
               })
               
@@ -230,7 +232,9 @@ export async function GET(
                 questionText: question?.text || '',
                 questionType: question?.type || '',
                 answerValue: answer.value,
-                surveyTitle: survey.title
+                surveyTitle: survey.title,
+                sessionType: response.sessionType ?? null,
+                matchDay: response.matchDay ?? null
               }]
             }
           } else {
@@ -243,7 +247,9 @@ export async function GET(
               questionText: question?.text || '',
               questionType: question?.type || '',
               answerValue: answer.value,
-              surveyTitle: survey.title
+              surveyTitle: survey.title,
+              sessionType: response.sessionType ?? null,
+              matchDay: response.matchDay ?? null
             }]
           }
         }).flat()

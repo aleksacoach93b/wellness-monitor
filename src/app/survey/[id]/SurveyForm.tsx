@@ -25,6 +25,8 @@ interface SurveyFormProps {
   surveyTheme?: string | null
   /** Stable player id from URL for autosave key (recommended) */
   draftPlayerId?: string | null
+  sessionTags?: string[]
+  matchDayTags?: string[]
 }
 
 export default function SurveyForm({
@@ -32,6 +34,8 @@ export default function SurveyForm({
   player,
   surveyTheme,
   draftPlayerId,
+  sessionTags = [],
+  matchDayTags = [],
 }: SurveyFormProps) {
   const router = useRouter()
   const appearance = resolveSurveyAppearanceTheme(surveyTheme)
@@ -68,6 +72,8 @@ export default function SurveyForm({
     }
   }, [appearance])
   const [formData, setFormData] = useState<Record<string, string | string[]>>({})
+  const [sessionType, setSessionType] = useState('')
+  const [matchDay, setMatchDay] = useState('')
   const [playerName, setPlayerName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -293,6 +299,10 @@ export default function SurveyForm({
     return formData[questionId] === 'Yes'
   }
 
+  const surveyWithTracking = survey as Survey & { trackSessionType?: boolean; trackMatchDay?: boolean }
+  const showSessionType = Boolean(surveyWithTracking.trackSessionType) && sessionTags.length > 0
+  const showMatchDay = Boolean(surveyWithTracking.trackMatchDay) && matchDayTags.length > 0
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -345,6 +355,8 @@ export default function SurveyForm({
         playerId: playerId || null,
         playerName: playerName.trim() || null,
         playerEmail: null, // Remove email from submission
+        ...(showSessionType && sessionType ? { sessionType } : {}),
+        ...(showMatchDay && matchDay ? { matchDay } : {}),
         answers,
       }
       
@@ -638,6 +650,46 @@ export default function SurveyForm({
         <div className="flex-1 px-3 sm:px-4 pb-4 relative w-full">
 
           <div className="space-y-3 sm:space-y-4 w-full">
+            {(showSessionType || showMatchDay) && (
+              <div className={`relative ${shell.card} backdrop-blur-sm rounded-xl border transition-all duration-300 w-full p-3 sm:p-4`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {showSessionType && (
+                    <div>
+                      <label className="block text-sm font-medium text-white/90 mb-1.5">
+                        Session Type <span className="text-white/50 text-xs">(optional)</span>
+                      </label>
+                      <select
+                        value={sessionType}
+                        onChange={(e) => setSessionType(e.target.value)}
+                        className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-white backdrop-blur-sm focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+                      >
+                        <option value="" className="text-black">— Select —</option>
+                        {sessionTags.map((t) => (
+                          <option key={t} value={t} className="text-black">{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {showMatchDay && (
+                    <div>
+                      <label className="block text-sm font-medium text-white/90 mb-1.5">
+                        Match Day <span className="text-white/50 text-xs">(optional)</span>
+                      </label>
+                      <select
+                        value={matchDay}
+                        onChange={(e) => setMatchDay(e.target.value)}
+                        className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-white backdrop-blur-sm focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+                      >
+                        <option value="" className="text-black">— Select —</option>
+                        {matchDayTags.map((t) => (
+                          <option key={t} value={t} className="text-black">{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             {survey.questions.map((question, index) => (
               <div
                 key={question.id}

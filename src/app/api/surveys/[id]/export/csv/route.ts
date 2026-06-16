@@ -312,7 +312,15 @@ export async function GET(
           }
         }
       })
-      
+
+      // Session tagging columns, always appended at the very end
+      if (survey.trackSessionType) {
+        row['Session Type'] = response.sessionType || ''
+      }
+      if (survey.trackMatchDay) {
+        row['Match Day'] = response.matchDay || ''
+      }
+
       return row
     })
 

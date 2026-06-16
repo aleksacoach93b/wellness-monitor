@@ -23,6 +23,8 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
   const [survey, setSurvey] = useState<Survey & { questions: Question[] } | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [trackSessionType, setTrackSessionType] = useState(false)
+  const [trackMatchDay, setTrackMatchDay] = useState(false)
   const [questions, setQuestions] = useState<QuestionFormState[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -36,6 +38,8 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
           setSurvey(surveyData)
           setTitle(surveyData.title)
           setDescription(surveyData.description || '')
+          setTrackSessionType(Boolean(surveyData.trackSessionType))
+          setTrackMatchDay(Boolean(surveyData.trackMatchDay))
           setQuestions((surveyData.questions || []).map((q: Question) => {
             let parsedOptions: string[] = []
             let sliderLabels: SliderLabelsState | undefined
@@ -195,6 +199,8 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
       const requestData = {
         title,
         description: description || null,
+        trackSessionType,
+        trackMatchDay,
         questions: allQuestions
       }
 
@@ -284,6 +290,35 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="Enter survey description..."
               />
+            </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-sm font-medium text-gray-700 mb-1">Session tagging</p>
+              <p className="text-xs text-gray-500 mb-3">
+                Turn these on for RPE-style surveys so coaches/players can tag the session.
+                Manage the available options under{' '}
+                <a href="/admin/session-types" className="text-blue-600 hover:underline">Session Tags</a>.
+              </p>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={trackSessionType}
+                    onChange={(e) => setTrackSessionType(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-900">Track Session Type (Gym / Pitch / Rehab…)</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={trackMatchDay}
+                    onChange={(e) => setTrackMatchDay(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-900">Track Match Day (MD / MD-1 / MD+1…)</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>

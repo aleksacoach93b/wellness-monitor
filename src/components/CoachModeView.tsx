@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, type ReactNode } from 'react'
 import { Survey, Question, Player } from '@prisma/client'
-import { CheckCircle, AlertTriangle, Clock, Send, ArrowDownAZ, ArrowUpZA } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Send, ArrowDownAZ, ArrowUpZA } from 'lucide-react'
 import Image from 'next/image'
 import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
@@ -106,7 +106,6 @@ export default function CoachModeView({
   kioskTheme,
   sessionTags = [],
   matchDayTags = [],
-  onBack,
   onRefresh,
 }: CoachModeViewProps) {
   const activeTheme = kioskThemes[kioskTheme] ?? kioskThemes.dark
@@ -694,164 +693,176 @@ export default function CoachModeView({
   return (
     <>
       <div className="relative max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
-        {/* Header bar */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onBack}
-                className={`${activeTheme.secondaryButton} text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all backdrop-blur-sm`}
-              >
-                ← Player Mode
-              </button>
-              <h2 className="text-lg sm:text-2xl font-semibold text-white tracking-wide">
-                Coach Mode
-              </h2>
-              {/* Progress ring */}
-              <div className="relative h-12 w-12 shrink-0" title={`${completedCount} of ${totalCount} submitted`}>
-                <svg className="h-12 w-12 -rotate-90" viewBox="0 0 44 44">
-                  <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="4" className="text-white/10" />
-                  <circle
-                    cx="22"
-                    cy="22"
-                    r="18"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    className="text-emerald-400 transition-all duration-500"
-                    strokeDasharray={2 * Math.PI * 18}
-                    strokeDashoffset={(2 * Math.PI * 18) * (1 - progressPct / 100)}
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">
-                  {Math.round(progressPct)}%
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSortAsc((v) => !v)}
-                className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[11px] font-medium text-gray-300 transition-all hover:bg-white/10"
-                title={sortAsc ? 'Sorted A → Z (click to reverse)' : 'Sorted Z → A (click to reverse)'}
-              >
-                {sortAsc ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpZA className="h-3.5 w-3.5" />}
-                {sortAsc ? 'A–Z' : 'Z–A'}
-              </button>
-            </div>
-            <div className="mt-1.5 text-xs text-gray-400">
-              <span className="font-semibold text-white">{completedCount}</span>/{totalCount} submitted
-            </div>
+        {/* Top bar: subtle title + sort + progress */}
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-gray-400 whitespace-nowrap">
+              Coach Mode
+            </span>
+            <button
+              type="button"
+              onClick={() => setSortAsc((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[11px] font-medium text-gray-300 transition-all hover:bg-white/10"
+              title={sortAsc ? 'Sorted A → Z (click to reverse)' : 'Sorted Z → A (click to reverse)'}
+            >
+              {sortAsc ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpZA className="h-3.5 w-3.5" />}
+              {sortAsc ? 'A–Z' : 'Z–A'}
+            </button>
           </div>
-
-          {/* Global presets */}
-          <div className="flex flex-col gap-2 sm:items-end">
-            {/* Global RPE */}
-            {scaleQuestions.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs text-gray-300 whitespace-nowrap">RPE:</span>
-                <div className="flex gap-0.5">
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setGlobalRpe(n)}
-                      title={RPE_LABELS[n]}
-                      className={`h-7 w-6 rounded text-[11px] font-bold transition-all border ${
-                        globalRpe === n
-                          ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
-                          : `${RPE_IDLE_TINT[n]} hover:brightness-150 cursor-pointer`
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  disabled={globalRpe === null}
-                  onClick={applyGlobalRpe}
-                  className={`${globalRpe !== null ? activeTheme.primaryButton + ' text-white shadow' : 'bg-white/10 text-gray-500 cursor-not-allowed'} px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
-                >
-                  Apply to All
-                </button>
-              </div>
-            )}
-            {/* Global Duration */}
-            {(sliderQuestions.length > 0 || survey.questions.some((q) => q.type === 'NUMBER')) && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Clock className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                <span className="text-xs text-gray-300 whitespace-nowrap">Duration:</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={300}
-                  value={globalDuration}
-                  onChange={(e) => setGlobalDuration(e.target.value)}
-                  className={`w-16 px-2 py-1 rounded-lg text-center text-sm text-white ${activeTheme.inputField}`}
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs text-gray-400 whitespace-nowrap">
+              <span className="font-semibold text-white">{completedCount}</span>/{totalCount}
+            </span>
+            <div className="relative h-8 w-8 shrink-0" title={`${completedCount} of ${totalCount} submitted`}>
+              <svg className="h-8 w-8 -rotate-90" viewBox="0 0 44 44">
+                <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="5" className="text-white/10" />
+                <circle
+                  cx="22"
+                  cy="22"
+                  r="18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  className="text-emerald-400 transition-all duration-500"
+                  strokeDasharray={2 * Math.PI * 18}
+                  strokeDashoffset={(2 * Math.PI * 18) * (1 - progressPct / 100)}
                 />
-                <span className="text-xs text-gray-400">min</span>
-                <button
-                  type="button"
-                  onClick={applyGlobalDuration}
-                  className={`${activeTheme.primaryButton} text-white px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
-                >
-                  Apply to All
-                </button>
-              </div>
-            )}
-            {/* Global Session Type */}
-            {showSession && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-gray-300 whitespace-nowrap">Session:</span>
-                <select
-                  value={globalSession}
-                  onChange={(e) => setGlobalSession(e.target.value)}
-                  className={`h-7 px-2 py-0.5 rounded-lg text-xs text-white ${activeTheme.inputField}`}
-                >
-                  <option value="">—</option>
-                  {sessionTags.map((t) => (
-                    <option key={t} value={t} className="text-black">
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={applyGlobalSession}
-                  className={`${activeTheme.primaryButton} text-white px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
-                >
-                  Apply to All
-                </button>
-              </div>
-            )}
-            {/* Global Match Day */}
-            {showMatchDay && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-gray-300 whitespace-nowrap">Match Day:</span>
-                <select
-                  value={globalMatchDay}
-                  onChange={(e) => setGlobalMatchDay(e.target.value)}
-                  className={`h-7 px-2 py-0.5 rounded-lg text-xs text-white ${activeTheme.inputField}`}
-                >
-                  <option value="">—</option>
-                  {matchDayTags.map((t) => (
-                    <option key={t} value={t} className="text-black">
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={applyGlobalMatchDay}
-                  className={`${activeTheme.primaryButton} text-white px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
-                >
-                  Apply to All
-                </button>
-              </div>
-            )}
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-white">
+                {Math.round(progressPct)}%
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* Bulk-fill toolbar: controls in one row, Apply to All beneath each */}
+        {(scaleQuestions.length > 0 ||
+          sliderQuestions.length > 0 ||
+          survey.questions.some((q) => q.type === 'NUMBER') ||
+          showSession ||
+          showMatchDay) && (
+          <div className="mb-3 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <div
+              className="grid grid-flow-col auto-cols-max items-end gap-x-5 gap-y-2"
+              style={{ gridTemplateRows: 'auto auto auto' }}
+            >
+              {/* RPE preset */}
+              {scaleQuestions.length > 0 && (
+                <>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                    RPE preset
+                  </span>
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setGlobalRpe(n)}
+                        title={RPE_LABELS[n]}
+                        className={`h-8 w-7 rounded text-xs font-bold transition-all border ${
+                          globalRpe === n
+                            ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
+                            : `${RPE_IDLE_TINT[n]} hover:brightness-150 cursor-pointer`
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={globalRpe === null}
+                    onClick={applyGlobalRpe}
+                    className={`${globalRpe !== null ? activeTheme.primaryButton + ' text-white shadow' : 'bg-white/10 text-gray-500 cursor-not-allowed'} justify-self-start px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                  >
+                    Apply to All
+                  </button>
+                </>
+              )}
+
+              {/* Duration */}
+              {(sliderQuestions.length > 0 || survey.questions.some((q) => q.type === 'NUMBER')) && (
+                <>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                    Duration (min)
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={300}
+                    value={globalDuration}
+                    onChange={(e) => setGlobalDuration(e.target.value)}
+                    className={`h-8 w-full px-2 rounded-lg text-center text-sm text-white ${activeTheme.inputField}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={applyGlobalDuration}
+                    className={`${activeTheme.primaryButton} justify-self-start text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                  >
+                    Apply to All
+                  </button>
+                </>
+              )}
+
+              {/* Session Type */}
+              {showSession && (
+                <>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                    Session
+                  </span>
+                  <select
+                    value={globalSession}
+                    onChange={(e) => setGlobalSession(e.target.value)}
+                    className={`h-8 w-32 px-2 rounded-lg text-xs text-white ${activeTheme.inputField}`}
+                  >
+                    <option value="">—</option>
+                    {sessionTags.map((t) => (
+                      <option key={t} value={t} className="text-black">
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={applyGlobalSession}
+                    className={`${activeTheme.primaryButton} justify-self-start text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                  >
+                    Apply to All
+                  </button>
+                </>
+              )}
+
+              {/* Match Day */}
+              {showMatchDay && (
+                <>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                    Match Day
+                  </span>
+                  <select
+                    value={globalMatchDay}
+                    onChange={(e) => setGlobalMatchDay(e.target.value)}
+                    className={`h-8 w-32 px-2 rounded-lg text-xs text-white ${activeTheme.inputField}`}
+                  >
+                    <option value="">—</option>
+                    {matchDayTags.map((t) => (
+                      <option key={t} value={t} className="text-black">
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={applyGlobalMatchDay}
+                    className={`${activeTheme.primaryButton} justify-self-start text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                  >
+                    Apply to All
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Search + alphabet filter */}
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">

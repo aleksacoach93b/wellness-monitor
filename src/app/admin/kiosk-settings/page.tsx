@@ -60,9 +60,9 @@ const themeOptions: Array<{
   },
   {
     value: 'sand',
-    label: 'Sand Light',
-    description: 'Warm light neutral with soft amber glow',
-    preview: 'bg-gradient-to-br from-stone-500 via-stone-400 to-stone-500'
+    label: 'Daylight',
+    description: 'Clean white & sky-blue light theme with dark text',
+    preview: 'bg-gradient-to-br from-sky-50 via-white to-blue-50'
   },
   {
     value: 'violet',

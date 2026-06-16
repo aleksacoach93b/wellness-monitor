@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
-import { kioskThemes, type KioskTheme } from '@/lib/kioskThemes'
+import { kioskThemes, kioskTextTokens, type KioskTheme } from '@/lib/kioskThemes'
 
 interface KioskPasswordPromptProps {
   onPasswordCorrect: () => void
@@ -22,6 +22,7 @@ export default function KioskPasswordPrompt({
   const [loading, setLoading] = useState(false)
 
   const activeTheme = kioskThemes[theme] ?? kioskThemes.dark
+  const text = kioskTextTokens(theme)
   const hasCode = Boolean(password.trim())
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,18 +82,18 @@ export default function KioskPasswordPrompt({
                 </div>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl font-light text-white tracking-wide mb-3 drop-shadow-lg">
+              <h1 className={`text-3xl sm:text-4xl font-light ${text.textStrong} tracking-wide mb-3 drop-shadow-lg`}>
                 Survey Access
               </h1>
               <div className={`h-1 w-20 mx-auto rounded-full mb-5 ${activeTheme.accentLine}`} />
-              <p className="text-gray-300 text-base sm:text-lg font-medium tracking-wide leading-relaxed px-2">
+              <p className={`${text.textSoft} text-base sm:text-lg font-medium tracking-wide leading-relaxed px-2`}>
                 Enter the access code to open the kiosk
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-gray-200 mb-3 tracking-wide">
+                <label htmlFor="password" className={`block text-sm font-semibold ${text.textSoft} mb-3 tracking-wide`}>
                   Access Code
                 </label>
                 <div className="relative">
@@ -110,7 +111,7 @@ export default function KioskPasswordPrompt({
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg ${text.textFaint} hover:opacity-70 hover:bg-black/5 transition-colors`}
                     disabled={loading}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >

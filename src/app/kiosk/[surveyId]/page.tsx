@@ -8,7 +8,7 @@ import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
-import { kioskThemes, KioskTheme } from '@/lib/kioskThemes'
+import { kioskThemes, kioskTextTokens, KioskTheme } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
 import CoachModeView from '@/components/CoachModeView'
 
@@ -364,6 +364,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
   const filteredPlayers = getPlayersByLetter(selectedLetter)
   const activeTheme = kioskThemes[kioskTheme] ?? kioskThemes.dark
+  const text = kioskTextTokens(kioskTheme)
 
   // Show kiosk password prompt if needed
   if (showKioskPassword) {
@@ -381,8 +382,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       <div className={`min-h-screen ${activeTheme.rootBackground} flex items-center justify-center p-6`}>
         <div className="text-center max-w-sm">
           <div className="animate-spin rounded-full h-12 w-12 border-2 border-slate-500 border-t-blue-500 mx-auto" aria-hidden />
-          <p className="mt-6 text-lg font-medium text-white">Opening survey…</p>
-          <p className="mt-2 text-sm text-gray-400">
+          <p className={`mt-6 text-lg font-medium ${text.textStrong}`}>Opening survey…</p>
+          <p className={`mt-2 text-sm ${text.textFaint}`}>
             Please wait — this may take a moment on a slower connection.
           </p>
         </div>
@@ -394,8 +395,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     return (
       <div className={`min-h-screen ${activeTheme.rootBackground} flex items-center justify-center`}>
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Survey Not Found</h1>
-          <p className="text-gray-300">The requested survey could not be found.</p>
+          <h1 className={`text-2xl font-bold ${text.textStrong} mb-4`}>Survey Not Found</h1>
+          <p className={text.textSoft}>The requested survey could not be found.</p>
         </div>
       </div>
     )
@@ -410,11 +411,11 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-3">Survey Not Available</h1>
+          <h1 className={`text-3xl font-bold ${text.textStrong} mb-3`}>Survey Not Available</h1>
           <div className="w-16 h-0.5 bg-gradient-to-r from-orange-400 to-red-400 rounded-full mx-auto mb-6"></div>
-          <p className="text-gray-300 text-lg mb-6">{surveyStatusMessage}</p>
-          <p className="text-sm text-gray-400">
-            Survey: <span className="text-white font-semibold">{survey.title}</span>
+          <p className={`${text.textSoft} text-lg mb-6`}>{surveyStatusMessage}</p>
+          <p className={`text-sm ${text.textFaint}`}>
+            Survey: <span className={`${text.textStrong} font-semibold`}>{survey.title}</span>
           </p>
         </div>
       </div>
@@ -458,7 +459,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           {/* Mobile Layout */}
           <div className="block sm:hidden">
             <div className="flex items-center justify-between mb-3">
-              <h1 className="text-lg font-light text-white tracking-wide drop-shadow-lg truncate flex-1 mr-2">
+              <h1 className={`text-lg font-light ${text.textStrong} tracking-wide drop-shadow-lg truncate flex-1 mr-2`}>
                 {survey.title}
               </h1>
               <div className="flex items-center space-x-2">
@@ -488,7 +489,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 </button>
               </div>
             </div>
-            <p className="text-gray-300 text-sm tracking-wide">
+            <p className={`${text.textSoft} text-sm tracking-wide`}>
               {isCoachMode ? 'Fill in data for each player' : 'Select your name to begin the survey'}
             </p>
           </div>
@@ -498,11 +499,11 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
             <div className="flex items-center justify-between">
               <div className="relative">
                 <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-cyan-600/20 blur-lg"></div>
-                <h1 className="relative text-4xl font-light text-white tracking-wider drop-shadow-lg">
+                <h1 className={`relative text-4xl font-light ${text.textStrong} tracking-wider drop-shadow-lg`}>
                   {survey.title}
                 </h1>
                 <div className={`relative mt-2 w-32 h-0.5 ${activeTheme.accentLine} rounded-full`}></div>
-                <p className="relative mt-3 text-gray-300 text-base tracking-wide">
+                <p className={`relative mt-3 ${text.textSoft} text-base tracking-wide`}>
                   {isCoachMode ? 'Fill in data for each player' : 'Select your name to begin the survey'}
                 </p>
               </div>
@@ -543,9 +544,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4`}>
             <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`}></div>
             <div className="relative">
-              <h3 className="text-2xl font-light text-white mb-2 tracking-wide">Admin Access Required</h3>
+              <h3 className={`text-2xl font-light ${text.textStrong} mb-2 tracking-wide`}>Admin Access Required</h3>
               <div className={`w-16 h-0.5 ${activeTheme.accentLine} rounded-full mb-6`}></div>
-              <p className="text-base text-gray-300 mb-6 tracking-wide">Enter password to access admin dashboard:</p>
+              <p className={`text-base ${text.textSoft} mb-6 tracking-wide`}>Enter password to access admin dashboard:</p>
               <input
                 type="password"
                 value={adminPassword}
@@ -580,10 +581,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4`}>
             <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`}></div>
             <div className="relative">
-              <h3 className="text-2xl font-light text-white mb-2 text-center tracking-wide">Player Authentication</h3>
+              <h3 className={`text-2xl font-light ${text.textStrong} mb-2 text-center tracking-wide`}>Player Authentication</h3>
               <div className={`w-16 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-6`}></div>
-              <p className="text-base text-gray-300 mb-6 text-center tracking-wide">
-                Enter password for <strong className="text-white">{selectedPlayer.firstName} {selectedPlayer.lastName}</strong>:
+              <p className={`text-base ${text.textSoft} mb-6 text-center tracking-wide`}>
+                Enter password for <strong className={text.textStrong}>{selectedPlayer.firstName} {selectedPlayer.lastName}</strong>:
               </p>
               <input
                 type="text"
@@ -620,9 +621,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4`}>
             <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`}></div>
             <div className="relative">
-              <h3 className="text-2xl font-light text-white mb-2 text-center tracking-wide">Coach Access</h3>
+              <h3 className={`text-2xl font-light ${text.textStrong} mb-2 text-center tracking-wide`}>Coach Access</h3>
               <div className={`w-16 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-6`}></div>
-              <p className="text-base text-gray-300 mb-6 text-center tracking-wide">
+              <p className={`text-base ${text.textSoft} mb-6 text-center tracking-wide`}>
                 Enter password to access Coach Mode
               </p>
               <input
@@ -670,9 +671,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         <div className={`absolute inset-0 ${activeTheme.panelOverlay}`}></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-4 sm:mb-6">
-            <h2 id="kiosk-filter-heading" className="text-lg sm:text-2xl font-light text-white mb-2 sm:mb-3 tracking-wide">Filter by Last Name</h2>
+            <h2 id="kiosk-filter-heading" className={`text-lg sm:text-2xl font-light ${text.textStrong} mb-2 sm:mb-3 tracking-wide`}>Filter by Last Name</h2>
             <div className={`w-16 sm:w-20 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-2 sm:mb-3`}></div>
-            <p className="text-sm sm:text-base text-gray-300 tracking-wide">Click a letter to filter players</p>
+            <p className={`text-sm sm:text-base ${text.textSoft} tracking-wide`}>Click a letter to filter players</p>
           </div>
           <nav aria-labelledby="kiosk-filter-heading" className="flex flex-wrap gap-2 sm:gap-3 justify-center">
             <button
@@ -772,10 +773,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
               {/* Futuristic Player Name */}
               <div className="w-full min-w-0 px-1 text-center sm:px-1.5">
-                <h3 className="text-[11px] sm:text-sm lg:text-base font-medium leading-tight text-white/50 tracking-wide transition-colors duration-300 group-hover:text-white/70">
+                <h3 className={`text-[11px] sm:text-sm lg:text-base font-medium leading-tight ${text.textFaint} tracking-wide transition-colors duration-300`}>
                   {player.firstName}
                 </h3>
-                <p className="mt-0.5 w-full max-w-full break-words text-[10px] font-bold normal-case leading-tight tracking-tight text-white transition-colors duration-300 sm:text-[11px] md:text-xs lg:text-sm group-hover:text-sky-100">
+                <p className={`mt-0.5 w-full max-w-full break-words text-[10px] font-bold normal-case leading-tight tracking-tight ${text.textStrong} transition-colors duration-300 sm:text-[11px] md:text-xs lg:text-sm`}>
                   {formatKioskSurname(player.lastName)}
                 </p>
                 
@@ -814,9 +815,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 <div className="w-20 h-20 bg-gradient-to-br from-slate-500/80 to-slate-600/80 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl border-2 border-slate-600/50 backdrop-blur-sm">
                   <User className="w-10 h-10 text-gray-300" />
                 </div>
-                <h3 className="text-2xl font-light text-white mb-4 tracking-wide">No players found</h3>
+                <h3 className={`text-2xl font-light ${text.textStrong} mb-4 tracking-wide`}>No players found</h3>
                 <div className="w-16 h-0.5 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full mx-auto mb-4"></div>
-                <p className="text-base text-gray-300 tracking-wide">
+                <p className={`text-base ${text.textSoft} tracking-wide`}>
                   {selectedLetter ? `No players found starting with "${selectedLetter}"` : 'No players available for this survey'}
                 </p>
               </div>

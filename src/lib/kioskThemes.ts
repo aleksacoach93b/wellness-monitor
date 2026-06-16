@@ -288,43 +288,44 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
       'bg-gradient-to-r from-zinc-950/55 from-55% via-zinc-950/30 via-80% to-transparent shadow-[10px_0_22px_-14px_rgba(212,212,216,0.32)]',
   },
   sand: {
-    rootBackground: 'bg-gradient-to-br from-stone-500 via-stone-400 to-stone-500',
-    overlayOne: 'bg-gradient-to-br from-amber-200/15 via-stone-300/15 to-amber-200/15',
+    rootBackground: 'bg-gradient-to-br from-sky-50 via-white to-blue-50',
+    overlayOne: 'bg-gradient-to-br from-sky-200/30 via-blue-200/20 to-indigo-200/25',
     overlayTwo:
-      'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-100/20 via-transparent to-transparent',
-    headerBackground: 'bg-stone-600/60 backdrop-blur-xl border-b border-stone-400/40 shadow-2xl',
-    headerOverlay: 'bg-gradient-to-r from-amber-200/15 via-stone-300/15 to-amber-200/15',
-    accentLine: 'bg-gradient-to-r from-amber-100 via-stone-100 to-amber-100',
+      'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-200/40 via-transparent to-transparent',
+    headerBackground: 'bg-white/75 backdrop-blur-xl border-b border-sky-200/70 shadow-lg shadow-sky-900/5',
+    headerOverlay: 'bg-gradient-to-r from-sky-200/25 via-blue-200/20 to-indigo-200/25',
+    accentLine: 'bg-gradient-to-r from-sky-400 via-blue-400 to-indigo-400',
     primaryButton:
-      'bg-gradient-to-r from-amber-200/85 to-stone-100/85 hover:from-amber-100/85 hover:to-stone-50/85 border-amber-200/50',
-    secondaryButton: 'bg-stone-600/70 hover:bg-stone-500/70 border border-stone-500/40',
+      'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 border-sky-400/50',
+    secondaryButton: 'bg-slate-600 hover:bg-slate-500 border border-slate-500/40',
     adminButton:
-      'bg-gradient-to-r from-stone-500/80 to-stone-600/80 hover:from-stone-400/80 hover:to-stone-500/80 border border-stone-400/50',
-    modalBackground: 'bg-stone-600/85 border border-stone-400/50',
-    modalOverlay: 'bg-gradient-to-br from-amber-200/15 via-stone-300/15 to-amber-200/15',
+      'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 border border-slate-500/40',
+    modalBackground: 'bg-white/95 border border-sky-200/70',
+    modalOverlay: 'bg-gradient-to-br from-sky-200/20 via-blue-200/15 to-indigo-200/20',
     inputField:
-      'border border-stone-400/60 bg-stone-500/60 text-white placeholder-stone-200 focus:ring-amber-200/70 focus:border-amber-200/70',
-    panelBackground: 'bg-stone-600/60 border-b border-stone-400/40',
-    panelOverlay: 'bg-gradient-to-r from-amber-200/10 via-stone-300/10 to-amber-200/10',
+      'border border-sky-300/70 bg-white text-slate-900 placeholder-slate-400 focus:ring-sky-400/50 focus:border-sky-400/60',
+    panelBackground: 'bg-white/70 border-b border-sky-200/60',
+    panelOverlay: 'bg-gradient-to-r from-sky-200/15 via-blue-200/10 to-indigo-200/15',
     letterActive:
-      'bg-gradient-to-r from-amber-200/90 to-stone-50/90 text-stone-900 shadow-xl border-amber-100/70',
+      'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/25 border-sky-400/50',
     letterInactive:
-      'bg-stone-600/40 text-white hover:bg-stone-500/40 border-stone-500/30 hover:border-white/50',
-    letterDisabled: shared.letterDisabled,
-    gridOverlay: 'bg-gradient-to-br from-amber-200/12 via-stone-300/12 to-amber-200/12',
+      'bg-white text-slate-700 hover:bg-sky-50 border-sky-200/80 hover:border-sky-400/60',
+    letterDisabled: 'bg-slate-200/70 text-slate-400 cursor-not-allowed border-slate-200',
+    gridOverlay: 'bg-gradient-to-br from-sky-200/20 via-blue-200/15 to-indigo-200/20',
     playerCardIdle:
-      'border border-white/18 bg-gradient-to-br from-stone-500/60 to-stone-600/45 [box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.1),0_14px_44px_-14px_rgba(255,255,255,0.08)] hover:border-white/40 hover:[box-shadow:inset_0_1px_0_0_rgba(255,255,255,0.13),0_18px_50px_-14px_rgba(255,255,255,0.12)] hover:shadow-2xl',
-    playerCardResponded: shared.playerCardResponded,
+      'border border-sky-200/80 bg-white [box-shadow:0_1px_2px_0_rgba(15,23,42,0.06)] hover:border-sky-400/60 hover:[box-shadow:0_10px_30px_-12px_rgba(56,189,248,0.4)] hover:shadow-md',
+    playerCardResponded:
+      'border border-emerald-300 ring-2 ring-emerald-300/55 bg-emerald-50 [box-shadow:0_1px_2px_0_rgba(15,23,42,0.05),0_0_20px_-6px_rgba(16,185,129,0.3)]',
     playerStatusIdlePill:
-      'inline-flex min-h-8 items-center justify-center gap-1 rounded-md border border-amber-200/45 bg-stone-700/65 px-2.5 py-1 text-[11px] font-semibold text-amber-50 shadow-md backdrop-blur-sm sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs',
+      'inline-flex min-h-8 items-center justify-center gap-1 rounded-md border border-sky-300/70 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 shadow-sm sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs',
     playerCardFocus:
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-100 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-700',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
     playerAvatarInitial:
-      'bg-gradient-to-br from-stone-400/60 to-stone-700/80 text-white shadow-2xl border-stone-300/50 group-hover:border-white/50',
-    emptyStateCard: 'bg-stone-600/60 border border-stone-400/40',
-    rosterStickyBg: 'bg-stone-700/95',
+      'bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-md border-sky-300/70 group-hover:border-sky-400',
+    emptyStateCard: 'bg-white border border-sky-200/80',
+    rosterStickyBg: 'bg-white/95',
     rosterStickyFade:
-      'bg-gradient-to-r from-stone-700/55 from-55% via-stone-700/30 via-80% to-transparent shadow-[10px_0_22px_-14px_rgba(255,255,255,0.3)]',
+      'bg-gradient-to-r from-white/80 from-55% via-white/45 via-80% to-transparent shadow-[10px_0_22px_-14px_rgba(56,189,248,0.4)]',
   },
   violet: {
     rootBackground: 'bg-gradient-to-br from-violet-950 via-purple-950 to-fuchsia-950',
@@ -365,5 +366,41 @@ export const kioskThemes: Record<KioskTheme, ThemeClasses> = {
     rosterStickyFade:
       'bg-gradient-to-r from-violet-950/55 from-55% via-violet-950/30 via-80% to-transparent shadow-[10px_0_22px_-14px_rgba(217,70,239,0.4)]',
   },
+}
+
+/** Themes that use a light background and therefore need dark text. */
+export const LIGHT_KIOSK_THEMES: KioskTheme[] = ['sand']
+
+export interface KioskTextTokens {
+  /** Primary text (names, headings) on neutral page/card surfaces */
+  textStrong: string
+  /** Secondary body text on neutral surfaces */
+  textSoft: string
+  /** Muted labels / captions on neutral surfaces */
+  textFaint: string
+  /** Neutral pill/chip (inactive filter, sort, search) — bg + border + text */
+  neutralChip: string
+}
+
+/**
+ * Text colors that adapt to whether the kiosk theme is light or dark.
+ * Buttons keep their own (white) text; these are for text on neutral
+ * page / card backgrounds where a light theme needs dark text.
+ */
+export function kioskTextTokens(theme: KioskTheme): KioskTextTokens {
+  if (LIGHT_KIOSK_THEMES.includes(theme)) {
+    return {
+      textStrong: 'text-slate-900',
+      textSoft: 'text-slate-600',
+      textFaint: 'text-slate-500',
+      neutralChip: 'bg-white border border-sky-200/80 text-slate-700 hover:bg-sky-50',
+    }
+  }
+  return {
+    textStrong: 'text-white',
+    textSoft: 'text-gray-300',
+    textFaint: 'text-gray-400',
+    neutralChip: 'bg-white/10 border border-white/15 text-gray-200 hover:bg-white/20',
+  }
 }
 

@@ -7,7 +7,7 @@ import Image from 'next/image'
 import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
 import type { KioskTheme } from '@/lib/kioskThemes'
-import { kioskThemes } from '@/lib/kioskThemes'
+import { kioskThemes, kioskTextTokens } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
 
 interface PlayerWithStatus extends Player {
@@ -109,6 +109,7 @@ export default function CoachModeView({
   onRefresh,
 }: CoachModeViewProps) {
   const activeTheme = kioskThemes[kioskTheme] ?? kioskThemes.dark
+  const text = kioskTextTokens(kioskTheme)
 
   const showSession = Boolean(survey.trackSessionType) && sessionTags.length > 0
   const showMatchDay = Boolean(survey.trackMatchDay) && matchDayTags.length > 0
@@ -420,7 +421,7 @@ export default function CoachModeView({
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-white truncate leading-tight">
+              <p className={`text-sm font-semibold ${text.textStrong} truncate leading-tight`}>
                 {player.firstName} <span className="font-bold">{player.lastName}</span>
               </p>
               {error && (
@@ -490,7 +491,7 @@ export default function CoachModeView({
             disabled={isSubmitted}
             value={pd?.answers[q.id] ?? ''}
             onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
-            className={`h-9 w-16 px-1.5 rounded-lg text-center text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+            className={`h-9 w-16 px-1.5 rounded-lg text-center text-xs ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
           />
         )
       },
@@ -515,7 +516,7 @@ export default function CoachModeView({
                     ? opt === 'Yes'
                       ? 'bg-red-500/80 border-red-400/60 text-white'
                       : 'bg-green-500/80 border-green-400/60 text-white'
-                    : 'bg-white/10 border-white/15 text-gray-300 hover:bg-white/20'
+                    : text.neutralChip
                 } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 {opt}
@@ -542,7 +543,7 @@ export default function CoachModeView({
             className={`px-3 py-2 rounded-lg text-[11px] font-semibold transition-all border ${
               areaCount > 0
                 ? 'bg-orange-500/80 border-orange-400/60 text-white'
-                : 'bg-white/10 border-white/15 text-gray-300 hover:bg-white/20'
+                : text.neutralChip
             } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
           >
             {areaCount > 0 ? `${areaCount} area${areaCount > 1 ? 's' : ''}` : 'Body Map'}
@@ -563,7 +564,7 @@ export default function CoachModeView({
             disabled={isSubmitted}
             value={pd?.answers[q.id] ?? ''}
             onChange={(e) => setAnswer(player.id, q.id, e.target.value)}
-            className={`h-9 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+            className={`h-9 w-full px-1.5 rounded-lg text-xs ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
           />
         )
       },
@@ -580,7 +581,7 @@ export default function CoachModeView({
                 disabled={isSubmitted}
                 value={sessions[player.id] ?? ''}
                 onChange={(e) => setSessions((prev) => ({ ...prev, [player.id]: e.target.value }))}
-                className={`h-9 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+                className={`h-9 w-full px-1.5 rounded-lg text-xs ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
               >
                 <option value="">—</option>
                 {sessionTags.map((t) => (
@@ -603,7 +604,7 @@ export default function CoachModeView({
                 disabled={isSubmitted}
                 value={matchDays[player.id] ?? ''}
                 onChange={(e) => setMatchDays((prev) => ({ ...prev, [player.id]: e.target.value }))}
-                className={`h-9 w-full px-1.5 rounded-lg text-xs text-white ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
+                className={`h-9 w-full px-1.5 rounded-lg text-xs ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
               >
                 <option value="">—</option>
                 {matchDayTags.map((t) => (
@@ -696,13 +697,13 @@ export default function CoachModeView({
         {/* Top bar: subtle title + sort + progress */}
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-gray-400 whitespace-nowrap">
+            <span className={`text-[11px] font-semibold uppercase tracking-[0.25em] ${text.textFaint} whitespace-nowrap`}>
               Coach Mode
             </span>
             <button
               type="button"
               onClick={() => setSortAsc((v) => !v)}
-              className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[11px] font-medium text-gray-300 transition-all hover:bg-white/10"
+              className={`inline-flex items-center gap-1 rounded-lg ${text.neutralChip} px-2.5 py-1.5 text-[11px] font-medium transition-all`}
               title={sortAsc ? 'Sorted A → Z (click to reverse)' : 'Sorted Z → A (click to reverse)'}
             >
               {sortAsc ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpZA className="h-3.5 w-3.5" />}
@@ -710,8 +711,8 @@ export default function CoachModeView({
             </button>
           </div>
           <div className="flex items-center gap-2.5">
-            <span className="text-xs text-gray-400 whitespace-nowrap">
-              <span className="font-semibold text-white">{completedCount}</span>/{totalCount}
+            <span className={`text-xs ${text.textFaint} whitespace-nowrap`}>
+              <span className={`font-semibold ${text.textStrong}`}>{completedCount}</span>/{totalCount}
             </span>
             <div className="relative h-8 w-8 shrink-0" title={`${completedCount} of ${totalCount} submitted`}>
               <svg className="h-8 w-8 -rotate-90" viewBox="0 0 44 44">
@@ -729,7 +730,7 @@ export default function CoachModeView({
                   strokeDashoffset={(2 * Math.PI * 18) * (1 - progressPct / 100)}
                 />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-white">
+              <span className={`absolute inset-0 flex items-center justify-center text-[8px] font-bold ${text.textStrong}`}>
                 {Math.round(progressPct)}%
               </span>
             </div>
@@ -750,7 +751,7 @@ export default function CoachModeView({
               {/* RPE preset */}
               {scaleQuestions.length > 0 && (
                 <>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${text.textFaint}`}>
                     RPE preset
                   </span>
                   <div className="flex gap-0.5">
@@ -774,7 +775,7 @@ export default function CoachModeView({
                     type="button"
                     disabled={globalRpe === null}
                     onClick={applyGlobalRpe}
-                    className={`${globalRpe !== null ? activeTheme.primaryButton + ' text-white shadow' : 'bg-white/10 text-gray-500 cursor-not-allowed'} w-full text-center px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
+                    className={`${globalRpe !== null ? activeTheme.primaryButton + ' text-white shadow' : text.neutralChip + ' opacity-60 cursor-not-allowed'} w-full text-center px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
                   >
                     Apply to All
                   </button>
@@ -784,7 +785,7 @@ export default function CoachModeView({
               {/* Duration */}
               {(sliderQuestions.length > 0 || survey.questions.some((q) => q.type === 'NUMBER')) && (
                 <>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${text.textFaint}`}>
                     Duration (min)
                   </span>
                   <input
@@ -793,7 +794,7 @@ export default function CoachModeView({
                     max={300}
                     value={globalDuration}
                     onChange={(e) => setGlobalDuration(e.target.value)}
-                    className={`h-8 w-full px-2 rounded-lg text-center text-sm text-white ${activeTheme.inputField}`}
+                    className={`h-8 w-full px-2 rounded-lg text-center text-sm ${activeTheme.inputField}`}
                   />
                   <button
                     type="button"
@@ -808,13 +809,13 @@ export default function CoachModeView({
               {/* Session Type */}
               {showSession && (
                 <>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${text.textFaint}`}>
                     Session
                   </span>
                   <select
                     value={globalSession}
                     onChange={(e) => setGlobalSession(e.target.value)}
-                    className={`h-8 w-32 px-2 rounded-lg text-xs text-white ${activeTheme.inputField}`}
+                    className={`h-8 w-32 px-2 rounded-lg text-xs ${activeTheme.inputField}`}
                   >
                     <option value="">—</option>
                     {sessionTags.map((t) => (
@@ -836,13 +837,13 @@ export default function CoachModeView({
               {/* Match Day */}
               {showMatchDay && (
                 <>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${text.textFaint}`}>
                     Match Day
                   </span>
                   <select
                     value={globalMatchDay}
                     onChange={(e) => setGlobalMatchDay(e.target.value)}
-                    className={`h-8 w-32 px-2 rounded-lg text-xs text-white ${activeTheme.inputField}`}
+                    className={`h-8 w-32 px-2 rounded-lg text-xs ${activeTheme.inputField}`}
                   >
                     <option value="">—</option>
                     {matchDayTags.map((t) => (
@@ -872,13 +873,13 @@ export default function CoachModeView({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search player…"
-              className={`w-full pl-3 pr-8 py-1.5 rounded-lg text-sm text-white ${activeTheme.inputField}`}
+              className={`w-full pl-3 pr-8 py-1.5 rounded-lg text-sm ${activeTheme.inputField}`}
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-sm"
+                className={`absolute right-2 top-1/2 -translate-y-1/2 ${text.textFaint} hover:opacity-70 text-sm`}
                 aria-label="Clear search"
               >
                 ✕
@@ -892,7 +893,7 @@ export default function CoachModeView({
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
               !selectedLetter
                 ? `${activeTheme.primaryButton} text-white shadow`
-                : 'bg-white/10 border border-white/15 text-gray-300 hover:bg-white/20'
+                : text.neutralChip
             }`}
           >
             All
@@ -909,7 +910,7 @@ export default function CoachModeView({
                   selectedLetter === letter
                     ? `${activeTheme.primaryButton} text-white shadow`
                     : hasPlayers
-                    ? 'bg-white/10 border border-white/15 text-gray-300 hover:bg-white/20'
+                    ? text.neutralChip
                     : 'bg-white/5 border border-white/5 text-gray-600 cursor-not-allowed'
                 }`}
               >
@@ -931,7 +932,7 @@ export default function CoachModeView({
               {gridColumns.map((col) => (
                 <div
                   key={col.id}
-                  className={`truncate text-[10px] font-semibold uppercase tracking-wide text-gray-400 ${
+                  className={`truncate text-[10px] font-semibold uppercase tracking-wide ${text.textFaint} ${
                     col.id === 'player' ? `sticky left-0 z-30 ${activeTheme.rosterStickyBg} backdrop-blur-md pr-2` : ''
                   }`}
                   title={col.label}
@@ -958,7 +959,7 @@ export default function CoachModeView({
               {donePlayers.map(renderRosterRow)}
 
               {sortedPlayers.length === 0 && (
-                <div className={`rounded-xl p-6 text-center text-sm text-gray-400 ${activeTheme.emptyStateCard}`}>
+                <div className={`rounded-xl p-6 text-center text-sm ${text.textFaint} ${activeTheme.emptyStateCard}`}>
                   No players match your search.
                 </div>
               )}
@@ -1004,11 +1005,11 @@ export default function CoachModeView({
           <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6`}>
             <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`} />
             <div className="relative">
-              <h3 className="text-xl font-semibold text-white mb-2">Confirm Submission</h3>
+              <h3 className={`text-xl font-semibold ${text.textStrong} mb-2`}>Confirm Submission</h3>
               <div className={`w-12 h-0.5 ${activeTheme.accentLine} rounded-full mb-4`} />
-              <p className="text-sm text-gray-300 mb-6">
+              <p className={`text-sm ${text.textSoft} mb-6`}>
                 Submit survey data for{' '}
-                <span className="font-bold text-white">{pendingWithData} player{pendingWithData !== 1 ? 's' : ''}</span>?
+                <span className={`font-bold ${text.textStrong}`}>{pendingWithData} player{pendingWithData !== 1 ? 's' : ''}</span>?
                 This action cannot be undone.
               </p>
               <div className="flex gap-3">

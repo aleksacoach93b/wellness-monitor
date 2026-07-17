@@ -32,6 +32,8 @@ interface SurveyFormProps {
   draftPlayerId?: string | null
   sessionTags?: string[]
   matchDayTags?: string[]
+  clubLogo?: string | null
+  showClubBranding?: boolean
 }
 
 export default function SurveyForm({
@@ -41,6 +43,8 @@ export default function SurveyForm({
   draftPlayerId,
   sessionTags = [],
   matchDayTags = [],
+  clubLogo = null,
+  showClubBranding = true,
 }: SurveyFormProps) {
   const router = useRouter()
   const appearance = resolveSurveyAppearanceTheme(surveyTheme)
@@ -630,6 +634,21 @@ export default function SurveyForm({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
+
+        {showClubBranding && clubLogo ? (
+          <div className="absolute top-3 right-3 z-[60] sm:top-4 sm:right-4">
+            <div className="h-14 w-12 rounded-xl bg-white/95 p-1 shadow-lg ring-1 ring-white/30 sm:h-16 sm:w-14">
+              <Image
+                src={clubLogo}
+                alt="Club logo"
+                width={56}
+                height={64}
+                unoptimized
+                className="h-full w-full object-contain"
+              />
+            </div>
+          </div>
+        ) : null}
 
         {!playerName ? (
           <div className="relative px-4 pb-4 pt-12 text-center sm:pt-14">

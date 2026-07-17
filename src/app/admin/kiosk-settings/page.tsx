@@ -343,7 +343,7 @@ export default function KioskSettingsPage() {
                     </div>
                   </div>
                   <p className="mt-2 text-sm text-gray-500">
-                    Square logo works best. Image is compressed automatically for fast kiosk loading.
+                    Full crest logos are shown with fit (not cropped). Image is compressed automatically for fast loading.
                   </p>
                 </div>
 
@@ -515,7 +515,7 @@ export default function KioskSettingsPage() {
         <div className="mt-8 bg-blue-50 rounded-lg p-6">
           <h3 className="text-lg font-medium text-blue-900 mb-3">How it works:</h3>
           <ul className="space-y-2 text-blue-800">
-            <li>• Club name + logo appear in the kiosk header and on the access password screen</li>
+            <li>• Club logo appears (full crest, not cropped) on kiosk, access screen, and survey header</li>
             <li>• Toggle “Show club branding” if you want a clean kiosk without club identity</li>
             <li>• Password protection is optional — leave blank to keep kiosk open</li>
             <li>• Theme and branding apply after you click Save Settings</li>

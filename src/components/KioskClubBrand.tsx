@@ -12,7 +12,9 @@ interface KioskClubBrandProps {
   /** larger mark for password / splash screens */
   size?: 'sm' | 'md' | 'lg'
   className?: string
-  align?: 'left' | 'center'
+  align?: 'left' | 'center' | 'right'
+  /** Show logo only (no club name text). Full crest with object-fit contain. */
+  logoOnly?: boolean
 }
 
 export default function KioskClubBrand({
@@ -23,13 +25,20 @@ export default function KioskClubBrand({
   size = 'md',
   className = '',
   align = 'left',
+  logoOnly = true,
 }: KioskClubBrandProps) {
   const name = clubName?.trim() || ''
   const logo = clubLogo?.trim() || ''
   if (!showBranding || (!name && !logo)) return null
 
   const text = kioskTextTokens(kioskTheme)
-  const logoSize = size === 'lg' ? 88 : size === 'sm' ? 44 : 64
+  // Tall crest logos need height room; width is flexible with contain
+  const box =
+    size === 'lg'
+      ? { w: 96, h: 112 }
+      : size === 'sm'
+        ? { w: 44, h: 52 }
+        : { w: 64, h: 76 }
   const nameClass =
     size === 'lg'
       ? 'text-2xl sm:text-4xl'
@@ -37,35 +46,29 @@ export default function KioskClubBrand({
         ? 'text-base sm:text-lg'
         : 'text-xl sm:text-2xl'
 
+  const justify =
+    align === 'center' ? 'justify-center text-center' : align === 'right' ? 'justify-end text-right' : 'justify-start text-left'
+
   return (
-    <div
-      className={`flex items-center gap-3 sm:gap-4 ${
-        align === 'center' ? 'justify-center text-center' : 'justify-start text-left'
-      } ${className}`}
-    >
+    <div className={`flex items-center gap-3 sm:gap-4 ${justify} ${className}`}>
       {logo ? (
-        <div className="relative shrink-0">
-          <div
-            className="absolute -inset-2 rounded-full bg-gradient-to-br from-white/25 via-white/5 to-transparent blur-md"
-            aria-hidden
+        <div
+          className="relative shrink-0 rounded-xl bg-white/95 p-1 shadow-lg ring-1 ring-black/5"
+          style={{ width: box.w, height: box.h }}
+          title={name || 'Club logo'}
+        >
+          <Image
+            src={logo}
+            alt={name || 'Club logo'}
+            width={box.w}
+            height={box.h}
+            unoptimized
+            className="h-full w-full object-contain"
           />
-          <div
-            className="relative overflow-hidden rounded-full border border-white/25 bg-white/10 shadow-2xl ring-1 ring-white/10"
-            style={{ width: logoSize, height: logoSize }}
-          >
-            <Image
-              src={logo}
-              alt={name || 'Club logo'}
-              width={logoSize}
-              height={logoSize}
-              unoptimized
-              className="h-full w-full object-cover"
-            />
-          </div>
         </div>
       ) : null}
 
-      {name ? (
+      {!logoOnly && name ? (
         <div className={`min-w-0 ${align === 'center' && !logo ? 'w-full' : ''}`}>
           <p
             className={`font-semibold tracking-[0.04em] ${text.textStrong} ${nameClass} drop-shadow-sm leading-tight truncate`}
@@ -79,6 +82,13 @@ export default function KioskClubBrand({
             aria-hidden
           />
         </div>
+      ) : null}
+
+      {/* Fallback when logo missing but name exists and logoOnly requested */}
+      {logoOnly && !logo && name ? (
+        <p className={`font-semibold tracking-[0.04em] ${text.textStrong} ${nameClass} drop-shadow-sm leading-tight`}>
+          {name}
+        </p>
       ) : null}
     </div>
   )

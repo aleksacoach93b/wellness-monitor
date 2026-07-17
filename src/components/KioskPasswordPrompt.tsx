@@ -90,6 +90,7 @@ export default function KioskPasswordPrompt({
                     kioskTheme={theme}
                     size="lg"
                     align="center"
+                    logoOnly
                   />
                 </div>
               ) : (

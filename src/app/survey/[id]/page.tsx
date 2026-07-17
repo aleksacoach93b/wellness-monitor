@@ -72,10 +72,14 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
   }
 
   let effectiveSurveyTheme = surveyTheme?.trim()
+  let clubLogo: string | null = null
+  let showClubBranding = true
+  const ks = await prisma.kioskSettings.findFirst().catch(() => null)
   if (!effectiveSurveyTheme) {
-    const ks = await prisma.kioskSettings.findFirst().catch(() => null)
     effectiveSurveyTheme = surveyThemeQueryFromKioskTheme(ks?.theme ?? 'dark')
   }
+  clubLogo = ks?.clubLogo ?? null
+  showClubBranding = ks?.showClubBranding ?? true
 
   const appearanceResolved = resolveSurveyAppearanceTheme(effectiveSurveyTheme)
 
@@ -88,6 +92,8 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
         draftPlayerId={playerId ?? null}
         sessionTags={sessionTags}
         matchDayTags={matchDayTags}
+        clubLogo={clubLogo}
+        showClubBranding={showClubBranding}
       />
     </div>
   )

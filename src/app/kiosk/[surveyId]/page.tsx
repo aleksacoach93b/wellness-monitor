@@ -664,6 +664,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   showBranding={showClubBranding}
                   kioskTheme={kioskTheme}
                   size="sm"
+                  logoOnly
                 />
               </div>
             ) : null}
@@ -718,6 +719,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                       showBranding={showClubBranding}
                       kioskTheme={kioskTheme}
                       size="md"
+                      logoOnly
                     />
                   ) : null}
                   <div>

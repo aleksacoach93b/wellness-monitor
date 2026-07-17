@@ -10,6 +10,7 @@ import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
 import { pushRecentPlayerId, readRecentPlayerIds } from '@/lib/kioskRecentPlayers'
 import { flushOfflineSurveyQueue, getOfflineQueueCount } from '@/lib/offlineSurveyQueue'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
+import KioskClubBrand from '@/components/KioskClubBrand'
 import { kioskThemes, kioskTextTokens, KioskTheme } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
 import CoachModeView from '@/components/CoachModeView'
@@ -77,6 +78,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [surveyNotActive, setSurveyNotActive] = useState(false)
   const [surveyStatusMessage, setSurveyStatusMessage] = useState('')
   const [kioskTheme, setKioskTheme] = useState<KioskTheme>('dark')
+  const [clubName, setClubName] = useState('')
+  const [clubLogo, setClubLogo] = useState<string | null>(null)
+  const [showClubBranding, setShowClubBranding] = useState(true)
   const [isCoachMode, setIsCoachMode] = useState(false)
   const [surveyQuestions, setSurveyQuestions] = useState<Question[]>([])
   const [sessionTags, setSessionTags] = useState<string[]>([])
@@ -95,6 +99,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           const kioskSettings = await kioskResponse.json()
           setKioskTheme(kioskSettings.theme ?? 'dark')
           setStoredCoachPassword(kioskSettings.coachPassword ?? '')
+          setClubName(kioskSettings.clubName ?? '')
+          setClubLogo(kioskSettings.clubLogo ?? null)
+          setShowClubBranding(kioskSettings.showClubBranding ?? true)
           // Show password prompt if password is set and not already authenticated this session
           if (kioskSettings.password && kioskSettings.password.trim() !== '') {
             const alreadyAuthed = typeof window !== 'undefined' && sessionStorage.getItem(`kiosk-auth-${surveyId}`) === 'true'
@@ -559,6 +566,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     return (
       <KioskPasswordPrompt
         theme={kioskTheme}
+        clubName={clubName}
+        clubLogo={clubLogo}
+        showClubBranding={showClubBranding}
         onPasswordCorrect={handleKioskPasswordCorrect}
         onCancel={() => router.push('/')}
       />
@@ -640,16 +650,29 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       <div className={`absolute inset-0 ${activeTheme.overlayOne}`}></div>
       <div className={`absolute top-0 left-0 w-full h-full ${activeTheme.overlayTwo}`}></div>
       
-      {/* Futuristic Header - Mobile Optimized */}
+      {/* Kiosk Header */}
       <div className={`relative ${activeTheme.headerBackground}`}>
         <div className={`absolute inset-0 ${activeTheme.headerOverlay}`}></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-6">
           {/* Mobile Layout */}
           <div className="block sm:hidden">
+            {showClubBranding && (clubName || clubLogo) ? (
+              <div className="mb-3">
+                <KioskClubBrand
+                  clubName={clubName}
+                  clubLogo={clubLogo}
+                  showBranding={showClubBranding}
+                  kioskTheme={kioskTheme}
+                  size="sm"
+                />
+              </div>
+            ) : null}
             <div className="flex items-center justify-between mb-3">
-              <h1 className={`text-lg font-light ${text.textStrong} tracking-wide drop-shadow-lg truncate flex-1 mr-2`}>
-                {survey.title}
-              </h1>
+              <div className="min-w-0 flex-1 mr-2">
+                <h1 className={`text-lg font-light ${text.textStrong} tracking-wide drop-shadow-lg truncate`}>
+                  {survey.title}
+                </h1>
+              </div>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleCoachToggle}
@@ -684,18 +707,34 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           
           {/* Desktop Layout */}
           <div className="hidden sm:block">
-            <div className="flex items-center justify-between">
-              <div className="relative">
+            <div className="flex items-start justify-between gap-6">
+              <div className="relative min-w-0 flex-1">
                 <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-cyan-600/20 blur-lg"></div>
-                <h1 className={`relative text-4xl font-light ${text.textStrong} tracking-wider drop-shadow-lg`}>
-                  {survey.title}
-                </h1>
-                <div className={`relative mt-2 w-32 h-0.5 ${activeTheme.accentLine} rounded-full`}></div>
-                <p className={`relative mt-3 ${text.textSoft} text-base tracking-wide`}>
-                  {isCoachMode ? 'Fill in data for each player' : 'Search or tap your name to start'}
-                </p>
+                <div className="relative space-y-4">
+                  {showClubBranding && (clubName || clubLogo) ? (
+                    <KioskClubBrand
+                      clubName={clubName}
+                      clubLogo={clubLogo}
+                      showBranding={showClubBranding}
+                      kioskTheme={kioskTheme}
+                      size="md"
+                    />
+                  ) : null}
+                  <div>
+                    <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${text.textFaint}`}>
+                      Today&apos;s survey
+                    </p>
+                    <h1 className={`mt-1 text-3xl lg:text-4xl font-light ${text.textStrong} tracking-wider drop-shadow-lg`}>
+                      {survey.title}
+                    </h1>
+                    <div className={`mt-2 w-32 h-0.5 ${activeTheme.accentLine} rounded-full`}></div>
+                    <p className={`mt-3 ${text.textSoft} text-base tracking-wide`}>
+                      {isCoachMode ? 'Fill in data for each player' : 'Search or tap your name to start'}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 shrink-0 pt-1">
                 <button
                   onClick={handleCoachToggle}
                   className={`relative ${isCoachMode ? activeTheme.primaryButton : activeTheme.secondaryButton} text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm`}

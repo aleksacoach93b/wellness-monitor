@@ -8,25 +8,28 @@ const updateKioskSettingsSchema = z.object({
   password: z.string(),
   coachPassword: z.string().optional(),
   isEnabled: z.boolean(),
-  theme: kioskThemeSchema.default('dark')
+  theme: kioskThemeSchema.default('dark'),
+  clubName: z.string().max(120).optional(),
+  clubLogo: z.string().nullable().optional(),
+  showClubBranding: z.boolean().optional(),
 })
 
 export async function GET() {
   try {
-    // Get the first (and only) kiosk settings record
     let settings = await prisma.kioskSettings.findFirst()
-    
-    // If no settings exist, create default ones
+
     if (!settings) {
       settings = await prisma.kioskSettings.create({
         data: {
           password: '',
           isEnabled: false,
-          theme: 'dark'
-        }
+          theme: 'dark',
+          clubName: '',
+          showClubBranding: true,
+        },
       })
     }
-    
+
     return NextResponse.json(settings)
   } catch (error) {
     console.error('Error fetching kiosk settings:', error)
@@ -40,29 +43,36 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    console.log('Received kiosk settings update:', body)
-    const { password, coachPassword, isEnabled, theme } = updateKioskSettingsSchema.parse(body)
-    console.log('Parsed data:', { password, isEnabled, theme, coachPassword: coachPassword !== undefined ? '***' : 'unchanged' })
-    
-    // Get the first (and only) kiosk settings record
+    const parsed = updateKioskSettingsSchema.parse(body)
+    const { password, coachPassword, isEnabled, theme, clubName, clubLogo, showClubBranding } = parsed
+
     let settings = await prisma.kioskSettings.findFirst()
-    
+
     const data: Record<string, unknown> = { password, isEnabled, theme }
     if (coachPassword !== undefined) data.coachPassword = coachPassword
+    if (clubName !== undefined) data.clubName = clubName.trim()
+    if (clubLogo !== undefined) data.clubLogo = clubLogo
+    if (showClubBranding !== undefined) data.showClubBranding = showClubBranding
 
     if (settings) {
       settings = await prisma.kioskSettings.update({
         where: { id: settings.id },
-        data
+        data,
       })
-      console.log('Updated existing settings:', settings.id)
     } else {
       settings = await prisma.kioskSettings.create({
-        data: { password, isEnabled, theme, coachPassword: coachPassword ?? '' }
+        data: {
+          password,
+          isEnabled,
+          theme,
+          coachPassword: coachPassword ?? '',
+          clubName: clubName?.trim() ?? '',
+          clubLogo: clubLogo ?? null,
+          showClubBranding: showClubBranding ?? true,
+        },
       })
-      console.log('Created new settings:', settings.id)
     }
-    
+
     return NextResponse.json(settings)
   } catch (error) {
     console.error('Error updating kiosk settings:', error)

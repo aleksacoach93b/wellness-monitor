@@ -3,18 +3,25 @@
 import { useState } from 'react'
 import { Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { kioskThemes, kioskTextTokens, type KioskTheme } from '@/lib/kioskThemes'
+import KioskClubBrand from '@/components/KioskClubBrand'
 
 interface KioskPasswordPromptProps {
   onPasswordCorrect: () => void
   onCancel?: () => void
   /** Matches kiosk player screen; from `/api/kiosk-settings` when available */
   theme?: KioskTheme
+  clubName?: string | null
+  clubLogo?: string | null
+  showClubBranding?: boolean
 }
 
 export default function KioskPasswordPrompt({
   onPasswordCorrect,
   onCancel,
   theme = 'dark',
+  clubName,
+  clubLogo,
+  showClubBranding = true,
 }: KioskPasswordPromptProps) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -24,6 +31,7 @@ export default function KioskPasswordPrompt({
   const activeTheme = kioskThemes[theme] ?? kioskThemes.dark
   const text = kioskTextTokens(theme)
   const hasCode = Boolean(password.trim())
+  const hasBrand = showClubBranding && Boolean(clubName?.trim() || clubLogo?.trim())
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,14 +81,27 @@ export default function KioskPasswordPrompt({
 
           <div className="relative px-8 pt-10 pb-8 sm:px-10 sm:py-12">
             <div className="text-center mb-8">
-              <div className="relative mx-auto w-24 h-24 mb-8">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/25 via-white/10 to-transparent blur-xl scale-125" aria-hidden />
-                <div
-                  className={`relative flex h-full w-full items-center justify-center rounded-full shadow-2xl border border-white/10 ${activeTheme.primaryButton}`}
-                >
-                  <Lock className="w-11 h-11 text-white drop-shadow-md" strokeWidth={1.75} />
+              {hasBrand ? (
+                <div className="mb-8">
+                  <KioskClubBrand
+                    clubName={clubName}
+                    clubLogo={clubLogo}
+                    showBranding={showClubBranding}
+                    kioskTheme={theme}
+                    size="lg"
+                    align="center"
+                  />
                 </div>
-              </div>
+              ) : (
+                <div className="relative mx-auto w-24 h-24 mb-8">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/25 via-white/10 to-transparent blur-xl scale-125" aria-hidden />
+                  <div
+                    className={`relative flex h-full w-full items-center justify-center rounded-full shadow-2xl border border-white/10 ${activeTheme.primaryButton}`}
+                  >
+                    <Lock className="w-11 h-11 text-white drop-shadow-md" strokeWidth={1.75} />
+                  </div>
+                </div>
+              )}
 
               <h1 className={`text-3xl sm:text-4xl font-light ${text.textStrong} tracking-wide mb-3 drop-shadow-lg`}>
                 Survey Access

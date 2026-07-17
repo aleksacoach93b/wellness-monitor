@@ -35,8 +35,12 @@ export default function BodyMap({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [lastTouchDistance, setLastTouchDistance] = useState(0)
   const [ratingTarget, setRatingTarget] = useState<string | null>(null)
+  const [isFlipping, setIsFlipping] = useState(false)
   const suppressClickRef = useRef(false)
   const pointerOriginRef = useRef({ x: 0, y: 0 })
+  const flipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const FLIP_MS = 580
 
   // Handle zoom and pan
   const handleWheel = (e: React.WheelEvent) => {
@@ -178,11 +182,33 @@ export default function BodyMap({
   }
 
   const switchView = (next: 'front' | 'back') => {
-    if (next === view) return
-    onViewChange(next)
+    if (next === view || isFlipping) return
     setRatingTarget(null)
     resetZoom()
+
+    const preferReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    if (preferReduced) {
+      onViewChange(next)
+      return
+    }
+
+    setIsFlipping(true)
+    onViewChange(next)
+    if (flipTimerRef.current) clearTimeout(flipTimerRef.current)
+    flipTimerRef.current = setTimeout(() => {
+      setIsFlipping(false)
+      flipTimerRef.current = null
+    }, FLIP_MS)
   }
+
+  useEffect(() => {
+    return () => {
+      if (flipTimerRef.current) clearTimeout(flipTimerRef.current)
+    }
+  }, [])
 
   const getMuscleName = (areaId: string): string => {
     const muscleNames: Record<string, string> = {
@@ -2340,7 +2366,8 @@ export default function BodyMap({
               <button
                 type="button"
                 onClick={() => switchView('front')}
-                className={`min-h-12 rounded-lg px-4 text-sm sm:text-base font-semibold transition-colors touch-manipulation ${
+                disabled={isFlipping}
+                className={`min-h-12 rounded-lg px-4 text-sm sm:text-base font-semibold transition-colors touch-manipulation disabled:opacity-60 ${
                   view === 'front' ? t.viewToggleOn : t.viewToggleOff
                 }`}
               >
@@ -2349,7 +2376,8 @@ export default function BodyMap({
               <button
                 type="button"
                 onClick={() => switchView('back')}
-                className={`min-h-12 rounded-lg px-4 text-sm sm:text-base font-semibold transition-colors touch-manipulation ${
+                disabled={isFlipping}
+                className={`min-h-12 rounded-lg px-4 text-sm sm:text-base font-semibold transition-colors touch-manipulation disabled:opacity-60 ${
                   view === 'back' ? t.viewToggleOn : t.viewToggleOff
                 }`}
               >
@@ -2470,18 +2498,81 @@ export default function BodyMap({
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              style={{ touchAction: 'none' }}
+              style={{ touchAction: 'none', perspective: '1400px' }}
             >
               <div
                 style={{
                   transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
                   transformOrigin: 'center center',
-                  transition: isDragging && suppressClickRef.current ? 'none' : 'transform 0.1s ease-out'
+                  transition: isDragging && suppressClickRef.current ? 'none' : 'transform 0.1s ease-out',
                 }}
               >
-                {view === 'front' ? frontBodySVG : backBodySVG}
+                <div
+                  className="relative [&_svg]:h-auto [&_svg]:max-h-full [&_svg]:max-w-full"
+                  style={{
+                    width: 400,
+                    height: 600,
+                    maxWidth: 'min(400px, 85vw)',
+                    maxHeight: 'min(600px, 70vh)',
+                    aspectRatio: '400 / 600',
+                  }}
+                >
+                  <div
+                    aria-live="polite"
+                    className="bodymap-flip-inner h-full w-full"
+                    style={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '100%',
+                      transformStyle: 'preserve-3d',
+                      transition: `transform ${FLIP_MS}ms cubic-bezier(0.4, 0.05, 0.2, 1)`,
+                      transform: view === 'back' ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                    }}
+                  >
+                    <div
+                      className="bodymap-flip-face"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backfaceVisibility: 'hidden',
+                        WebkitBackfaceVisibility: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        pointerEvents: view === 'front' && !isFlipping ? 'auto' : 'none',
+                      }}
+                    >
+                      {frontBodySVG}
+                    </div>
+                    <div
+                      className="bodymap-flip-face"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backfaceVisibility: 'hidden',
+                        WebkitBackfaceVisibility: 'hidden',
+                        transform: 'rotateY(180deg)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        pointerEvents: view === 'back' && !isFlipping ? 'auto' : 'none',
+                      }}
+                    >
+                      {backBodySVG}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+            <style
+              dangerouslySetInnerHTML={{
+                __html: `
+                  @media (prefers-reduced-motion: reduce) {
+                    .bodymap-flip-inner { transition: none !important; }
+                  }
+                `,
+              }}
+            />
           </div>
         </div>
 

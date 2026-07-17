@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/adminSession'
+import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/adminSessionEdge'
 
 const CANONICAL_HOST = 'wellness-monitor-tan.vercel.app'
 const BROKEN_HOST_FRAGMENTS = ['wellness-monitor-dm1f']

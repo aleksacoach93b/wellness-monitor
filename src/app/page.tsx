@@ -6,6 +6,7 @@ import HomeButton from '@/components/HomeButton'
 import { Survey } from '@prisma/client'
 import { formatRecurringInfo } from '@/lib/recurringSurvey'
 import CSVLinkModal from './admin/surveys/[id]/results/CSVLinkModal'
+import { CANONICAL_PRODUCTION_URL } from '@/lib/productionUrl'
 
 // Force dynamic rendering to avoid build-time database calls
 export const dynamic = 'force-dynamic'
@@ -55,14 +56,14 @@ export default async function HomePage() {
               This deployment cannot reach your Postgres database, so surveys show as empty.
               Your data is not deleted — open the working production URL or fix{' '}
               <code className="rounded bg-amber-100 px-1">DATABASE_URL</code> in Vercel Environment Variables.
-              Working app:{' '}
+              Always use:{' '}
               <a
                 className="font-semibold underline underline-offset-2"
-                href="https://wellness-monitor-tan.vercel.app/"
+                href={CANONICAL_PRODUCTION_URL}
                 target="_blank"
                 rel="noreferrer"
               >
-                wellness-monitor-tan.vercel.app
+                {CANONICAL_PRODUCTION_URL.replace('https://', '')}
               </a>
             </p>
           </div>

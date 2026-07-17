@@ -1,5 +1,5 @@
 /** Resize/compress club logos before storing as data URL (keeps DB payloads reasonable). */
-export function compressClubLogo(file: File, maxEdge = 512, quality = 0.86): Promise<string> {
+export function compressClubLogo(file: File, maxEdge = 320, quality = 0.78): Promise<string> {
   return new Promise((resolve, reject) => {
     const objectUrl = URL.createObjectURL(file)
     const img = new window.Image()
@@ -16,9 +16,12 @@ export function compressClubLogo(file: File, maxEdge = 512, quality = 0.86): Pro
           reject(new Error('Canvas not available'))
           return
         }
+        // White canvas so transparent PNGs don't become black after JPEG encode
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, width, height)
         ctx.drawImage(img, 0, 0, width, height)
-        const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
-        resolve(canvas.toDataURL(mime, quality))
+        // Always JPEG — much smaller than PNG for DB/API body limits
+        resolve(canvas.toDataURL('image/jpeg', quality))
       } catch (error) {
         reject(error)
       } finally {

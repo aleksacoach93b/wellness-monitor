@@ -160,7 +160,15 @@ export default function KioskSettingsPage() {
         applySettings(await response.json())
         setMessage('Kiosk settings saved successfully!')
       } else {
-        setMessage('Failed to save settings')
+        let detail = 'Failed to save settings'
+        try {
+          const err = await response.json()
+          if (err?.error) detail = err.error
+          else if (err?.details) detail = String(err.details)
+        } catch {
+          /* ignore */
+        }
+        setMessage(detail)
       }
     } catch (error) {
       console.error('Error saving settings:', error)

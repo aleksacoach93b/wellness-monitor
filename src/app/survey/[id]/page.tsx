@@ -62,7 +62,10 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
   if (survey.trackSessionType || survey.trackMatchDay) {
     const tags = await prisma.tag
       .findMany({
-        where: { isActive: true },
+        where: {
+          isActive: true,
+          ...(survey.teamId ? { teamId: survey.teamId } : {}),
+        },
         orderBy: [{ category: 'asc' }, { order: 'asc' }],
         select: { name: true, category: true },
       })
@@ -74,7 +77,12 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
   let effectiveSurveyTheme = surveyTheme?.trim()
   let clubLogo: string | null = null
   let showClubBranding = true
-  const ks = await prisma.kioskSettings.findFirst().catch(() => null)
+  // Always scope branding to the survey's team — never fall back to another club's logo
+  const ks = survey.teamId
+    ? await prisma.kioskSettings
+        .findFirst({ where: { teamId: survey.teamId } })
+        .catch(() => null)
+    : null
   if (!effectiveSurveyTheme) {
     effectiveSurveyTheme = surveyThemeQueryFromKioskTheme(ks?.theme ?? 'dark')
   }

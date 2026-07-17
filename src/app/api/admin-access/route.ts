@@ -36,10 +36,6 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    if (!settings && !teamId) {
-      settings = await prisma.adminAccessSettings.findFirst()
-    }
-
     return NextResponse.json(settings)
   } catch (error) {
     console.error('Error fetching admin access settings:', error)

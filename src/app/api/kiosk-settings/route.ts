@@ -67,11 +67,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Legacy single-tenant fallback (only when no team context)
-    if (!settings && !teamId) {
-      settings = await prisma.kioskSettings.findFirst()
-    }
-
+    // No cross-team fallback — missing team context returns null (not another club's logo)
     return NextResponse.json(settings)
   } catch (error) {
     console.error('Error fetching kiosk settings:', error)

@@ -3,11 +3,16 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Survey, Question, Player } from '@prisma/client'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, WifiOff } from 'lucide-react'
 import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { parseSliderOptions } from '@/lib/sliderOptions'
+import {
+  enqueueOfflineSurveySubmission,
+  flushOfflineSurveyQueue,
+  isLikelyNetworkFailure,
+} from '@/lib/offlineSurveyQueue'
 import {
   getSurveyShellClasses,
   getSurveyUiTokens,
@@ -77,6 +82,8 @@ export default function SurveyForm({
   const [playerName, setPlayerName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [savedOffline, setSavedOffline] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [playerData, setPlayerData] = useState<{firstName: string, lastName: string, email?: string | null, image?: string | null} | null>(null)
   const [bodyMapData, setBodyMapData] = useState<Record<string, Record<string, number>>>({})
@@ -94,6 +101,15 @@ export default function SurveyForm({
     () => surveyDraftStorageKey(survey.id, draftPlayerId ?? undefined),
     [survey.id, draftPlayerId]
   )
+
+  useEffect(() => {
+    const syncQueued = () => {
+      void flushOfflineSurveyQueue()
+    }
+    syncQueued()
+    window.addEventListener('online', syncQueued)
+    return () => window.removeEventListener('online', syncQueued)
+  }, [])
 
   // Check for playerId in URL params or use player prop
   useEffect(() => {
@@ -330,82 +346,98 @@ export default function SurveyForm({
     }
 
     setValidationBanner(null)
+    setSubmitError(null)
+
+    const answers = survey.questions.map((question) => {
+      const value = formData[question.id]
+      if (isBodyMapQuestion(question)) {
+        const questionBodyMapData = bodyMapData[question.id] || {}
+        if (Object.keys(questionBodyMapData).length > 0) {
+          return {
+            questionId: question.id,
+            value: JSON.stringify(questionBodyMapData),
+          }
+        }
+      }
+      const v = Array.isArray(value) ? JSON.stringify(value) : String(value ?? '')
+      return { questionId: question.id, value: v }
+    })
+
+    const submissionData = {
+      surveyId: survey.id,
+      playerId: playerId || null,
+      playerName: playerName.trim() || null,
+      playerEmail: null as string | null,
+      ...(showSessionType && sessionType ? { sessionType } : {}),
+      ...(showMatchDay && matchDay ? { matchDay } : {}),
+      answers,
+    }
+
+    const finishSuccess = (offline: boolean) => {
+      try {
+        sessionStorage.removeItem(draftStorageKey)
+      } catch {
+        /* ignore */
+      }
+      setSavedOffline(offline)
+      setIsSubmitted(true)
+      if (playerId && typeof window !== 'undefined') {
+        const flag = offline ? 'queued=1' : 'submitted=1'
+        window.setTimeout(() => {
+          window.location.href = `/kiosk/${survey.id}?${flag}`
+        }, offline ? 1600 : 1200)
+      }
+    }
+
+    const queueOffline = () => {
+      enqueueOfflineSurveySubmission(submissionData)
+      finishSuccess(true)
+    }
 
     setIsSubmitting(true)
     try {
-      // One row per survey question so answers always align with current question IDs
-      // (Object.entries(formData) can miss keys or include stale ids after survey edits).
-      const answers = survey.questions.map((question) => {
-        const value = formData[question.id]
-        if (isBodyMapQuestion(question)) {
-          const questionBodyMapData = bodyMapData[question.id] || {}
-          if (Object.keys(questionBodyMapData).length > 0) {
-            return {
-              questionId: question.id,
-              value: JSON.stringify(questionBodyMapData),
-            }
-          }
-        }
-        const v = Array.isArray(value) ? JSON.stringify(value) : String(value ?? '')
-        return { questionId: question.id, value: v }
-      })
-
-      const submissionData = {
-        surveyId: survey.id,
-        playerId: playerId || null,
-        playerName: playerName.trim() || null,
-        playerEmail: null, // Remove email from submission
-        ...(showSessionType && sessionType ? { sessionType } : {}),
-        ...(showMatchDay && matchDay ? { matchDay } : {}),
-        answers,
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        queueOffline()
+        return
       }
-      
-      console.log('Submitting survey data:', submissionData)
-      console.log('Body map data:', bodyMapData)
-      console.log('Form data:', formData)
-      
-      const response = await fetch('/api/responses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submissionData)
-      })
 
-      console.log('Response status:', response.status)
-      console.log('Response ok:', response.ok)
-      
+      let response: Response
+      try {
+        response = await fetch('/api/responses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(submissionData),
+        })
+      } catch (error) {
+        if (isLikelyNetworkFailure(error)) {
+          queueOffline()
+          return
+        }
+        throw error
+      }
+
       if (response.ok) {
-        try {
-          sessionStorage.removeItem(draftStorageKey)
-        } catch {
-          /* ignore */
-        }
-        // Kiosk + standalone: show success, then kiosk returns to player list
-        setIsSubmitted(true)
-        if (playerId && typeof window !== 'undefined') {
-          window.setTimeout(() => {
-            window.location.href = `/kiosk/${survey.id}?submitted=1`
-          }, 1200)
-        }
+        finishSuccess(false)
+      } else if (isLikelyNetworkFailure(null, response)) {
+        queueOffline()
       } else {
-        const errorData = await response.json()
-        console.error('Survey submission failed:', errorData)
-        console.error('Response status:', response.status)
-        console.error('Response headers:', response.headers)
-        
-        let errorMessage = 'Unknown error'
-        if (errorData.error) {
-          errorMessage = errorData.error
-        } else if (errorData.details) {
-          errorMessage = `Validation error: ${JSON.stringify(errorData.details)}`
-        } else {
-          errorMessage = `HTTP ${response.status}: ${JSON.stringify(errorData)}`
+        let errorMessage = `HTTP ${response.status}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) errorMessage = errorData.error
+          else if (errorData.details) errorMessage = `Validation error: ${JSON.stringify(errorData.details)}`
+        } catch {
+          /* ignore parse */
         }
-        
-        alert(`Failed to submit survey: ${errorMessage}`)
+        setSubmitError(`Failed to submit survey: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error submitting survey:', error)
-      alert('Failed to submit survey. Please try again.')
+      if (isLikelyNetworkFailure(error)) {
+        queueOffline()
+      } else {
+        setSubmitError('Failed to submit survey. Please try again.')
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -415,10 +447,20 @@ export default function SurveyForm({
     return (
       <div className={`min-h-screen ${shell.root} flex items-center justify-center px-6`}>
         <div className="text-center max-w-sm">
-          <CheckCircle className="mx-auto h-20 w-20 text-emerald-400 mb-5 drop-shadow-lg" />
-          <h2 className="text-2xl font-semibold text-white mb-2 tracking-wide">Submitted</h2>
+          {savedOffline ? (
+            <WifiOff className="mx-auto h-20 w-20 text-amber-300 mb-5 drop-shadow-lg" />
+          ) : (
+            <CheckCircle className="mx-auto h-20 w-20 text-emerald-400 mb-5 drop-shadow-lg" />
+          )}
+          <h2 className="text-2xl font-semibold text-white mb-2 tracking-wide">
+            {savedOffline ? 'Saved on this device' : 'Submitted'}
+          </h2>
           <p className="text-white/75 text-base">
-            {playerId ? 'Returning to player list…' : 'Your responses have been saved.'}
+            {savedOffline
+              ? 'Weak or no network — will sync automatically when online.'
+              : playerId
+                ? 'Returning to player list…'
+                : 'Your responses have been saved.'}
           </p>
         </div>
       </div>
@@ -1299,6 +1341,11 @@ export default function SurveyForm({
 
         <div className="pt-4 px-2 sm:px-3 relative shrink-0 max-md:pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))] md:pb-6">
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 to-transparent"></div>
+          {submitError ? (
+            <p className="relative z-10 mb-3 text-center text-sm font-medium text-red-300" role="alert">
+              {submitError}
+            </p>
+          ) : null}
           <button
             type="submit"
             disabled={isSubmitting}

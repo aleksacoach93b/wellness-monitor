@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { X } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Eraser, X } from 'lucide-react'
 import type { SurveyAppearanceTheme } from '@/lib/surveyFormAppearance'
 import { getSurveyBodyMapTokens } from '@/lib/surveyFormAppearance'
 
@@ -16,6 +16,8 @@ interface BodyMapProps {
   appearanceTheme?: SurveyAppearanceTheme
 }
 
+const DRAG_THRESHOLD_PX = 12
+
 export default function BodyMap({
   view,
   onAreaClick,
@@ -26,11 +28,15 @@ export default function BodyMap({
   appearanceTheme = 'default',
 }: BodyMapProps) {
   const t = useMemo(() => getSurveyBodyMapTokens(appearanceTheme), [appearanceTheme])
-  const [scale, setScale] = useState(0.8)
+  const initialScale = typeof window !== 'undefined' && window.innerWidth < 768 ? 1.05 : 0.85
+  const [scale, setScale] = useState(initialScale)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [lastTouchDistance, setLastTouchDistance] = useState(0)
+  const [ratingTarget, setRatingTarget] = useState<string | null>(null)
+  const suppressClickRef = useRef(false)
+  const pointerOriginRef = useRef({ x: 0, y: 0 })
 
   // Handle zoom and pan
   const handleWheel = (e: React.WheelEvent) => {
@@ -40,8 +46,18 @@ export default function BodyMap({
     setScale(newScale)
   }
 
+  const markIfDragged = (clientX: number, clientY: number) => {
+    const dx = Math.abs(clientX - pointerOriginRef.current.x)
+    const dy = Math.abs(clientY - pointerOriginRef.current.y)
+    if (dx > DRAG_THRESHOLD_PX || dy > DRAG_THRESHOLD_PX) {
+      suppressClickRef.current = true
+    }
+  }
+
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 0) { // Left mouse button
+    if (e.button === 0) {
+      suppressClickRef.current = false
+      pointerOriginRef.current = { x: e.clientX, y: e.clientY }
       setIsDragging(true)
       setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y })
     }
@@ -49,6 +65,7 @@ export default function BodyMap({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging) {
+      markIfDragged(e.clientX, e.clientY)
       setPosition({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y
@@ -62,24 +79,23 @@ export default function BodyMap({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
-      // Pinch to zoom
       const distance = Math.sqrt(
         Math.pow(e.touches[0].clientX - e.touches[1].clientX, 2) +
         Math.pow(e.touches[0].clientY - e.touches[1].clientY, 2)
       )
       setLastTouchDistance(distance)
+      suppressClickRef.current = true
     } else if (e.touches.length === 1) {
-      // Single touch - start drag
+      suppressClickRef.current = false
+      pointerOriginRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
       setIsDragging(true)
       setDragStart({ x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y })
     }
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault()
-    
     if (e.touches.length === 2) {
-      // Pinch to zoom
+      e.preventDefault()
       const distance = Math.sqrt(
         Math.pow(e.touches[0].clientX - e.touches[1].clientX, 2) +
         Math.pow(e.touches[0].clientY - e.touches[1].clientY, 2)
@@ -92,11 +108,14 @@ export default function BodyMap({
       }
       setLastTouchDistance(distance)
     } else if (e.touches.length === 1 && isDragging) {
-      // Single touch drag
-      setPosition({
-        x: e.touches[0].clientX - dragStart.x,
-        y: e.touches[0].clientY - dragStart.y
-      })
+      markIfDragged(e.touches[0].clientX, e.touches[0].clientY)
+      if (suppressClickRef.current) {
+        e.preventDefault()
+        setPosition({
+          x: e.touches[0].clientX - dragStart.x,
+          y: e.touches[0].clientY - dragStart.y
+        })
+      }
     }
   }
 
@@ -106,7 +125,7 @@ export default function BodyMap({
   }
 
   const resetZoom = () => {
-    setScale(0.8)
+    setScale(typeof window !== 'undefined' && window.innerWidth < 768 ? 1.05 : 0.85)
     setPosition({ x: 0, y: 0 })
   }
 
@@ -134,24 +153,35 @@ export default function BodyMap({
 
   const handleAreaClick = (areaId: string, event: React.MouseEvent) => {
     event.stopPropagation()
-    
-    // Get current rating for this area (0 if not selected)
-    const currentRating = selectedAreas[areaId] || 0
-    
-    // Cycle through ratings: 0 -> 1 -> 2 -> ... -> 10 -> 0
-    const nextRating = currentRating >= 10 ? 0 : currentRating + 1
-    
-    // Call onAreaClick with the new rating
-    onAreaClick(areaId, nextRating)
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+    // Open rating pad — fewer mis-taps than cycling 1→10 on small muscles
+    setRatingTarget(areaId)
   }
 
+  const applyRating = (rating: number) => {
+    if (!ratingTarget) return
+    onAreaClick(ratingTarget, rating)
+    setRatingTarget(null)
+  }
 
   const handleDeselectArea = (areaId: string) => {
-    // Remove the area from selectedAreas
-    const newSelectedAreas = { ...selectedAreas }
-    delete newSelectedAreas[areaId]
-    // Call onAreaClick with rating 0 to indicate deselection
     onAreaClick(areaId, 0)
+    if (ratingTarget === areaId) setRatingTarget(null)
+  }
+
+  const handleClearAll = () => {
+    Object.keys(selectedAreas).forEach((areaId) => onAreaClick(areaId, 0))
+    setRatingTarget(null)
+  }
+
+  const switchView = (next: 'front' | 'back') => {
+    if (next === view) return
+    onViewChange(next)
+    setRatingTarget(null)
+    resetZoom()
   }
 
   const getMuscleName = (areaId: string): string => {
@@ -314,7 +344,7 @@ export default function BodyMap({
 
   const getAreaColor = (areaId: string) => {
     const rating = selectedAreas[areaId]
-    if (!rating) return '#e5e7eb' // Default gray
+    if (!rating) return '#d1d5db' // Slightly stronger default for tablet contrast
     
     // Color based on rating intensity
     if (rating <= 3) return '#22c55e' // Green for mild pain (1-3)
@@ -334,8 +364,9 @@ export default function BodyMap({
       <defs>
         <style>
           {`
-            .body-area { cursor: pointer; transition: opacity 0.2s; }
-            .body-area:hover { opacity: 0.7; }
+            .body-area { cursor: pointer; transition: opacity 0.15s, stroke-width 0.15s; touch-action: manipulation; }
+            .body-area:hover { opacity: 0.75; }
+            .body-area:active { opacity: 0.9; }
             .cls-1 { fill: #707070; }
             .cls-2 { fill: #bebdbe; }
             .cls-3 { fill: #3f3f3f; }
@@ -1445,8 +1476,9 @@ export default function BodyMap({
       <defs>
         <style>
           {`
-            .body-area { cursor: pointer; transition: opacity 0.2s; }
-            .body-area:hover { opacity: 0.7; }
+            .body-area { cursor: pointer; transition: opacity 0.15s, stroke-width 0.15s; touch-action: manipulation; }
+            .body-area:hover { opacity: 0.75; }
+            .body-area:active { opacity: 0.9; }
             .cls-1 { fill: #707070; }
             .cls-2 { fill: #bebdbe; }
             .cls-3 { fill: #3f3f3f; }
@@ -2253,6 +2285,10 @@ export default function BodyMap({
     </svg>
   )
 
+  const selectedCount = Object.keys(selectedAreas).length
+  const ratingTargetName = ratingTarget ? getMuscleName(ratingTarget) : ''
+  const ratingTargetValue = ratingTarget ? selectedAreas[ratingTarget] || 0 : 0
+
   return (
     <div 
       className={`fixed inset-0 z-[9999] ${t.overlay} overflow-y-auto w-full h-full`}
@@ -2270,37 +2306,50 @@ export default function BodyMap({
       <div className="min-h-screen w-full h-full flex flex-col">
         {/* Header */}
         <div className={`${t.headerBar} p-2 sm:p-4 border-b ${t.headerBorder}`}>
-          <div className="flex justify-between items-center mb-2 sm:mb-3">
+          <div className="flex justify-between items-center gap-2 mb-2 sm:mb-3">
             <button
+              type="button"
               onClick={onClose}
-              className={`${t.closeBtn} transition-colors`}
+              className={`${t.closeBtn} min-h-11 min-w-11 flex items-center justify-center transition-colors touch-manipulation`}
               data-title="Close body map"
+              aria-label="Close body map"
             >
-              <X className="h-4 w-4 sm:h-6 sm:w-6" />
+              <X className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
-            <div className="flex-1"></div> {/* Spacer */}
             <button
-              onClick={onContinue}
-              className={`${t.continueBtn} py-1.5 px-3 sm:py-2 sm:px-4 text-xs sm:text-sm`}
+              type="button"
+              onClick={handleClearAll}
+              disabled={selectedCount === 0}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-xs sm:text-sm font-semibold text-white/90 bg-white/10 border border-white/20 disabled:opacity-40 touch-manipulation"
             >
-              Continue
+              <Eraser className="h-4 w-4" aria-hidden />
+              Clear all
+            </button>
+            <button
+              type="button"
+              onClick={onContinue}
+              className={`${t.continueBtn} min-h-11 py-2 px-4 sm:px-5 text-sm font-semibold touch-manipulation`}
+            >
+              Done
             </button>
           </div>
           
-          {/* Front/Back Toggle */}
+          {/* Front/Back Toggle — large tablet-friendly targets */}
           <div className="flex justify-center mb-2 sm:mb-3">
-            <div className={t.viewToggleRail}>
+            <div className={`${t.viewToggleRail} grid w-full max-w-md grid-cols-2 gap-1 p-1`}>
               <button
-                onClick={() => onViewChange('front')}
-                className={`px-2 py-1 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                type="button"
+                onClick={() => switchView('front')}
+                className={`min-h-12 rounded-lg px-4 text-sm sm:text-base font-semibold transition-colors touch-manipulation ${
                   view === 'front' ? t.viewToggleOn : t.viewToggleOff
                 }`}
               >
                 Front
               </button>
               <button
-                onClick={() => onViewChange('back')}
-                className={`px-2 py-1 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                type="button"
+                onClick={() => switchView('back')}
+                className={`min-h-12 rounded-lg px-4 text-sm sm:text-base font-semibold transition-colors touch-manipulation ${
                   view === 'back' ? t.viewToggleOn : t.viewToggleOff
                 }`}
               >
@@ -2310,58 +2359,62 @@ export default function BodyMap({
           </div>
           
           <p className={`text-xs sm:text-sm ${t.hint} text-center`}>
-            Click on body areas to cycle through pain/soreness levels (1-10)
+            Tap a muscle, then choose intensity 1–10
           </p>
         </div>
         
         {/* Main Content - Mobile optimized layout */}
-        <div className="flex-1 flex flex-col gap-2 sm:gap-4 p-2 sm:p-4">
+        <div className="flex-1 flex flex-col gap-2 sm:gap-4 p-2 sm:p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {/* Selected Areas Card - Fixed height with internal scroll */}
           <div
             className={`${t.selectedCard} flex flex-col overflow-hidden p-3 sm:p-4`}
-            style={{ height: typeof window !== 'undefined' && window.innerWidth < 768 ? '25vh' : '30vh' }}
+            style={{ height: typeof window !== 'undefined' && window.innerWidth < 768 ? '22vh' : '28vh' }}
           >
-            <div className="flex shrink-0 flex-col items-center gap-2 text-center">
+            <div className="flex shrink-0 items-center justify-between gap-2">
               <h5
                 className={`text-xs font-semibold uppercase tracking-[0.14em] sm:text-sm ${t.selectedTitle}`}
               >
-                Selected Areas
+                Selected Areas{selectedCount > 0 ? ` (${selectedCount})` : ''}
               </h5>
-              <div className="h-px w-14 rounded-full bg-white/15" aria-hidden />
+              <div className="h-px flex-1 rounded-full bg-white/15" aria-hidden />
             </div>
             <div className={`mt-3 min-h-0 flex-1 overflow-y-auto ${t.selectedScroll}`}>
-              {Object.keys(selectedAreas).length > 0 ? (
+              {selectedCount > 0 ? (
                 <div className="grid auto-rows-min grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
                   {Object.entries(selectedAreas).map(([area, rating]) => (
                     <div
                       key={area}
-                      className={`${t.selectedRow} flex min-h-[2.75rem] items-center justify-between gap-2 py-2 pl-2.5 pr-1.5 sm:min-h-[3rem] sm:py-2.5 sm:pl-3 sm:pr-2`}
+                      className={`${t.selectedRow} flex min-h-[3rem] items-center justify-between gap-2 py-2 pl-2.5 pr-1.5 sm:min-h-[3.25rem] sm:py-2.5 sm:pl-3 sm:pr-2`}
                     >
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRatingTarget(area)}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left touch-manipulation"
+                      >
                         <div
-                          className="h-3 w-3 shrink-0 rounded-full ring-2 ring-white/25 sm:h-3.5 sm:w-3.5"
+                          className="h-3.5 w-3.5 shrink-0 rounded-full ring-2 ring-white/25"
                           style={{ backgroundColor: getColorForRating(rating) }}
                           aria-hidden
                         />
                         <span
-                          className="truncate text-left text-[11px] font-medium leading-snug text-white sm:text-xs"
+                          className="truncate text-left text-xs font-medium leading-snug text-white sm:text-sm"
                           title={getMuscleName(area)}
-                          style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
                         >
                           {getMuscleName(area)}
                         </span>
-                      </div>
+                      </button>
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <span
-                          className="inline-flex min-w-[2.75rem] justify-center rounded-md bg-black/25 px-2 py-0.5 text-center text-[11px] font-bold tabular-nums text-white shadow-inner sm:text-xs"
-                          style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+                        <button
+                          type="button"
+                          onClick={() => setRatingTarget(area)}
+                          className="inline-flex min-h-10 min-w-[3rem] items-center justify-center rounded-lg bg-black/25 px-2 text-xs font-bold tabular-nums text-white touch-manipulation"
                         >
                           {rating}/10
-                        </span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleDeselectArea(area)}
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-red-400 transition-colors hover:bg-red-500/15 hover:text-red-300 active:scale-95"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-red-400 transition-colors hover:bg-red-500/15 hover:text-red-300 active:scale-95 touch-manipulation"
                           aria-label={`Remove ${getMuscleName(area)}`}
                         >
                           <X className="h-4 w-4 sm:h-[18px] sm:w-[18px]" strokeWidth={2.25} />
@@ -2378,31 +2431,35 @@ export default function BodyMap({
             </div>
           </div>
           
-          {/* Body Map Card - Smaller white background */}
-          <div className="flex-1 bg-white rounded-lg p-2 sm:p-4 relative overflow-hidden" style={{ minHeight: typeof window !== 'undefined' && window.innerWidth < 768 ? '35vh' : '45vh' }}>
-            {/* Zoom Controls */}
+          {/* Body Map Card */}
+          <div className="flex-1 bg-white rounded-lg p-2 sm:p-4 relative overflow-hidden" style={{ minHeight: typeof window !== 'undefined' && window.innerWidth < 768 ? '38vh' : '48vh' }}>
             <div className="absolute top-2 right-2 z-10 flex flex-col gap-2">
               <button
+                type="button"
                 onClick={() => setScale(Math.min(scale * 1.2, 3))}
-                className={`${t.zoomBtn} w-8 h-8 flex items-center justify-center text-lg font-bold`}
+                className={`${t.zoomBtn} h-11 w-11 flex items-center justify-center text-xl font-bold touch-manipulation`}
+                aria-label="Zoom in"
               >
                 +
               </button>
               <button
+                type="button"
                 onClick={() => setScale(Math.max(scale * 0.8, 0.5))}
-                className={`${t.zoomBtn} w-8 h-8 flex items-center justify-center text-lg font-bold`}
+                className={`${t.zoomBtn} h-11 w-11 flex items-center justify-center text-xl font-bold touch-manipulation`}
+                aria-label="Zoom out"
               >
                 -
               </button>
               <button
+                type="button"
                 onClick={resetZoom}
-                className={`${t.zoomBtn} w-8 h-8 flex items-center justify-center text-xs font-bold`}
+                className={`${t.zoomBtn} h-11 w-11 flex items-center justify-center text-sm font-bold touch-manipulation`}
+                aria-label="Reset zoom"
               >
                 ⌂
               </button>
             </div>
             
-            {/* SVG Container with Zoom and Pan */}
             <div 
               className="w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing"
               onWheel={handleWheel}
@@ -2413,13 +2470,13 @@ export default function BodyMap({
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              style={{ touchAction: 'pan-y' }}
+              style={{ touchAction: 'none' }}
             >
               <div
                 style={{
                   transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
                   transformOrigin: 'center center',
-                  transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+                  transition: isDragging && suppressClickRef.current ? 'none' : 'transform 0.1s ease-out'
                 }}
               >
                 {view === 'front' ? frontBodySVG : backBodySVG}
@@ -2427,9 +2484,56 @@ export default function BodyMap({
             </div>
           </div>
         </div>
-        
+
+        {ratingTarget && (
+          <div className="fixed inset-x-0 bottom-0 z-[10000] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+            <div className="mx-auto max-w-lg rounded-2xl border border-white/20 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl sm:p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
+                    Intensity
+                  </p>
+                  <p className="truncate text-base font-semibold text-white sm:text-lg">
+                    {ratingTargetName}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRatingTarget(null)}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
+                  aria-label="Close rating pad"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((rating) => (
+                  <button
+                    key={rating}
+                    type="button"
+                    onClick={() => applyRating(rating)}
+                    className={`min-h-12 rounded-xl text-base font-bold touch-manipulation transition-transform active:scale-95 ${
+                      ratingTargetValue === rating
+                        ? 'ring-2 ring-white text-white'
+                        : 'text-white'
+                    }`}
+                    style={{ backgroundColor: getColorForRating(rating) }}
+                  >
+                    {rating}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => applyRating(0)}
+                className="mt-3 min-h-12 w-full rounded-xl border border-white/20 bg-white/10 text-sm font-semibold text-white touch-manipulation"
+              >
+                Clear this area
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-      
     </div>
   )
 }

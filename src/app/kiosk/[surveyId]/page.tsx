@@ -8,6 +8,7 @@ import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
 import { pushRecentPlayerId, readRecentPlayerIds } from '@/lib/kioskRecentPlayers'
+import { flushOfflineSurveyQueue, getOfflineQueueCount } from '@/lib/offlineSurveyQueue'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
 import { kioskThemes, kioskTextTokens, KioskTheme } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
@@ -60,6 +61,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [searchQuery, setSearchQuery] = useState('')
   const [recentIds, setRecentIds] = useState<string[]>([])
   const [submitToast, setSubmitToast] = useState(false)
+  const [queuedToast, setQueuedToast] = useState(false)
+  const [syncToast, setSyncToast] = useState<string | null>(null)
   const [playerAuthError, setPlayerAuthError] = useState<string | null>(null)
   const [showResubmitConfirm, setShowResubmitConfirm] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -181,19 +184,26 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
-    if (params.get('submitted') !== '1') return
-    setSubmitToast(true)
+    const submitted = params.get('submitted') === '1'
+    const queued = params.get('queued') === '1'
+    if (!submitted && !queued) return
+    if (submitted) setSubmitToast(true)
+    if (queued) setQueuedToast(true)
     setStatusFilter('pending')
     params.delete('submitted')
+    params.delete('queued')
     const next = params.toString()
     const cleanUrl = `${window.location.pathname}${next ? `?${next}` : ''}`
     window.history.replaceState({}, '', cleanUrl)
-    const timer = window.setTimeout(() => setSubmitToast(false), 3200)
+    const timer = window.setTimeout(() => {
+      setSubmitToast(false)
+      setQueuedToast(false)
+    }, 3600)
     return () => window.clearTimeout(timer)
   }, [surveyId])
 
-  const fetchData = async () => {
-    setIsLoading(true)
+  const fetchData = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setIsLoading(true)
     try {
       // Fetch survey details
       const surveyResponse = await fetch(`/api/surveys/${surveyId}`)
@@ -222,9 +232,36 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
-      setIsLoading(false)
+      if (!opts?.silent) setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    const syncOffline = async () => {
+      const before = getOfflineQueueCount()
+      const result = await flushOfflineSurveyQueue()
+      if (result.synced > 0) {
+        setSyncToast(
+          result.synced === 1
+            ? '1 offline response synced'
+            : `${result.synced} offline responses synced`
+        )
+        window.setTimeout(() => setSyncToast(null), 4000)
+        await fetchData({ silent: true })
+      } else if (before > 0 && result.remaining > 0) {
+        setSyncToast(`${result.remaining} waiting to sync when online`)
+        window.setTimeout(() => setSyncToast(null), 4000)
+      }
+    }
+
+    void syncOffline()
+    const onOnline = () => {
+      void syncOffline()
+    }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surveyId])
 
   const handleKioskPasswordCorrect = () => {
     setShowKioskPassword(false)
@@ -813,6 +850,29 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
             <div className="min-w-0">
               <p className="text-sm font-semibold tracking-wide">Survey submitted</p>
               <p className="text-xs text-emerald-200/80">Ready for the next player.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {queuedToast && (
+        <div className="fixed top-4 left-1/2 z-[70] w-[min(92vw,28rem)] -translate-x-1/2">
+          <div className="flex items-center gap-3 rounded-2xl border border-amber-400/40 bg-amber-950/90 px-4 py-3 text-amber-50 shadow-2xl backdrop-blur-xl">
+            <Clock3 className="h-5 w-5 shrink-0 text-amber-300" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold tracking-wide">Saved offline on this tablet</p>
+              <p className="text-xs text-amber-100/80">Will sync automatically when the network returns.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {syncToast && (
+        <div className="fixed top-4 left-1/2 z-[70] w-[min(92vw,28rem)] -translate-x-1/2">
+          <div className="flex items-center gap-3 rounded-2xl border border-sky-400/40 bg-sky-950/90 px-4 py-3 text-sky-50 shadow-2xl backdrop-blur-xl">
+            <CheckCircle className="h-5 w-5 shrink-0 text-sky-300" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold tracking-wide">{syncToast}</p>
             </div>
           </div>
         </div>

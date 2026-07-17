@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
-  getBodyMapLocationLabel,
-  getBodyMapRating,
-  getBodyMapWhenLabels,
-  parseBodyMapAnswerValue,
-} from '@/lib/bodyMapPainLocation'
+  buildBodyMapColumnsForQuestion,
+  fillBodyMapAnswerColumns,
+  type BodyMapExportMode,
+} from '@/lib/bodyMapExportColumns'
 
 /** Large exports can exceed default serverless limits; keep CSV generation lean below. */
 export const maxDuration = 60
@@ -208,6 +207,12 @@ export async function GET(
   try {
     const { id } = await params
 
+    // Default = full (intensity + Exact spot + When).
+    // Backup = ?legacy=1 → intensity-only columns (old Power BI shape).
+    const legacyParam = request.nextUrl.searchParams.get('legacy')
+    const exportMode: BodyMapExportMode =
+      legacyParam === '1' || legacyParam === 'true' ? 'legacy' : 'full'
+
     // Fetch survey with all related data
     const survey = await prisma.survey.findUnique({
       where: { id },
@@ -235,25 +240,13 @@ export async function GET(
       return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
     }
 
-    // First, get ALL possible Body Map columns for ALL Body Map questions
+    // ALWAYS emit all body-map zone columns (empty when unanswered) for stable Power BI schema
     const allBodyMapColumns: string[] = []
-    survey.questions.forEach(question => {
+    survey.questions.forEach((question) => {
       if (question.type === 'BODY_MAP') {
-        // ALWAYS add all possible body parts for BODY_MAP questions to maintain consistent structure
-        const allBodyMapIds = [
-          // Front body paths
-          'path-4', 'path-5', 'path-7', 'path-8', 'path-9', 'path-10', 'path-11', 'path-12', 'path-13', 'path-14', 'path-15', 'path-16', 'path-17', 'path-18', 'path-19', 'path-20', 'path-21', 'path-22', 'path-23', 'path-24', 'path-25', 'path-26', 'path-27', 'path-28', 'path-29', 'path-30', 'path-31', 'path-32', 'path-33', 'path-34', 'path-35', 'path-36', 'path-37', 'path-38', 'path-39', 'path-40', 'path-41', 'path-42', 'path-43', 'path-44', 'path-45', 'path-46', 'path-47', 'path-48', 'path-49', 'path-50', 'path-51', 'path-52', 'path-53', 'path-54', 'path-55', 'path-56', 'path-57', 'path-58', 'path-59', 'path-60', 'path-61', 'path-62', 'path-63', 'path-64', 'path-65', 'path-66', 'path-67', 'path-68', 'path-69', 'path-70', 'path-71', 'path-72', 'path-73', 'path-74', 'path-75', 'path-76', 'path-77', 'path-78', 'path-79', 'path-80', 'path-81', 'path-82', 'path-83', 'path-84', 'path-85', 'path-86', 'path-87', 'path-88', 'path-89', 'path-90', 'path-91', 'path-92', 'path-93', 'path-94',
-          // Back body areas - using EXACT IDs from BodyMap component
-          'left-bflh', 'right-bflh', 'left-semimembranosus', 'right-semimembranosus', 'left-semitendinosus', 'right-semitendinosus', 'left-gluteus-maximus', 'right-gluteus-maximus', 'left-gluteus-medius', 'right-gluteus-medius', 'left-infraspinatus', 'right-infraspinatus', 'left-back-trap', 'right-back-trap', 'left-back-upper-trap', 'right-back-upper-trap', 'left-latissimus-dorsi', 'right-latissimus-dorsi', 'left-teres-major', 'right-teres-major', 'left-lower-back', 'right-lower-back', 'left-achilles', 'right-achilles', 'left-achilles-2', 'right-achilles-2', 'left-foot', 'right-foot', 'left-heel', 'right-heel', 'left-lateral-gastrocs', 'right-lateral-gastrocs', 'left-medial-gastrocs', 'right-medial-gastrocs', 'left-vastus-lateralis-quad', 'right-vastus-lateralis-quad', 'left-triceps', 'right-triceps', 'left-elbow', 'right-elbow', 'left-back-shoulder', 'right-back-shoulder', 'left-back-hip', 'right-back-hip', 'left-back-forearm', 'right-back-forearm', 'left-back-hand', 'right-back-hand', 'left-back-1st-finger', 'right-back-1st-finger', 'left-back-2nd-finger', 'right-back-2nd-finger', 'left-back-3rd-finger', 'right-back-3rd-finger', 'left-back-4th-finger', 'right-back-4th-finger', 'left-back-5th-finger', 'right-back-5th-finger', 'left-adductor-back', 'right-adductor-back', 'back-head'
-        ]
-        
-        allBodyMapIds.forEach(areaId => {
-          const muscleName = getMuscleName(areaId)
-          const columnName = `${question.text} - ${muscleName}`
-          allBodyMapColumns.push(columnName)
-          allBodyMapColumns.push(`${columnName} - Exact spot`)
-          allBodyMapColumns.push(`${columnName} - When`)
-        })
+        allBodyMapColumns.push(
+          ...buildBodyMapColumnsForQuestion(question.text, getMuscleName, exportMode)
+        )
       }
     })
 
@@ -297,27 +290,16 @@ export async function GET(
           const answer = response.answers.find(a => a.questionId === question.id)
           
           if (answer?.value && answer.value !== 'No') {
-            try {
-              // Only try to parse as JSON if it looks like JSON (starts with { and ends with })
-              if (answer.value.trim().startsWith('{') && answer.value.trim().endsWith('}')) {
-                const bodyMapData = parseBodyMapAnswerValue(JSON.parse(answer.value))
-                
-                // Convert areaId to muscle name and create column name
-                Object.entries(bodyMapData).forEach(([areaId, value]) => {
-                  const muscleName = getMuscleName(areaId)
-                  // Create column name like "Painful Areas - Right Pectoralis Major"
-                  const columnName = `${question.text} - ${muscleName}`
-                  const rating = getBodyMapRating(value)
-                  row[columnName] = rating > 0 ? rating : ''
-                  row[`${columnName} - Exact spot`] = getBodyMapLocationLabel(value) || ''
-                  row[`${columnName} - When`] = getBodyMapWhenLabels(value).join('; ')
-                })
-              } else {
-                // If it's not JSON, treat it as a regular answer and put it in the main question column
-                row[question.text] = answer.value
-              }
-            } catch {
-              // If JSON parsing fails, treat it as a regular answer
+            const trimmed = answer.value.trim()
+            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+              fillBodyMapAnswerColumns(
+                row,
+                question.text,
+                answer.value,
+                getMuscleName,
+                exportMode
+              )
+            } else {
               row[question.text] = answer.value
             }
           }
@@ -370,10 +352,13 @@ export async function GET(
       )
     ].join('\n')
 
+    const filenameSuffix = exportMode === 'legacy' ? '-export-legacy.csv' : '-export.csv'
+
     return new NextResponse(csvContent, {
       headers: {
         'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`
+        'Content-Disposition': `attachment; filename="${survey.title}${filenameSuffix}"`,
+        'X-Body-Map-Export-Mode': exportMode,
       }
     })
 

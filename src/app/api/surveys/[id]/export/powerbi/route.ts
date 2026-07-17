@@ -141,6 +141,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+    const legacyParam = request.nextUrl.searchParams.get('legacy')
+    const includeDetails = !(legacyParam === '1' || legacyParam === 'true')
     
     // Fetch survey with all related data
     const survey = await prisma.survey.findUnique({
@@ -222,8 +224,12 @@ export async function GET(
                   questionText: `${question.text} - ${muscleName}`,
                   questionType: question.type,
                   answerValue: rating > 0 ? rating : null,
-                  exactSpot: getBodyMapLocationLabel(value),
-                  whenItHurts: getBodyMapWhenLabels(value).join('; ') || null,
+                  ...(includeDetails
+                    ? {
+                        exactSpot: getBodyMapLocationLabel(value),
+                        whenItHurts: getBodyMapWhenLabels(value).join('; ') || null,
+                      }
+                    : {}),
                   surveyTitle: survey.title,
                   sessionType: response.sessionType ?? null,
                   matchDay: response.matchDay ?? null

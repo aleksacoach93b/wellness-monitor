@@ -20,6 +20,7 @@ export default async function HomePage() {
       responses: number
     }
   })[] = []
+  let databaseUnavailable = false
 
   try {
     surveys = await prisma.survey.findMany({
@@ -38,6 +39,7 @@ export default async function HomePage() {
   } catch (error) {
     console.error('Error fetching surveys:', error)
     surveys = []
+    databaseUnavailable = true
   }
 
   const totalResponses = surveys.reduce((sum, survey) => sum + survey._count.responses, 0)
@@ -46,6 +48,25 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/40">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+        {databaseUnavailable ? (
+          <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            <p className="font-semibold">Database connection failed</p>
+            <p className="mt-1 text-amber-900/90">
+              This deployment cannot reach your Postgres database, so surveys show as empty.
+              Your data is not deleted — open the working production URL or fix{' '}
+              <code className="rounded bg-amber-100 px-1">DATABASE_URL</code> in Vercel Environment Variables.
+              Working app:{' '}
+              <a
+                className="font-semibold underline underline-offset-2"
+                href="https://wellness-monitor-tan.vercel.app/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                wellness-monitor-tan.vercel.app
+              </a>
+            </p>
+          </div>
+        ) : null}
         <header className="mb-10 border-b border-slate-200/80 pb-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>

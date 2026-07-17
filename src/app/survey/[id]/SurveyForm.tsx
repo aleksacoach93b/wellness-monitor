@@ -374,22 +374,17 @@ export default function SurveyForm({
       console.log('Response ok:', response.ok)
       
       if (response.ok) {
-        console.log('Survey submitted successfully, playerId:', playerId)
         try {
           sessionStorage.removeItem(draftStorageKey)
         } catch {
           /* ignore */
         }
-        // If accessed from kiosk mode, redirect back to kiosk immediately
-        if (playerId) {
-          console.log('Redirecting to kiosk:', `/kiosk/${survey.id}`)
-          // Use window.location for more reliable redirect
-          if (typeof window !== 'undefined') {
-            window.location.href = `/kiosk/${survey.id}`
-          }
-        } else {
-          console.log('Setting submitted state for non-kiosk mode')
-          setIsSubmitted(true)
+        // Kiosk + standalone: show success, then kiosk returns to player list
+        setIsSubmitted(true)
+        if (playerId && typeof window !== 'undefined') {
+          window.setTimeout(() => {
+            window.location.href = `/kiosk/${survey.id}?submitted=1`
+          }, 1200)
         }
       } else {
         const errorData = await response.json()
@@ -418,10 +413,14 @@ export default function SurveyForm({
 
   if (isSubmitted) {
     return (
-      <div className="text-center py-8">
-        <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Thank you!</h2>
-        <p className="text-gray-600">Your responses have been submitted successfully.</p>
+      <div className={`min-h-screen ${shell.root} flex items-center justify-center px-6`}>
+        <div className="text-center max-w-sm">
+          <CheckCircle className="mx-auto h-20 w-20 text-emerald-400 mb-5 drop-shadow-lg" />
+          <h2 className="text-2xl font-semibold text-white mb-2 tracking-wide">Submitted</h2>
+          <p className="text-white/75 text-base">
+            {playerId ? 'Returning to player list…' : 'Your responses have been saved.'}
+          </p>
+        </div>
       </div>
     )
   }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { ChevronLeft, Eraser, X } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, Eraser, X } from 'lucide-react'
 import type { SurveyAppearanceTheme } from '@/lib/surveyFormAppearance'
 import { getSurveyBodyMapTokens } from '@/lib/surveyFormAppearance'
 import {
@@ -10,7 +10,6 @@ import {
   type BodyMapAreaStored,
   type PainLocationId,
   type PainWhenId,
-  formatBodyMapWhenSummary,
   getBodyMapLocationId,
   getBodyMapLocationLabel,
   getBodyMapRating,
@@ -59,14 +58,17 @@ export default function BodyMap({
   const [pendingRating, setPendingRating] = useState<number | null>(null)
   const [pendingLocation, setPendingLocation] = useState<PainLocationId | null>(null)
   const [pendingWhen, setPendingWhen] = useState<PainWhenId[]>([])
+  const [justSavedAreaId, setJustSavedAreaId] = useState<string | null>(null)
   const [isFlipping, setIsFlipping] = useState(false)
   const suppressClickRef = useRef(false)
   const pointerOriginRef = useRef({ x: 0, y: 0 })
   const flipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const padFlipRafRef = useRef<number | null>(null)
+  const saveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const FLIP_MS = 580
   const PAD_FLIP_MS = 420
+  const SAVE_TOAST_MS = 2000
 
   const closeRatingPad = () => {
     if (padFlipRafRef.current != null) {
@@ -270,8 +272,15 @@ export default function BodyMap({
     if (!ratingTarget || !pendingRating || !pendingLocation || pendingWhen.length === 0) {
       return
     }
-    onAreaClick(ratingTarget, pendingRating, pendingLocation, pendingWhen)
+    const savedId = ratingTarget
+    onAreaClick(savedId, pendingRating, pendingLocation, pendingWhen)
     closeRatingPad()
+    setJustSavedAreaId(savedId)
+    if (saveToastTimerRef.current) clearTimeout(saveToastTimerRef.current)
+    saveToastTimerRef.current = setTimeout(() => {
+      setJustSavedAreaId(null)
+      saveToastTimerRef.current = null
+    }, SAVE_TOAST_MS)
   }
 
   const backFromLocation = () => {
@@ -320,6 +329,7 @@ export default function BodyMap({
     return () => {
       if (flipTimerRef.current) clearTimeout(flipTimerRef.current)
       if (padFlipRafRef.current != null) cancelAnimationFrame(padFlipRafRef.current)
+      if (saveToastTimerRef.current) clearTimeout(saveToastTimerRef.current)
     }
   }, [])
 
@@ -2428,6 +2438,125 @@ export default function BodyMap({
   const ratingTargetName = ratingTarget ? getMuscleName(ratingTarget) : ''
   const ratingTargetValue =
     pendingRating ?? (ratingTarget ? getBodyMapRating(selectedAreas[ratingTarget]) : 0)
+  const padStepIndex: 0 | 1 | 2 =
+    padDeck === 1 && padFlipped ? 2 : padFlipped || padDeck === 1 ? 1 : 0
+  const padStepTitle =
+    padStepIndex === 0
+      ? 'Intensity'
+      : padStepIndex === 1
+        ? 'Where does it hurt most?'
+        : 'When does it hurt?'
+  const justSavedName = justSavedAreaId ? getMuscleName(justSavedAreaId) : ''
+
+  const handlePadBack = () => {
+    if (padStepIndex === 2) backFromWhen()
+    else if (padStepIndex === 1) backFromLocation()
+  }
+
+  const renderPadStepper = () => {
+    const steps = [
+      { n: 1, label: 'Intensity' },
+      { n: 2, label: 'Spot' },
+      { n: 3, label: 'When' },
+    ] as const
+    return (
+      <div
+        className="mb-3 flex items-center justify-center gap-1.5"
+        role="navigation"
+        aria-label="Pain entry steps"
+      >
+        {steps.map((step, i) => {
+          const active = padStepIndex === i
+          const done = padStepIndex > i
+          return (
+            <div key={step.n} className="flex items-center gap-1.5">
+              {i > 0 && (
+                <div
+                  className={`h-px w-4 sm:w-6 ${done || active ? 'bg-sky-400/70' : 'bg-white/20'}`}
+                  aria-hidden
+                />
+              )}
+              <div
+                className={`flex items-center gap-1.5 rounded-full px-2 py-1 ${
+                  active
+                    ? 'bg-sky-500/25 ring-1 ring-sky-300/60'
+                    : done
+                      ? 'bg-white/10'
+                      : 'bg-transparent'
+                }`}
+              >
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold tabular-nums ${
+                    active
+                      ? 'bg-sky-400 text-slate-950'
+                      : done
+                        ? 'bg-emerald-400/90 text-slate-950'
+                        : 'bg-white/15 text-white/55'
+                  }`}
+                >
+                  {done ? '✓' : step.n}
+                </span>
+                <span
+                  className={`hidden text-[11px] font-semibold sm:inline ${
+                    active ? 'text-white' : done ? 'text-white/70' : 'text-white/40'
+                  }`}
+                >
+                  {step.label}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const renderLocationOptions = () => (
+    <div className="flex min-h-0 flex-1 gap-2.5">
+      <div
+        className="flex w-9 shrink-0 flex-col items-center py-0.5"
+        aria-hidden
+      >
+        <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-sky-300/80">
+          Prox
+        </span>
+        <div className="my-1.5 w-px flex-1 rounded-full bg-gradient-to-b from-sky-400/70 via-white/25 to-orange-400/70" />
+        <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-orange-300/80">
+          Dist
+        </span>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
+        {PAIN_LOCATION_OPTIONS.map((option, index) => {
+          const selected = pendingLocation === option.id
+          const isWhole = option.id === 'whole_muscle'
+          return (
+            <div key={option.id} className={isWhole ? 'mt-1 border-t border-white/10 pt-2' : undefined}>
+              <button
+                type="button"
+                onClick={() => selectLocation(option.id)}
+                className={`flex min-h-12 w-full shrink-0 items-center gap-2.5 rounded-xl border px-3 text-left touch-manipulation transition-transform active:scale-[0.99] ${
+                  selected
+                    ? 'border-white bg-white/20 text-white ring-2 ring-white'
+                    : 'border-white/20 bg-white/10 text-white hover:bg-white/15'
+                }`}
+              >
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold tabular-nums ${
+                    selected ? 'bg-white text-slate-950' : 'bg-black/25 text-white/70'
+                  }`}
+                >
+                  {isWhole ? '∞' : index + 1}
+                </span>
+                <span className="min-w-0 flex-1 text-sm font-semibold leading-snug sm:text-base">
+                  {option.label}
+                </span>
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 
   return (
     <div 
@@ -2526,36 +2655,55 @@ export default function BodyMap({
                   {Object.entries(selectedAreas).map(([area, stored]) => {
                     const rating = getBodyMapRating(stored)
                     const locationLabel = getBodyMapLocationLabel(stored)
-                    const whenSummary = formatBodyMapWhenSummary(stored)
-                    const detailLine = [locationLabel, whenSummary].filter(Boolean).join(' · ')
+                    const whenCount = getBodyMapWhenIds(stored).length
+                    const whenPart =
+                      whenCount > 0
+                        ? `${whenCount} situation${whenCount === 1 ? '' : 's'}`
+                        : null
+                    const detailLine = [locationLabel, whenPart].filter(Boolean).join(' · ')
+                    const fullTitle = [
+                      getMuscleName(area),
+                      `${rating}/10`,
+                      locationLabel,
+                      whenPart,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                    const justSaved = justSavedAreaId === area
                     return (
                     <div
                       key={area}
-                      className={`${t.selectedRow} flex min-h-[3rem] items-center justify-between gap-2 py-2 pl-2.5 pr-1.5 sm:min-h-[3.25rem] sm:py-2.5 sm:pl-3 sm:pr-2`}
+                      className={`${t.selectedRow} flex min-h-[3rem] items-center justify-between gap-2 py-2 pl-2.5 pr-1.5 sm:min-h-[3.25rem] sm:py-2.5 sm:pl-3 sm:pr-2 ${
+                        justSaved
+                          ? 'bodymap-saved-pulse ring-2 ring-emerald-400/80'
+                          : ''
+                      }`}
                     >
                       <button
                         type="button"
                         onClick={() => openRatingPad(area)}
                         className="flex min-w-0 flex-1 items-center gap-2 text-left touch-manipulation"
+                        title={fullTitle}
                       >
-                        <div
-                          className="h-3.5 w-3.5 shrink-0 rounded-full ring-2 ring-white/25"
-                          style={{ backgroundColor: getColorForRating(rating) }}
-                          aria-hidden
-                        />
+                        {justSaved ? (
+                          <CheckCircle2
+                            className="h-4 w-4 shrink-0 text-emerald-400"
+                            aria-hidden
+                          />
+                        ) : (
+                          <div
+                            className="h-3.5 w-3.5 shrink-0 rounded-full ring-2 ring-white/25"
+                            style={{ backgroundColor: getColorForRating(rating) }}
+                            aria-hidden
+                          />
+                        )}
                         <span className="min-w-0 flex-1">
-                          <span
-                            className="block truncate text-left text-xs font-medium leading-snug text-white sm:text-sm"
-                            title={getMuscleName(area)}
-                          >
+                          <span className="block truncate text-left text-xs font-medium leading-snug text-white sm:text-sm">
                             {getMuscleName(area)}
                           </span>
                           {detailLine && (
-                            <span
-                              className="block truncate text-[11px] leading-tight text-white/55"
-                              title={detailLine}
-                            >
-                              {detailLine}
+                            <span className="block truncate text-[11px] leading-tight text-white/55">
+                              {rating}/10 · {detailLine}
                             </span>
                           )}
                         </span>
@@ -2706,12 +2854,71 @@ export default function BodyMap({
           </div>
         </div>
 
+        {justSavedAreaId && !ratingTarget && (
+          <div className="pointer-events-none fixed inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-[10001] flex justify-center px-3">
+            <div className="bodymap-save-toast inline-flex max-w-lg items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-950/95 px-4 py-3 text-sm font-semibold text-emerald-100 shadow-2xl backdrop-blur-xl">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" aria-hidden />
+              <span className="truncate">Saved — {justSavedName}</span>
+            </div>
+          </div>
+        )}
+
         {ratingTarget && (
           <div className="fixed inset-x-0 bottom-0 z-[10000] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
             <div
-              className="mx-auto max-w-lg rounded-2xl border border-white/20 bg-slate-950/95 shadow-2xl backdrop-blur-xl"
+              className="mx-auto max-w-lg overflow-hidden rounded-2xl border border-white/20 bg-slate-950/95 shadow-2xl backdrop-blur-xl"
               style={{ perspective: '1200px' }}
             >
+              {/* Stable chrome: stepper + title (does not flip) */}
+              <div className="border-b border-white/10 px-3 pb-2 pt-3 sm:px-4">
+                {renderPadStepper()}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-start gap-2">
+                    {padStepIndex > 0 ? (
+                      <button
+                        type="button"
+                        onClick={handlePadBack}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
+                        aria-label={
+                          padStepIndex === 2 ? 'Back to exact spot' : 'Back to intensity'
+                        }
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
+                    ) : null}
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
+                        {padStepTitle}
+                      </p>
+                      <p className="truncate text-base font-semibold text-white sm:text-lg">
+                        {ratingTargetName}
+                        {pendingRating && padStepIndex > 0 ? (
+                          <span className="ml-2 text-sm font-bold tabular-nums text-white/70">
+                            {pendingRating}/10
+                          </span>
+                        ) : null}
+                      </p>
+                      {padStepIndex === 2 && (
+                        <p className="text-[11px] text-white/45">Select all that apply</p>
+                      )}
+                      {padStepIndex === 1 && (
+                        <p className="text-[11px] text-white/45">
+                          Proximal (upper) → distal (lower)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeRatingPad}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
+                    aria-label="Close rating pad"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
               <div
                 className="bodymap-pad-flip w-full"
                 style={{
@@ -2725,7 +2932,7 @@ export default function BodyMap({
               >
                 {/* Front face: intensity (deck 0) or location (deck 1) */}
                 <div
-                  className="flex max-h-[min(70vh,36rem)] flex-col p-3 sm:p-4"
+                  className="flex max-h-[min(62vh,30rem)] flex-col p-3 sm:p-4"
                   style={{
                     gridArea: '1 / 1',
                     backfaceVisibility: 'hidden',
@@ -2735,40 +2942,30 @@ export default function BodyMap({
                 >
                   {padDeck === 0 ? (
                     <>
-                      <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
-                            Intensity
-                          </p>
-                          <p className="truncate text-base font-semibold text-white sm:text-lg">
-                            {ratingTargetName}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={closeRatingPad}
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
-                          aria-label="Close rating pad"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-5 gap-2">
-                        {Array.from({ length: 10 }, (_, i) => i + 1).map((rating) => (
-                          <button
-                            key={rating}
-                            type="button"
-                            onClick={() => selectIntensity(rating)}
-                            className={`min-h-12 rounded-xl text-base font-bold touch-manipulation transition-transform active:scale-95 ${
-                              ratingTargetValue === rating
-                                ? 'ring-2 ring-white text-white'
-                                : 'text-white'
-                            }`}
-                            style={{ backgroundColor: getColorForRating(rating) }}
-                          >
-                            {rating}
-                          </button>
-                        ))}
+                      <div className="grid grid-cols-5 gap-2.5">
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map((rating) => {
+                          const selected = ratingTargetValue === rating
+                          return (
+                            <button
+                              key={rating}
+                              type="button"
+                              onClick={() => selectIntensity(rating)}
+                              className={`min-h-14 rounded-xl text-lg font-extrabold tabular-nums touch-manipulation transition-transform active:scale-95 sm:min-h-16 sm:text-xl ${
+                                selected
+                                  ? 'scale-[1.04] text-white ring-[3px] ring-white'
+                                  : 'text-white/95'
+                              }`}
+                              style={{
+                                backgroundColor: getColorForRating(rating),
+                                boxShadow: selected
+                                  ? `0 8px 22px ${getColorForRating(rating)}88`
+                                  : `0 4px 12px ${getColorForRating(rating)}55`,
+                              }}
+                            >
+                              {rating}
+                            </button>
+                          )
+                        })}
                       </div>
                       <button
                         type="button"
@@ -2779,66 +2976,13 @@ export default function BodyMap({
                       </button>
                     </>
                   ) : (
-                    <>
-                      <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-start gap-2">
-                          <button
-                            type="button"
-                            onClick={backFromLocation}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
-                            aria-label="Back to intensity"
-                          >
-                            <ChevronLeft className="h-5 w-5" />
-                          </button>
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
-                              Where does it hurt most?
-                            </p>
-                            <p className="truncate text-base font-semibold text-white sm:text-lg">
-                              {ratingTargetName}
-                              {pendingRating ? (
-                                <span className="ml-2 text-sm font-bold tabular-nums text-white/70">
-                                  {pendingRating}/10
-                                </span>
-                              ) : null}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={closeRatingPad}
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
-                          aria-label="Close rating pad"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-                      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-                        {PAIN_LOCATION_OPTIONS.map((option) => {
-                          const selected = pendingLocation === option.id
-                          return (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => selectLocation(option.id)}
-                              className={`min-h-12 w-full shrink-0 rounded-xl border px-3 text-left text-sm font-semibold touch-manipulation transition-transform active:scale-[0.99] sm:text-base ${
-                                selected
-                                  ? 'border-white bg-white/20 text-white ring-2 ring-white'
-                                  : 'border-white/20 bg-white/10 text-white hover:bg-white/15'
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </>
+                    renderLocationOptions()
                   )}
                 </div>
 
                 {/* Back face: location (deck 0) or when (deck 1) */}
                 <div
-                  className="flex max-h-[min(70vh,36rem)] flex-col p-3 sm:p-4"
+                  className="flex max-h-[min(62vh,30rem)] flex-col p-3 sm:p-4"
                   style={{
                     gridArea: '1 / 1',
                     backfaceVisibility: 'hidden',
@@ -2848,97 +2992,10 @@ export default function BodyMap({
                   }}
                 >
                   {padDeck === 0 ? (
-                    <>
-                      <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-start gap-2">
-                          <button
-                            type="button"
-                            onClick={backFromLocation}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
-                            aria-label="Back to intensity"
-                          >
-                            <ChevronLeft className="h-5 w-5" />
-                          </button>
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
-                              Where does it hurt most?
-                            </p>
-                            <p className="truncate text-base font-semibold text-white sm:text-lg">
-                              {ratingTargetName}
-                              {pendingRating ? (
-                                <span className="ml-2 text-sm font-bold tabular-nums text-white/70">
-                                  {pendingRating}/10
-                                </span>
-                              ) : null}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={closeRatingPad}
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
-                          aria-label="Close rating pad"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-                      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-                        {PAIN_LOCATION_OPTIONS.map((option) => {
-                          const selected = pendingLocation === option.id
-                          return (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => selectLocation(option.id)}
-                              className={`min-h-12 w-full shrink-0 rounded-xl border px-3 text-left text-sm font-semibold touch-manipulation transition-transform active:scale-[0.99] sm:text-base ${
-                                selected
-                                  ? 'border-white bg-white/20 text-white ring-2 ring-white'
-                                  : 'border-white/20 bg-white/10 text-white hover:bg-white/15'
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </>
+                    renderLocationOptions()
                   ) : (
                     <>
-                      <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-start gap-2">
-                          <button
-                            type="button"
-                            onClick={backFromWhen}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
-                            aria-label="Back to exact spot"
-                          >
-                            <ChevronLeft className="h-5 w-5" />
-                          </button>
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
-                              When does it hurt?
-                            </p>
-                            <p className="truncate text-base font-semibold text-white sm:text-lg">
-                              {ratingTargetName}
-                              {pendingRating ? (
-                                <span className="ml-2 text-sm font-bold tabular-nums text-white/70">
-                                  {pendingRating}/10
-                                </span>
-                              ) : null}
-                            </p>
-                            <p className="text-[11px] text-white/45">Select all that apply</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={closeRatingPad}
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
-                          aria-label="Close rating pad"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-                      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+                      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
                         {PAIN_WHEN_OPTIONS.map((option) => {
                           const checked = pendingWhen.includes(option.id)
                           return (
@@ -2946,23 +3003,25 @@ export default function BodyMap({
                               key={option.id}
                               type="button"
                               onClick={() => toggleWhenOption(option.id)}
-                              className={`flex min-h-12 w-full shrink-0 items-center gap-3 rounded-xl border px-3 text-left text-sm font-semibold touch-manipulation transition-transform active:scale-[0.99] sm:text-base ${
+                              className={`flex min-h-12 w-full shrink-0 items-center gap-3 rounded-xl border px-3 text-left touch-manipulation transition-transform active:scale-[0.99] ${
                                 checked
-                                  ? 'border-white bg-white/20 text-white ring-2 ring-white'
+                                  ? 'border-sky-300/80 bg-sky-500/20 text-white ring-2 ring-sky-300/50'
                                   : 'border-white/20 bg-white/10 text-white hover:bg-white/15'
                               }`}
                             >
                               <span
-                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs ${
+                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold ${
                                   checked
-                                    ? 'border-white bg-white text-slate-950'
+                                    ? 'border-sky-200 bg-sky-300 text-slate-950'
                                     : 'border-white/40 bg-transparent text-transparent'
                                 }`}
                                 aria-hidden
                               >
                                 ✓
                               </span>
-                              <span className="min-w-0 flex-1">{option.label}</span>
+                              <span className="min-w-0 flex-1 text-sm font-semibold leading-snug sm:text-base">
+                                {option.label}
+                              </span>
                             </button>
                           )
                         })}
@@ -2971,7 +3030,7 @@ export default function BodyMap({
                         type="button"
                         onClick={confirmWhen}
                         disabled={pendingWhen.length === 0}
-                        className="mt-3 min-h-12 w-full shrink-0 rounded-xl bg-sky-500 text-sm font-semibold text-white touch-manipulation disabled:cursor-not-allowed disabled:opacity-40"
+                        className="mt-3 min-h-12 w-full shrink-0 rounded-xl bg-sky-500 text-sm font-semibold text-white shadow-lg shadow-sky-500/30 touch-manipulation disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                       >
                         Save this area
                         {pendingWhen.length > 0 ? ` (${pendingWhen.length})` : ''}
@@ -2981,17 +3040,35 @@ export default function BodyMap({
                 </div>
               </div>
             </div>
-            <style
-              dangerouslySetInnerHTML={{
-                __html: `
-                  @media (prefers-reduced-motion: reduce) {
-                    .bodymap-pad-flip { transition: none !important; }
-                  }
-                `,
-              }}
-            />
           </div>
         )}
+
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @media (prefers-reduced-motion: reduce) {
+                .bodymap-pad-flip { transition: none !important; }
+                .bodymap-save-toast,
+                .bodymap-saved-pulse { animation: none !important; }
+              }
+              @keyframes bodymapSaveToastIn {
+                from { opacity: 0; transform: translateY(10px) scale(0.96); }
+                to { opacity: 1; transform: translateY(0) scale(1); }
+              }
+              @keyframes bodymapSavedPulse {
+                0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); }
+                70% { box-shadow: 0 0 0 12px rgba(52, 211, 153, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+              }
+              .bodymap-save-toast {
+                animation: bodymapSaveToastIn 280ms ease-out;
+              }
+              .bodymap-saved-pulse {
+                animation: bodymapSavedPulse 1.2s ease-out 1;
+              }
+            `,
+          }}
+        />
       </div>
     </div>
   )

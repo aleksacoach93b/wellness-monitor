@@ -21,6 +21,7 @@ const submitResponseSchema = z.object({
         z.object({
           rating: z.number(),
           location: z.string(),
+          when: z.array(z.string()).optional(),
         }),
       ])
     )

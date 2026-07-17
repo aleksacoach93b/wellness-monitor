@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import {
   getBodyMapLocationLabel,
   getBodyMapRating,
+  getBodyMapWhenLabels,
   parseBodyMapAnswerValue,
 } from '@/lib/bodyMapPainLocation'
 
@@ -222,6 +223,7 @@ export async function GET(
                   questionType: question.type,
                   answerValue: rating > 0 ? rating : null,
                   exactSpot: getBodyMapLocationLabel(value),
+                  whenItHurts: getBodyMapWhenLabels(value).join('; ') || null,
                   surveyTitle: survey.title,
                   sessionType: response.sessionType ?? null,
                   matchDay: response.matchDay ?? null

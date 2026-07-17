@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import type { KioskTheme } from '@/lib/kioskThemes'
 import { kioskThemes, kioskTextTokens } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
-import type { BodyMapAreaStored, PainLocationId } from '@/lib/bodyMapPainLocation'
+import type { BodyMapAreaStored, PainLocationId, PainWhenId } from '@/lib/bodyMapPainLocation'
 
 interface PlayerWithStatus extends Player {
   hasResponded: boolean
@@ -267,7 +267,8 @@ export default function CoachModeView({
   const handleBodyMapClick = (
     areaId: string,
     rating: number,
-    location?: PainLocationId | null
+    location?: PainLocationId | null,
+    when?: PainWhenId[] | null
   ) => {
     if (!bodyMapPlayerId || !bodyMapQuestionId) return
     setPlayerData((prev) => {
@@ -277,10 +278,10 @@ export default function CoachModeView({
       if (rating === 0) {
         newQData = { ...qData }
         delete newQData[areaId]
-      } else if (!location) {
+      } else if (!location || !when || when.length === 0) {
         return prev
       } else {
-        newQData = { ...qData, [areaId]: { rating, location } }
+        newQData = { ...qData, [areaId]: { rating, location, when } }
       }
       return {
         ...prev,

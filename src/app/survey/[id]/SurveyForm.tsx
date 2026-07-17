@@ -24,6 +24,7 @@ import {
   parseBodyMapAnswerValue,
   type BodyMapAreaStored,
   type PainLocationId,
+  type PainWhenId,
 } from '@/lib/bodyMapPainLocation'
 
 interface SurveyFormProps {
@@ -295,7 +296,8 @@ export default function SurveyForm({
   const handleBodyMapClick = (
     areaId: string,
     rating: number,
-    location?: PainLocationId | null
+    location?: PainLocationId | null,
+    when?: PainWhenId[] | null
   ) => {
     if (!currentBodyMapQuestionId) return
     
@@ -312,13 +314,13 @@ export default function SurveyForm({
         }
       }
 
-      if (!location) return prev
+      if (!location || !when || when.length === 0) return prev
 
       return {
         ...prev,
         [currentBodyMapQuestionId]: {
           ...questionData,
-          [areaId]: { rating, location },
+          [areaId]: { rating, location, when },
         },
       }
     })

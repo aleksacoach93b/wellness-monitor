@@ -4,8 +4,10 @@ import { useState } from 'react'
 import { Response, Answer, Question } from '@prisma/client'
 import { format } from 'date-fns'
 import {
+  formatBodyMapWhenSummary,
   getBodyMapLocationLabel,
   getBodyMapRating,
+  getBodyMapWhenLabels,
   parseBodyMapAnswerValue,
   type BodyMapAreaStored,
 } from '@/lib/bodyMapPainLocation'
@@ -232,12 +234,21 @@ export default function ResultsTable({ responses }: ResultsTableProps) {
                           {Object.entries(bodyMapData).map(([area, stored]: [string, BodyMapAreaStored]) => {
                             const rating = getBodyMapRating(stored)
                             const locationLabel = getBodyMapLocationLabel(stored)
+                            const whenLabels = getBodyMapWhenLabels(stored)
                             return (
                             <div key={area} className="bg-gray-50 p-2 rounded text-sm">
                               <span className="font-medium">{getMuscleName(area)}</span>
                               <span className={`ml-2 font-bold ${isPain ? 'text-red-600' : 'text-orange-600'}`}>{rating}/10</span>
                               {locationLabel && (
                                 <span className="mt-0.5 block text-xs text-gray-500">{locationLabel}</span>
+                              )}
+                              {whenLabels.length > 0 && (
+                                <span
+                                  className="mt-0.5 block text-xs text-gray-500"
+                                  title={whenLabels.join(', ')}
+                                >
+                                  {formatBodyMapWhenSummary(stored, 3)}
+                                </span>
                               )}
                             </div>
                             )
@@ -266,12 +277,21 @@ export default function ResultsTable({ responses }: ResultsTableProps) {
                           {Object.entries(bodyMapData).map(([area, stored]: [string, BodyMapAreaStored]) => {
                             const rating = getBodyMapRating(stored)
                             const locationLabel = getBodyMapLocationLabel(stored)
+                            const whenLabels = getBodyMapWhenLabels(stored)
                             return (
                             <div key={area} className="bg-gray-50 p-2 rounded text-sm">
                               <span className="font-medium">{getMuscleName(area)}</span>
                               <span className="ml-2 text-blue-600 font-bold">{rating}/10</span>
                               {locationLabel && (
                                 <span className="mt-0.5 block text-xs text-gray-500">{locationLabel}</span>
+                              )}
+                              {whenLabels.length > 0 && (
+                                <span
+                                  className="mt-0.5 block text-xs text-gray-500"
+                                  title={whenLabels.join(', ')}
+                                >
+                                  {formatBodyMapWhenSummary(stored, 3)}
+                                </span>
                               )}
                             </div>
                             )

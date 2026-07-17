@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import {
   getBodyMapLocationLabel,
   getBodyMapRating,
+  getBodyMapWhenLabels,
   parseBodyMapAnswerValue,
 } from '@/lib/bodyMapPainLocation'
 
@@ -251,6 +252,7 @@ export async function GET(
           const columnName = `${question.text} - ${muscleName}`
           allBodyMapColumns.push(columnName)
           allBodyMapColumns.push(`${columnName} - Exact spot`)
+          allBodyMapColumns.push(`${columnName} - When`)
         })
       }
     })
@@ -308,6 +310,7 @@ export async function GET(
                   const rating = getBodyMapRating(value)
                   row[columnName] = rating > 0 ? rating : ''
                   row[`${columnName} - Exact spot`] = getBodyMapLocationLabel(value) || ''
+                  row[`${columnName} - When`] = getBodyMapWhenLabels(value).join('; ')
                 })
               } else {
                 // If it's not JSON, treat it as a regular answer and put it in the main question column

@@ -264,45 +264,48 @@ export async function GET(
         surveyTitle: survey.title
       }
       
-      // Add non-Body Map questions as columns, and Body Map questions that don't have JSON data
-      survey.questions.forEach(question => {
+      // Question columns in survey order. BODY_MAP Yes/No parent columns MUST always
+      // exist (e.g. "Painful Areas?", "Sore Areas?") — same as historical exports.
+      survey.questions.forEach((question) => {
+        const answer = response.answers.find((a) => a.questionId === question.id)
+        const raw = (answer?.value ?? '').trim()
+
         if (question.type !== 'BODY_MAP') {
-          const answer = response.answers.find(a => a.questionId === question.id)
           row[question.text] = answer?.value || ''
+          return
+        }
+
+        // Parent Yes/No column — always present in the header
+        if (!raw || raw === 'No') {
+          row[question.text] = raw || 'No'
+        } else if (raw.startsWith('{') && raw.endsWith('}')) {
+          // Stored map JSON means the player answered Yes and marked areas
+          row[question.text] = 'Yes'
         } else {
-          // For BODY_MAP questions, check if they have JSON data
-          const answer = response.answers.find(a => a.questionId === question.id)
-          if (answer?.value && !(answer.value.trim().startsWith('{') && answer.value.trim().endsWith('}'))) {
-            // If it's not JSON, treat it as a regular question
-            row[question.text] = answer.value
-          }
+          row[question.text] = raw
         }
       })
-      
-      // Initialize ALL Body Map columns as empty
-      allBodyMapColumns.forEach(columnName => {
+
+      // Initialize ALL Body Map zone columns as empty (intensity + Exact spot + When)
+      allBodyMapColumns.forEach((columnName) => {
         row[columnName] = ''
       })
-      
-      // Fill in actual Body Map data where available
-      survey.questions.forEach(question => {
-        if (question.type === 'BODY_MAP') {
-          const answer = response.answers.find(a => a.questionId === question.id)
-          
-          if (answer?.value && answer.value !== 'No') {
-            const trimmed = answer.value.trim()
-            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-              fillBodyMapAnswerColumns(
-                row,
-                question.text,
-                answer.value,
-                getMuscleName,
-                exportMode
-              )
-            } else {
-              row[question.text] = answer.value
-            }
-          }
+
+      // Fill zone values from BODY_MAP JSON answers
+      survey.questions.forEach((question) => {
+        if (question.type !== 'BODY_MAP') return
+        const answer = response.answers.find((a) => a.questionId === question.id)
+        if (!answer?.value || answer.value === 'No') return
+
+        const trimmed = answer.value.trim()
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          fillBodyMapAnswerColumns(
+            row,
+            question.text,
+            answer.value,
+            getMuscleName,
+            exportMode
+          )
         }
       })
 
@@ -327,8 +330,24 @@ export async function GET(
       })
     }
 
-    // Create CSV headers
-    const headers = Object.keys(csvData[0])
+    // Stable header order (not dependent on which fields the first row happened to set)
+    const headers: string[] = [
+      'playerName',
+      'playerEmail',
+      'submittedAt',
+      'surveyTitle',
+    ]
+    survey.questions.forEach((question) => {
+      headers.push(question.text)
+      if (question.type === 'BODY_MAP') {
+        headers.push(
+          ...buildBodyMapColumnsForQuestion(question.text, getMuscleName, exportMode)
+        )
+      }
+    })
+    if (survey.trackSessionType) headers.push('Session Type')
+    if (survey.trackMatchDay) headers.push('Match Day')
+
     const csvContent = [
       headers.map(header => {
         // Escape CSV headers that contain commas or quotes

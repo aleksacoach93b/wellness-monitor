@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import {
+  assertSurveyAccess,
+  getAdminSessionFromRequest,
+} from '@/lib/auth/adminSession'
 
 const updateSurveySchema = z.object({
   title: z.string().min(1),
@@ -55,8 +59,16 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     console.log('=== SURVEY UPDATE START ===')
     const { id: surveyId } = await params
+    if (!(await assertSurveyAccess(session, surveyId))) {
+      return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
+    }
     console.log('Survey ID:', surveyId)
     
     const body = await request.json()
@@ -196,9 +208,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: surveyId } = await params
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    // Delete the survey and all related data (cascade delete)
+    const { id: surveyId } = await params
+    if (!(await assertSurveyAccess(session, surveyId))) {
+      return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
+    }
+
     await prisma.survey.delete({
       where: { id: surveyId }
     })

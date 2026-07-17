@@ -1,4 +1,4 @@
-// This is your Prisma schema file,
+// This is the Prisma schema file.
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
@@ -10,83 +10,176 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AdminRole {
+  SUPER
+  TEAM_ADMIN
+}
+
+enum TeamMemberRole {
+  OWNER
+  ADMIN
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  players        Player[]
+  surveys        Survey[]
+  tags           Tag[]
+  kioskSettings  KioskSettings[]
+  memberships    TeamMembership[]
+  invites        Invite[]
+  adminAccess    AdminAccessSettings?
+
+  @@map("teams")
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  role         AdminRole @default(TEAM_ADMIN)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  memberships  TeamMembership[]
+  invitesSent  Invite[]         @relation("InvitesSent")
+
+  @@map("admin_users")
+}
+
+model TeamMembership {
+  id          String         @id @default(cuid())
+  teamId      String
+  adminUserId String
+  role        TeamMemberRole @default(OWNER)
+  createdAt   DateTime       @default(now())
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, adminUserId])
+  @@index([adminUserId])
+  @@map("team_memberships")
+}
+
+model Invite {
+  id              String       @id @default(cuid())
+  email           String
+  token           String       @unique
+  status          InviteStatus @default(PENDING)
+  invitedById     String
+  /// Optional suggested team name shown on accept form
+  suggestedTeamName String?
+  acceptedTeamId  String?
+  expiresAt       DateTime
+  createdAt       DateTime     @default(now())
+  acceptedAt      DateTime?
+
+  invitedBy    AdminUser @relation("InvitesSent", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedTeam Team?     @relation(fields: [acceptedTeamId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([status])
+  @@map("invites")
+}
+
 model Player {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
+  /// Set for all rows after multi-admin migration (Football Club / new teams)
+  teamId      String?
   firstName   String
   lastName    String
   dateOfBirth DateTime?
-  email       String?  @unique
+  email       String?
   phone       String?
-  image       String?  // URL to player photo
-  password    String   @default("") // Password based on initials (e.g., "AB" for Aleksa Boskovic)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  responses   Response[]
-  
+  image       String? // URL to player photo
+  password    String    @default("") // Password based on initials (e.g., "AB" for Aleksa Boskovic)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  team      Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  responses Response[]
+
+  @@unique([teamId, email])
+  @@index([teamId])
   @@map("players")
 }
 
 model Survey {
   id          String   @id @default(cuid())
+  teamId      String?
   title       String
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  createdBy   String   // Simple admin identifier for now
-  
+  createdBy   String // Admin user id or legacy identifier
+
   // Recurring survey fields
-  isRecurring     Boolean  @default(false)
-  startDate       DateTime?
-  endDate         DateTime?
-  dailyStartTime  String?  // Format: "06:00"
-  dailyEndTime    String?  // Format: "11:00"
-  timezone        String   @default("Europe/Belgrade")
+  isRecurring    Boolean   @default(false)
+  startDate      DateTime?
+  endDate        DateTime?
+  dailyStartTime String? // Format: "06:00"
+  dailyEndTime   String? // Format: "11:00"
+  timezone       String    @default("Europe/Belgrade")
 
   // Session / match-day tagging (per-survey opt-in, used mainly for RPE)
   trackSessionType Boolean @default(false)
   trackMatchDay    Boolean @default(false)
-  
-  questions   Question[]
-  responses   Response[]
-  
+
+  team      Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  questions Question[]
+  responses Response[]
+
+  @@index([teamId])
   @@map("surveys")
 }
 
 model Question {
-  id          String   @id @default(cuid())
-  surveyId    String
-  text        String
-  type        QuestionType
-  options     String?  // JSON string for multiple choice options
-  required    Boolean  @default(true)
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
-  
-  survey      Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
-  answers     Answer[]
-  
+  id         String       @id @default(cuid())
+  surveyId   String
+  text       String
+  type       QuestionType
+  options    String? // JSON string for multiple choice options
+  required   Boolean      @default(true)
+  order      Int          @default(0)
+  createdAt  DateTime     @default(now())
+
+  survey  Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  answers Answer[]
+
   @@map("questions")
 }
 
 model Response {
   id          String   @id @default(cuid())
   surveyId    String
-  playerId    String?  // Link to registered player
-  playerName  String?  // Optional player identifier (for anonymous responses)
-  playerEmail String?  // Optional player email (for anonymous responses)
+  playerId    String? // Link to registered player
+  playerName  String? // Optional player identifier (for anonymous responses)
+  playerEmail String? // Optional player email (for anonymous responses)
   submittedAt DateTime @default(now())
 
   // Snapshot labels (stored as text so renaming/deleting a Tag never corrupts history)
-  sessionType String?  // e.g. "Gym", "Pitch", "Rehab"
-  matchDay    String?  // e.g. "MD", "MD-1", "MD+1"
-  
-  survey      Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
-  player      Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
-  answers     Answer[]
-  
+  sessionType String? // e.g. "Gym", "Pitch", "Rehab"
+  matchDay    String? // e.g. "MD", "MD-1", "MD+1"
+
+  survey  Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  player  Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  answers Answer[]
+
   @@map("responses")
 }
 
@@ -95,34 +188,42 @@ model Answer {
   responseId String
   questionId String
   value      String // Store answer as string (can be JSON for complex answers)
-  
-  response   Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  
+
+  response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
   @@unique([responseId, questionId])
   @@map("answers")
 }
 
 model KioskSettings {
-  id                String   @id @default(cuid())
-  password          String   @default("")
-  coachPassword     String   @default("")
-  isEnabled         Boolean  @default(false)
-  theme             String   @default("dark")
-  clubName          String   @default("")
-  clubLogo          String?  // data URL or image URL
-  showClubBranding  Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+  id               String   @id @default(cuid())
+  teamId           String?
+  password         String   @default("")
+  coachPassword    String   @default("")
+  isEnabled        Boolean  @default(false)
+  theme            String   @default("dark")
+  clubName         String   @default("")
+  clubLogo         String? // data URL or image URL
+  showClubBranding Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId])
   @@map("kiosk_settings")
 }
 
+/// Password used to exit kiosk mode back to admin (per team).
 model AdminAccessSettings {
   id        String   @id @default(cuid())
+  teamId    String?  @unique
   password  String   @default("123")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@map("admin_access_settings")
 }
@@ -131,6 +232,7 @@ model AdminAccessSettings {
 // category: "SESSION" (Gym/Pitch/Rehab...) or "MATCHDAY" (MD/MD-1/MD+1...)
 model Tag {
   id        String   @id @default(cuid())
+  teamId    String?
   name      String
   category  String
   order     Int      @default(0)
@@ -138,6 +240,9 @@ model Tag {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  team Team? @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
   @@index([category])
   @@map("tags")
 }

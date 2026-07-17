@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { generatePlayerPassword } from '@/lib/passwordUtils'
-
+import { getAdminSessionFromRequest, teamWhere } from '@/lib/auth/adminSession'
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
-    console.log('Received body:', body)
     
-    // Simple validation without Zod for now
     if (!body.firstName || !body.lastName) {
       return NextResponse.json(
         { error: 'First name and last name are required' },
@@ -18,6 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     const playerData = {
+      teamId: session.teamId,
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email || null,
@@ -31,7 +35,6 @@ export async function POST(request: NextRequest) {
       data: playerData
     })
 
-    console.log('Player created successfully:', player)
     return NextResponse.json(player)
   } catch (error) {
     console.error('Error creating player:', error)
@@ -42,9 +45,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const players = await prisma.player.findMany({
+      where: teamWhere(session),
       orderBy: {
         createdAt: 'desc'
       }

@@ -8,9 +8,20 @@ export async function GET(
   try {
     const { surveyId } = await params
 
-    // Get all active players
+    const survey = await prisma.survey.findUnique({
+      where: { id: surveyId },
+      select: { teamId: true },
+    })
+    if (!survey) {
+      return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
+    }
+
+    // Active players for this survey's team only
     const players = await prisma.player.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(survey.teamId ? { teamId: survey.teamId } : {}),
+      },
       orderBy: [
         { lastName: 'asc' },
         { firstName: 'asc' }

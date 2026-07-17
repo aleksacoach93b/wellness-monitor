@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { Plus, BarChart3, Users, FileText, Clock, Calendar, Settings, ExternalLink } from 'lucide-react'
 import DeleteSurveyButton from './DeleteSurveyButton'
@@ -7,6 +8,7 @@ import { Survey } from '@prisma/client'
 import { formatRecurringInfo } from '@/lib/recurringSurvey'
 import CSVLinkModal from './admin/surveys/[id]/results/CSVLinkModal'
 import { CANONICAL_PRODUCTION_URL } from '@/lib/productionUrl'
+import { getAdminSession } from '@/lib/auth/adminSession'
 
 // Force dynamic rendering to avoid build-time database calls
 export const dynamic = 'force-dynamic'
@@ -15,6 +17,9 @@ const actionLink =
   'inline-flex items-center gap-1.5 rounded-lg border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2'
 
 export default async function HomePage() {
+  const session = await getAdminSession()
+  if (!session) redirect('/admin/login')
+
   let surveys: (Survey & {
     _count: {
       questions: number
@@ -25,6 +30,7 @@ export default async function HomePage() {
 
   try {
     surveys = await prisma.survey.findMany({
+      where: { teamId: session.teamId },
       include: {
         _count: {
           select: {

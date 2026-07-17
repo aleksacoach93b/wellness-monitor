@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { getAdminSessionFromRequest, teamWhere } from '@/lib/auth/adminSession'
 
 const createSurveySchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -22,6 +23,11 @@ const createSurveySchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     console.log('=== SURVEY CREATION START ===')
     const body = await request.json()
     console.log('Raw request body:', JSON.stringify(body, null, 2))
@@ -31,9 +37,10 @@ export async function POST(request: NextRequest) {
 
     const survey = await prisma.survey.create({
       data: {
+        teamId: session.teamId,
         title: validatedData.title,
         description: validatedData.description || null,
-        createdBy: 'admin', // Simple admin identifier for now
+        createdBy: session.sub,
         // Recurring survey fields
         isRecurring: validatedData.isRecurring,
         startDate: validatedData.startDate ? new Date(validatedData.startDate) : null,
@@ -86,9 +93,25 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+
+    // Admin: own team. Public: only Football Club / first-team legacy fallback for /kiosk redirect
+    // (prefer /kiosk/[surveyId] — does not leak other teams' surveys once multiple exist).
+    let where = session ? teamWhere(session) : { isActive: true as const }
+    if (!session) {
+      const football = await prisma.team.findFirst({
+        where: { name: 'Football Club' },
+        select: { id: true },
+      })
+      where = football
+        ? { isActive: true, teamId: football.id }
+        : { isActive: true }
+    }
+
     const surveys = await prisma.survey.findMany({
+      where,
       include: {
         _count: {
           select: {

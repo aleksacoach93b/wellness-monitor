@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { getAdminSessionFromRequest, teamWhere } from '@/lib/auth/adminSession'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,8 +21,25 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const includeInactive = searchParams.get('all') === 'true'
 
+    const session = await getAdminSessionFromRequest(request)
+    const surveyId = searchParams.get('surveyId')
+    let teamId = session?.teamId
+    if (!teamId && surveyId) {
+      const survey = await prisma.survey.findUnique({
+        where: { id: surveyId },
+        select: { teamId: true },
+      })
+      teamId = survey?.teamId ?? undefined
+    }
+
+    // Public/kiosk must scope by survey; never return every team's tags
+    if (!teamId) {
+      return NextResponse.json([])
+    }
+
     const tags = await prisma.tag.findMany({
       where: {
+        teamId,
         ...(category && CATEGORIES.includes(category as (typeof CATEGORIES)[number])
           ? { category }
           : {}),
@@ -40,17 +58,23 @@ export async function GET(request: NextRequest) {
 // POST /api/tags  -> create a tag (appended to the end of its category)
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const data = createTagSchema.parse(body)
 
     const last = await prisma.tag.findFirst({
-      where: { category: data.category },
+      where: { category: data.category, teamId: session.teamId },
       orderBy: { order: 'desc' },
       select: { order: true },
     })
 
     const tag = await prisma.tag.create({
       data: {
+        teamId: session.teamId,
         name: data.name,
         category: data.category,
         order: (last?.order ?? -1) + 1,

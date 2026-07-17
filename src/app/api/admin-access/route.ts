@@ -1,19 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { getAdminSessionFromRequest } from '@/lib/auth/adminSession'
 
 const updateAdminAccessSchema = z.object({
-  password: z.string().min(1, 'Password is required')
+  password: z.string().min(1, 'Password is required'),
 })
 
-export async function GET() {
-  try {
-    let settings = await prisma.adminAccessSettings.findFirst()
+async function resolveTeamId(request: NextRequest): Promise<string | null> {
+  const session = await getAdminSessionFromRequest(request)
+  if (session?.teamId) return session.teamId
 
-    if (!settings) {
+  const surveyId = new URL(request.url).searchParams.get('surveyId')
+  if (!surveyId) return null
+
+  const survey = await prisma.survey.findUnique({
+    where: { id: surveyId },
+    select: { teamId: true },
+  })
+  return survey?.teamId ?? null
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const teamId = await resolveTeamId(request)
+    const session = await getAdminSessionFromRequest(request)
+
+    let settings = teamId
+      ? await prisma.adminAccessSettings.findFirst({ where: { teamId } })
+      : null
+
+    if (!settings && session) {
       settings = await prisma.adminAccessSettings.create({
-        data: { password: '123' }
+        data: { teamId: session.teamId, password: '123' },
       })
+    }
+
+    if (!settings && !teamId) {
+      settings = await prisma.adminAccessSettings.findFirst()
     }
 
     return NextResponse.json(settings)
@@ -28,19 +52,26 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { password } = updateAdminAccessSchema.parse(body)
 
-    let settings = await prisma.adminAccessSettings.findFirst()
+    let settings = await prisma.adminAccessSettings.findFirst({
+      where: { teamId: session.teamId },
+    })
 
     if (settings) {
       settings = await prisma.adminAccessSettings.update({
         where: { id: settings.id },
-        data: { password }
+        data: { password, teamId: session.teamId },
       })
     } else {
       settings = await prisma.adminAccessSettings.create({
-        data: { password }
+        data: { password, teamId: session.teamId },
       })
     }
 
@@ -53,4 +84,3 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
-

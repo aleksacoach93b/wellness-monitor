@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import {
+  assertSurveyAccess,
+  getAdminSessionFromRequest,
+} from '@/lib/auth/adminSession'
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { id } = await params
+    if (!(await assertSurveyAccess(session, id))) {
+      return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
+    }
+
     const body = await request.json()
     
     const { startDate, endDate, dailyStartTime, dailyEndTime } = body
@@ -60,7 +73,6 @@ export async function PUT(
       )
     }
 
-    // Check if survey exists and is recurring
     const survey = await prisma.survey.findUnique({
       where: { id }
     })

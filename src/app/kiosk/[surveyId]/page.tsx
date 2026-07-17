@@ -94,16 +94,18 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     const fetchData = async () => {
       try {
         // Always check kiosk password for each survey
-        const kioskResponse = await fetch('/api/kiosk-settings')
+        const kioskResponse = await fetch(
+          `/api/kiosk-settings?surveyId=${encodeURIComponent(surveyId)}`,
+        )
         if (kioskResponse.ok) {
           const kioskSettings = await kioskResponse.json()
-          setKioskTheme(kioskSettings.theme ?? 'dark')
-          setStoredCoachPassword(kioskSettings.coachPassword ?? '')
-          setClubName(kioskSettings.clubName ?? '')
-          setClubLogo(kioskSettings.clubLogo ?? null)
-          setShowClubBranding(kioskSettings.showClubBranding ?? true)
+          setKioskTheme(kioskSettings?.theme ?? 'dark')
+          setStoredCoachPassword(kioskSettings?.coachPassword ?? '')
+          setClubName(kioskSettings?.clubName ?? '')
+          setClubLogo(kioskSettings?.clubLogo ?? null)
+          setShowClubBranding(kioskSettings?.showClubBranding ?? true)
           // Show password prompt if password is set and not already authenticated this session
-          if (kioskSettings.password && kioskSettings.password.trim() !== '') {
+          if (kioskSettings?.password && kioskSettings.password.trim() !== '') {
             const alreadyAuthed = typeof window !== 'undefined' && sessionStorage.getItem(`kiosk-auth-${surveyId}`) === 'true'
             if (!alreadyAuthed) {
               setShowKioskPassword(true)
@@ -152,7 +154,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   useEffect(() => {
     const loadAdminAccessPassword = async () => {
       try {
-        const response = await fetch('/api/admin-access')
+        const response = await fetch(
+          `/api/admin-access?surveyId=${encodeURIComponent(surveyId)}`,
+        )
         if (response.ok) {
           const data = await response.json()
           if (data?.password) {
@@ -165,12 +169,14 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     }
 
     loadAdminAccessPassword()
-  }, [])
+  }, [surveyId])
 
   useEffect(() => {
     const loadTags = async () => {
       try {
-        const response = await fetch('/api/tags')
+        const response = await fetch(
+          `/api/tags?surveyId=${encodeURIComponent(surveyId)}`,
+        )
         if (response.ok) {
           const data: Array<{ name: string; category: string }> = await response.json()
           setSessionTags(data.filter((t) => t.category === 'SESSION').map((t) => t.name))
@@ -182,7 +188,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     }
 
     loadTags()
-  }, [])
+  }, [surveyId])
 
   useEffect(() => {
     setRecentIds(readRecentPlayerIds(surveyId))
@@ -565,6 +571,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   if (showKioskPassword) {
     return (
       <KioskPasswordPrompt
+        surveyId={surveyId}
         theme={kioskTheme}
         clubName={clubName}
         clubLogo={clubLogo}

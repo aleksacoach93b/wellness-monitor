@@ -1,26 +1,31 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { Plus, User, Mail, Phone, Calendar } from 'lucide-react'
 import Image from 'next/image'
 import { format } from 'date-fns'
 import HomeButton from '@/components/HomeButton'
 import { Player } from '@prisma/client'
+import { getAdminSession } from '@/lib/auth/adminSession'
 
 // Force dynamic rendering to avoid build-time database calls
 export const dynamic = 'force-dynamic'
 
 export default async function PlayersPage() {
+  const session = await getAdminSession()
+  if (!session) redirect('/admin/login')
+
   let players: Player[] = []
   
   try {
     players = await prisma.player.findMany({
+      where: { teamId: session.teamId },
       orderBy: {
         createdAt: 'desc'
       }
     })
   } catch (error) {
     console.error('Error fetching players:', error)
-    // Return empty array if database is not available
     players = []
   }
 

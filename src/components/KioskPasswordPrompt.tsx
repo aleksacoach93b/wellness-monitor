@@ -13,6 +13,8 @@ interface KioskPasswordPromptProps {
   clubName?: string | null
   clubLogo?: string | null
   showClubBranding?: boolean
+  /** Scopes settings to the survey's team (multi-admin) */
+  surveyId?: string
 }
 
 export default function KioskPasswordPrompt({
@@ -22,6 +24,7 @@ export default function KioskPasswordPrompt({
   clubName,
   clubLogo,
   showClubBranding = true,
+  surveyId,
 }: KioskPasswordPromptProps) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -45,11 +48,12 @@ export default function KioskPasswordPrompt({
     setError('')
 
     try {
-      const response = await fetch('/api/kiosk-settings')
+      const qs = surveyId ? `?surveyId=${encodeURIComponent(surveyId)}` : ''
+      const response = await fetch(`/api/kiosk-settings${qs}`)
       if (response.ok) {
         const settings = await response.json()
 
-        if (password.trim() === settings.password) {
+        if (password.trim() === settings?.password) {
           onPasswordCorrect()
         } else {
           setError('Incorrect password. Please try again.')

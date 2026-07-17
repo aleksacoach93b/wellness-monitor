@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { getAdminSessionFromRequest } from '@/lib/auth/adminSession'
 
 const kioskThemeSchema = z.enum(['dark', 'light', 'red', 'green', 'sky', 'graphite', 'sand', 'violet'])
 
@@ -30,14 +31,33 @@ async function ensureClubBrandingColumns() {
   `)
 }
 
-export async function GET() {
+async function resolveTeamId(request: NextRequest): Promise<string | null> {
+  const session = await getAdminSessionFromRequest(request)
+  if (session?.teamId) return session.teamId
+
+  const surveyId = new URL(request.url).searchParams.get('surveyId')
+  if (!surveyId) return null
+
+  const survey = await prisma.survey.findUnique({
+    where: { id: surveyId },
+    select: { teamId: true },
+  })
+  return survey?.teamId ?? null
+}
+
+export async function GET(request: NextRequest) {
   try {
     await ensureClubBrandingColumns()
-    let settings = await prisma.kioskSettings.findFirst()
+    const teamId = await resolveTeamId(request)
+    let settings = teamId
+      ? await prisma.kioskSettings.findFirst({ where: { teamId } })
+      : null
 
-    if (!settings) {
+    const session = await getAdminSessionFromRequest(request)
+    if (!settings && session) {
       settings = await prisma.kioskSettings.create({
         data: {
+          teamId: session.teamId,
           password: '',
           isEnabled: false,
           theme: 'dark',
@@ -45,6 +65,11 @@ export async function GET() {
           showClubBranding: true,
         },
       })
+    }
+
+    // Legacy single-tenant fallback (only when no team context)
+    if (!settings && !teamId) {
+      settings = await prisma.kioskSettings.findFirst()
     }
 
     return NextResponse.json(settings)
@@ -59,14 +84,21 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     await ensureClubBrandingColumns()
     const body = await request.json()
     const parsed = updateKioskSettingsSchema.parse(body)
     const { password, coachPassword, isEnabled, theme, clubName, clubLogo, showClubBranding } = parsed
 
-    let settings = await prisma.kioskSettings.findFirst()
+    let settings = await prisma.kioskSettings.findFirst({
+      where: { teamId: session.teamId },
+    })
 
-    const data: Record<string, unknown> = { password, isEnabled, theme }
+    const data: Record<string, unknown> = { password, isEnabled, theme, teamId: session.teamId }
     if (coachPassword !== undefined) data.coachPassword = coachPassword
     if (clubName !== undefined) data.clubName = clubName.trim()
     if (clubLogo !== undefined) data.clubLogo = clubLogo
@@ -80,6 +112,7 @@ export async function PUT(request: NextRequest) {
     } else {
       settings = await prisma.kioskSettings.create({
         data: {
+          teamId: session.teamId,
           password,
           isEnabled,
           theme,

@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { generatePlayerPassword } from '@/lib/passwordUtils'
 import { Prisma } from '@prisma/client'
+import {
+  assertPlayerAccess,
+  getAdminSessionFromRequest,
+} from '@/lib/auth/adminSession'
 
 const updatePlayerSchema = z.object({
   firstName: z.string().min(1),
@@ -20,7 +24,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { id: playerId } = await params
+    if (!(await assertPlayerAccess(session, playerId))) {
+      return NextResponse.json({ error: 'Player not found' }, { status: 404 })
+    }
 
     const player = await prisma.player.findUnique({
       where: { id: playerId }
@@ -48,7 +60,16 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { id: playerId } = await params
+    if (!(await assertPlayerAccess(session, playerId))) {
+      return NextResponse.json({ error: 'Player not found' }, { status: 404 })
+    }
+
     const body = await request.json()
     const validatedData = updatePlayerSchema.parse(body)
 
@@ -83,21 +104,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: playerId } = await params
-
-    // Check if player exists
-    const player = await prisma.player.findUnique({
-      where: { id: playerId }
-    })
-
-    if (!player) {
-      return NextResponse.json(
-        { error: 'Player not found' },
-        { status: 404 }
-      )
+    const session = await getAdminSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Delete the player (this will also delete related responses due to cascade)
+    const { id: playerId } = await params
+    if (!(await assertPlayerAccess(session, playerId))) {
+      return NextResponse.json({ error: 'Player not found' }, { status: 404 })
+    }
+
     await prisma.player.delete({
       where: { id: playerId }
     })

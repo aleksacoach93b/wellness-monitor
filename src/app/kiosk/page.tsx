@@ -17,27 +17,31 @@ export default function KioskRedirectPage() {
   useEffect(() => {
     const redirectToKiosk = async () => {
       try {
-        const kioskRes = await fetch('/api/kiosk-settings')
-        if (kioskRes.ok) {
-          const kioskSettings = await kioskRes.json()
-          if (kioskSettings?.theme === 'dark' || kioskSettings?.theme === 'light' || kioskSettings?.theme === 'red' || kioskSettings?.theme === 'green') {
-            setKioskTheme(kioskSettings.theme)
-          }
-        }
-
-        // Fetch the first active survey
+        // Generic /kiosk has no team context — open a specific /kiosk/[surveyId] link instead.
         const response = await fetch('/api/surveys')
         if (response.ok) {
           const surveys: Survey[] = await response.json()
-          
-          // Find the first active survey
-          const survey = surveys.find(survey => survey.isActive)
-          
+          const survey = surveys.find((s) => s.isActive)
+
           if (survey) {
+            const kioskRes = await fetch(
+              `/api/kiosk-settings?surveyId=${encodeURIComponent(survey.id)}`,
+            )
+            if (kioskRes.ok) {
+              const kioskSettings = await kioskRes.json()
+              if (
+                kioskSettings?.theme === 'dark' ||
+                kioskSettings?.theme === 'light' ||
+                kioskSettings?.theme === 'red' ||
+                kioskSettings?.theme === 'green'
+              ) {
+                setKioskTheme(kioskSettings.theme)
+              }
+            }
             setActiveSurvey(survey)
             setShowPasswordPrompt(true)
           } else {
-            setError('No active surveys found')
+            setError('No active surveys found. Open your team kiosk link (/kiosk/[surveyId]).')
           }
         } else {
           setError('Failed to fetch surveys')
@@ -63,6 +67,7 @@ export default function KioskRedirectPage() {
   if (showPasswordPrompt) {
     return (
       <KioskPasswordPrompt
+        surveyId={activeSurvey?.id}
         theme={kioskTheme}
         onPasswordCorrect={handlePasswordCorrect}
         onCancel={() => router.push('/')}

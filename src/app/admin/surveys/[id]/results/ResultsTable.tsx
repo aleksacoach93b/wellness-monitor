@@ -3,6 +3,12 @@
 import { useState } from 'react'
 import { Response, Answer, Question } from '@prisma/client'
 import { format } from 'date-fns'
+import {
+  getBodyMapLocationLabel,
+  getBodyMapRating,
+  parseBodyMapAnswerValue,
+  type BodyMapAreaStored,
+} from '@/lib/bodyMapPainLocation'
 
 // Muscle name mapping function (same as in BodyMap component)
 const getMuscleName = (areaId: string): string => {
@@ -214,7 +220,7 @@ export default function ResultsTable({ responses }: ResultsTableProps) {
                 // Check if this is body map data
                 if (answer.question.type === 'BODY_MAP' && answer.value.includes('{')) {
                   try {
-                    const bodyMapData = JSON.parse(answer.value)
+                    const bodyMapData = parseBodyMapAnswerValue(JSON.parse(answer.value))
                     const isPain = answer.question.text.toLowerCase().includes('painful')
                     const borderColor = isPain ? 'border-red-500' : 'border-green-500'
                     const title = isPain ? 'Body Pain Assessment' : answer.question.text
@@ -223,12 +229,19 @@ export default function ResultsTable({ responses }: ResultsTableProps) {
                       <div key={answer.id} className={`border-l-4 ${borderColor} pl-4`}>
                         <h4 className="font-medium text-gray-900 mb-2">{title}</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                          {Object.entries(bodyMapData).map(([area, rating]) => (
+                          {Object.entries(bodyMapData).map(([area, stored]: [string, BodyMapAreaStored]) => {
+                            const rating = getBodyMapRating(stored)
+                            const locationLabel = getBodyMapLocationLabel(stored)
+                            return (
                             <div key={area} className="bg-gray-50 p-2 rounded text-sm">
                               <span className="font-medium">{getMuscleName(area)}</span>
-                              <span className={`ml-2 font-bold ${isPain ? 'text-red-600' : 'text-orange-600'}`}>{String(rating)}/10</span>
+                              <span className={`ml-2 font-bold ${isPain ? 'text-red-600' : 'text-orange-600'}`}>{rating}/10</span>
+                              {locationLabel && (
+                                <span className="mt-0.5 block text-xs text-gray-500">{locationLabel}</span>
+                              )}
                             </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </div>
                     )
@@ -245,17 +258,24 @@ export default function ResultsTable({ responses }: ResultsTableProps) {
                 // Check if this is the old body map data format (fallback)
                 if (answer.question.text.toLowerCase().includes('muscle') && answer.value.includes('{')) {
                   try {
-                    const bodyMapData = JSON.parse(answer.value)
+                    const bodyMapData = parseBodyMapAnswerValue(JSON.parse(answer.value))
                     return (
                       <div key={answer.id} className="border-l-4 border-green-500 pl-4">
                         <h4 className="font-medium text-gray-900 mb-2">{answer.question.text}</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                          {Object.entries(bodyMapData).map(([area, rating]) => (
+                          {Object.entries(bodyMapData).map(([area, stored]: [string, BodyMapAreaStored]) => {
+                            const rating = getBodyMapRating(stored)
+                            const locationLabel = getBodyMapLocationLabel(stored)
+                            return (
                             <div key={area} className="bg-gray-50 p-2 rounded text-sm">
                               <span className="font-medium">{getMuscleName(area)}</span>
-                              <span className="ml-2 text-blue-600 font-bold">{String(rating)}/10</span>
+                              <span className="ml-2 text-blue-600 font-bold">{rating}/10</span>
+                              {locationLabel && (
+                                <span className="mt-0.5 block text-xs text-gray-500">{locationLabel}</span>
+                              )}
                             </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </div>
                     )

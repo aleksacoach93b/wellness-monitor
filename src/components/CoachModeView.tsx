@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom'
 import type { KioskTheme } from '@/lib/kioskThemes'
 import { kioskThemes, kioskTextTokens } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
+import type { BodyMapAreaStored, PainLocationId } from '@/lib/bodyMapPainLocation'
 
 interface PlayerWithStatus extends Player {
   hasResponded: boolean
@@ -125,9 +126,9 @@ export default function CoachModeView({
   )
 
   const [playerData, setPlayerData] = useState<
-    Record<string, { answers: PlayerAnswers; bodyMapData: Record<string, Record<string, number>>; done: boolean }>
+    Record<string, { answers: PlayerAnswers; bodyMapData: Record<string, Record<string, BodyMapAreaStored>>; done: boolean }>
   >(() => {
-    const initial: Record<string, { answers: PlayerAnswers; bodyMapData: Record<string, Record<string, number>>; done: boolean }> = {}
+    const initial: Record<string, { answers: PlayerAnswers; bodyMapData: Record<string, Record<string, BodyMapAreaStored>>; done: boolean }> = {}
     for (const p of players) {
       const answers: PlayerAnswers = {}
       for (const q of survey.questions) {
@@ -263,17 +264,23 @@ export default function CoachModeView({
     setShowBodyMap(true)
   }
 
-  const handleBodyMapClick = (areaId: string, rating: number) => {
+  const handleBodyMapClick = (
+    areaId: string,
+    rating: number,
+    location?: PainLocationId | null
+  ) => {
     if (!bodyMapPlayerId || !bodyMapQuestionId) return
     setPlayerData((prev) => {
       const pd = prev[bodyMapPlayerId]
       const qData = pd.bodyMapData[bodyMapQuestionId] || {}
-      let newQData: Record<string, number>
+      let newQData: Record<string, BodyMapAreaStored>
       if (rating === 0) {
         newQData = { ...qData }
         delete newQData[areaId]
+      } else if (!location) {
+        return prev
       } else {
-        newQData = { ...qData, [areaId]: rating }
+        newQData = { ...qData, [areaId]: { rating, location } }
       }
       return {
         ...prev,

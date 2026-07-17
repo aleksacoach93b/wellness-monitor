@@ -1,14 +1,22 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Eraser, X } from 'lucide-react'
+import { ChevronLeft, Eraser, X } from 'lucide-react'
 import type { SurveyAppearanceTheme } from '@/lib/surveyFormAppearance'
 import { getSurveyBodyMapTokens } from '@/lib/surveyFormAppearance'
+import {
+  PAIN_LOCATION_OPTIONS,
+  type BodyMapAreaStored,
+  type PainLocationId,
+  getBodyMapLocationId,
+  getBodyMapLocationLabel,
+  getBodyMapRating,
+} from '@/lib/bodyMapPainLocation'
 
 interface BodyMapProps {
   view: 'front' | 'back'
-  onAreaClick: (areaId: string, rating: number) => void
-  selectedAreas: Record<string, number>
+  onAreaClick: (areaId: string, rating: number, location?: PainLocationId | null) => void
+  selectedAreas: Record<string, BodyMapAreaStored>
   onViewChange: (view: 'front' | 'back') => void
   onContinue: () => void
   onClose: () => void
@@ -35,12 +43,28 @@ export default function BodyMap({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [lastTouchDistance, setLastTouchDistance] = useState(0)
   const [ratingTarget, setRatingTarget] = useState<string | null>(null)
+  const [padStep, setPadStep] = useState<'intensity' | 'location'>('intensity')
+  const [pendingRating, setPendingRating] = useState<number | null>(null)
   const [isFlipping, setIsFlipping] = useState(false)
   const suppressClickRef = useRef(false)
   const pointerOriginRef = useRef({ x: 0, y: 0 })
   const flipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const FLIP_MS = 580
+  const PAD_FLIP_MS = 420
+
+  const closeRatingPad = () => {
+    setRatingTarget(null)
+    setPadStep('intensity')
+    setPendingRating(null)
+  }
+
+  const openRatingPad = (areaId: string) => {
+    setRatingTarget(areaId)
+    setPadStep('intensity')
+    const existing = getBodyMapRating(selectedAreas[areaId])
+    setPendingRating(existing > 0 ? existing : null)
+  }
 
   // Handle zoom and pan
   const handleWheel = (e: React.WheelEvent) => {
@@ -162,28 +186,43 @@ export default function BodyMap({
       return
     }
     // Open rating pad — fewer mis-taps than cycling 1→10 on small muscles
-    setRatingTarget(areaId)
+    openRatingPad(areaId)
   }
 
-  const applyRating = (rating: number) => {
+  const selectIntensity = (rating: number) => {
     if (!ratingTarget) return
-    onAreaClick(ratingTarget, rating)
-    setRatingTarget(null)
+    if (rating === 0) {
+      onAreaClick(ratingTarget, 0)
+      closeRatingPad()
+      return
+    }
+    setPendingRating(rating)
+    setPadStep('location')
+  }
+
+  const selectLocation = (location: PainLocationId) => {
+    if (!ratingTarget || !pendingRating) return
+    onAreaClick(ratingTarget, pendingRating, location)
+    closeRatingPad()
+  }
+
+  const backToIntensity = () => {
+    setPadStep('intensity')
   }
 
   const handleDeselectArea = (areaId: string) => {
     onAreaClick(areaId, 0)
-    if (ratingTarget === areaId) setRatingTarget(null)
+    if (ratingTarget === areaId) closeRatingPad()
   }
 
   const handleClearAll = () => {
     Object.keys(selectedAreas).forEach((areaId) => onAreaClick(areaId, 0))
-    setRatingTarget(null)
+    closeRatingPad()
   }
 
   const switchView = (next: 'front' | 'back') => {
     if (next === view || isFlipping) return
-    setRatingTarget(null)
+    closeRatingPad()
     resetZoom()
 
     const preferReduced =
@@ -369,7 +408,7 @@ export default function BodyMap({
   }
 
   const getAreaColor = (areaId: string) => {
-    const rating = selectedAreas[areaId]
+    const rating = getBodyMapRating(selectedAreas[areaId])
     if (!rating) return '#d1d5db' // Slightly stronger default for tablet contrast
     
     // Color based on rating intensity
@@ -2313,7 +2352,11 @@ export default function BodyMap({
 
   const selectedCount = Object.keys(selectedAreas).length
   const ratingTargetName = ratingTarget ? getMuscleName(ratingTarget) : ''
-  const ratingTargetValue = ratingTarget ? selectedAreas[ratingTarget] || 0 : 0
+  const ratingTargetValue =
+    pendingRating ?? (ratingTarget ? getBodyMapRating(selectedAreas[ratingTarget]) : 0)
+  const ratingTargetLocation = ratingTarget
+    ? getBodyMapLocationId(selectedAreas[ratingTarget])
+    : null
 
   return (
     <div 
@@ -2387,7 +2430,7 @@ export default function BodyMap({
           </div>
           
           <p className={`text-xs sm:text-sm ${t.hint} text-center`}>
-            Tap a muscle, then choose intensity 1–10
+            Tap a muscle, then choose intensity and exact spot
           </p>
         </div>
         
@@ -2409,14 +2452,17 @@ export default function BodyMap({
             <div className={`mt-3 min-h-0 flex-1 overflow-y-auto ${t.selectedScroll}`}>
               {selectedCount > 0 ? (
                 <div className="grid auto-rows-min grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
-                  {Object.entries(selectedAreas).map(([area, rating]) => (
+                  {Object.entries(selectedAreas).map(([area, stored]) => {
+                    const rating = getBodyMapRating(stored)
+                    const locationLabel = getBodyMapLocationLabel(stored)
+                    return (
                     <div
                       key={area}
                       className={`${t.selectedRow} flex min-h-[3rem] items-center justify-between gap-2 py-2 pl-2.5 pr-1.5 sm:min-h-[3.25rem] sm:py-2.5 sm:pl-3 sm:pr-2`}
                     >
                       <button
                         type="button"
-                        onClick={() => setRatingTarget(area)}
+                        onClick={() => openRatingPad(area)}
                         className="flex min-w-0 flex-1 items-center gap-2 text-left touch-manipulation"
                       >
                         <div
@@ -2424,17 +2470,24 @@ export default function BodyMap({
                           style={{ backgroundColor: getColorForRating(rating) }}
                           aria-hidden
                         />
-                        <span
-                          className="truncate text-left text-xs font-medium leading-snug text-white sm:text-sm"
-                          title={getMuscleName(area)}
-                        >
-                          {getMuscleName(area)}
+                        <span className="min-w-0 flex-1">
+                          <span
+                            className="block truncate text-left text-xs font-medium leading-snug text-white sm:text-sm"
+                            title={getMuscleName(area)}
+                          >
+                            {getMuscleName(area)}
+                          </span>
+                          {locationLabel && (
+                            <span className="block truncate text-[11px] leading-tight text-white/55">
+                              {locationLabel}
+                            </span>
+                          )}
                         </span>
                       </button>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => setRatingTarget(area)}
+                          onClick={() => openRatingPad(area)}
                           className="inline-flex min-h-10 min-w-[3rem] items-center justify-center rounded-lg bg-black/25 px-2 text-xs font-bold tabular-nums text-white touch-manipulation"
                         >
                           {rating}/10
@@ -2449,7 +2502,8 @@ export default function BodyMap({
                         </button>
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className={`py-6 text-center text-sm ${t.emptyHint} sm:py-8`}>
@@ -2578,50 +2632,150 @@ export default function BodyMap({
 
         {ratingTarget && (
           <div className="fixed inset-x-0 bottom-0 z-[10000] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
-            <div className="mx-auto max-w-lg rounded-2xl border border-white/20 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl sm:p-4">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
-                    Intensity
-                  </p>
-                  <p className="truncate text-base font-semibold text-white sm:text-lg">
-                    {ratingTargetName}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setRatingTarget(null)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
-                  aria-label="Close rating pad"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((rating) => (
-                  <button
-                    key={rating}
-                    type="button"
-                    onClick={() => applyRating(rating)}
-                    className={`min-h-12 rounded-xl text-base font-bold touch-manipulation transition-transform active:scale-95 ${
-                      ratingTargetValue === rating
-                        ? 'ring-2 ring-white text-white'
-                        : 'text-white'
-                    }`}
-                    style={{ backgroundColor: getColorForRating(rating) }}
-                  >
-                    {rating}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => applyRating(0)}
-                className="mt-3 min-h-12 w-full rounded-xl border border-white/20 bg-white/10 text-sm font-semibold text-white touch-manipulation"
+            <div
+              className="mx-auto max-w-lg rounded-2xl border border-white/20 bg-slate-950/95 shadow-2xl backdrop-blur-xl"
+              style={{ perspective: '1200px' }}
+            >
+              <div
+                className="bodymap-pad-flip w-full"
+                style={{
+                  display: 'grid',
+                  transformStyle: 'preserve-3d',
+                  transition: `transform ${PAD_FLIP_MS}ms cubic-bezier(0.4, 0.05, 0.2, 1)`,
+                  transform: padStep === 'location' ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                }}
               >
-                Clear this area
-              </button>
+                {/* Intensity face */}
+                <div
+                  className="p-3 sm:p-4"
+                  style={{
+                    gridArea: '1 / 1',
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                    pointerEvents: padStep === 'intensity' ? 'auto' : 'none',
+                  }}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
+                        Intensity
+                      </p>
+                      <p className="truncate text-base font-semibold text-white sm:text-lg">
+                        {ratingTargetName}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closeRatingPad}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
+                      aria-label="Close rating pad"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => selectIntensity(rating)}
+                        className={`min-h-12 rounded-xl text-base font-bold touch-manipulation transition-transform active:scale-95 ${
+                          ratingTargetValue === rating
+                            ? 'ring-2 ring-white text-white'
+                            : 'text-white'
+                        }`}
+                        style={{ backgroundColor: getColorForRating(rating) }}
+                      >
+                        {rating}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => selectIntensity(0)}
+                    className="mt-3 min-h-12 w-full rounded-xl border border-white/20 bg-white/10 text-sm font-semibold text-white touch-manipulation"
+                  >
+                    Clear this area
+                  </button>
+                </div>
+
+                {/* Exact spot face */}
+                <div
+                  className="flex flex-col p-3 sm:p-4"
+                  style={{
+                    gridArea: '1 / 1',
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                    transform: 'rotateY(180deg)',
+                    pointerEvents: padStep === 'location' ? 'auto' : 'none',
+                  }}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <button
+                        type="button"
+                        onClick={backToIntensity}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
+                        aria-label="Back to intensity"
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
+                          Where does it hurt most?
+                        </p>
+                        <p className="truncate text-base font-semibold text-white sm:text-lg">
+                          {ratingTargetName}
+                          {pendingRating ? (
+                            <span className="ml-2 text-sm font-bold tabular-nums text-white/70">
+                              {pendingRating}/10
+                            </span>
+                          ) : null}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closeRatingPad}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
+                      aria-label="Close rating pad"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {PAIN_LOCATION_OPTIONS.map((option) => {
+                      const selected =
+                        ratingTargetLocation === option.id &&
+                        getBodyMapRating(selectedAreas[ratingTarget]) === pendingRating
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => selectLocation(option.id)}
+                          className={`min-h-12 w-full rounded-xl border px-3 text-left text-sm font-semibold touch-manipulation transition-transform active:scale-[0.99] sm:text-base ${
+                            selected
+                              ? 'border-white bg-white/20 text-white ring-2 ring-white'
+                              : 'border-white/20 bg-white/10 text-white hover:bg-white/15'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
+            <style
+              dangerouslySetInnerHTML={{
+                __html: `
+                  @media (prefers-reduced-motion: reduce) {
+                    .bodymap-pad-flip { transition: none !important; }
+                  }
+                `,
+              }}
+            />
           </div>
         )}
       </div>

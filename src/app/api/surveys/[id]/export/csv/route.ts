@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import {
+  getBodyMapLocationLabel,
+  getBodyMapRating,
+  parseBodyMapAnswerValue,
+} from '@/lib/bodyMapPainLocation'
 
 /** Large exports can exceed default serverless limits; keep CSV generation lean below. */
 export const maxDuration = 60
@@ -245,6 +250,7 @@ export async function GET(
           const muscleName = getMuscleName(areaId)
           const columnName = `${question.text} - ${muscleName}`
           allBodyMapColumns.push(columnName)
+          allBodyMapColumns.push(`${columnName} - Exact spot`)
         })
       }
     })
@@ -292,14 +298,16 @@ export async function GET(
             try {
               // Only try to parse as JSON if it looks like JSON (starts with { and ends with })
               if (answer.value.trim().startsWith('{') && answer.value.trim().endsWith('}')) {
-                const bodyMapData = JSON.parse(answer.value)
+                const bodyMapData = parseBodyMapAnswerValue(JSON.parse(answer.value))
                 
                 // Convert areaId to muscle name and create column name
                 Object.entries(bodyMapData).forEach(([areaId, value]) => {
                   const muscleName = getMuscleName(areaId)
                   // Create column name like "Painful Areas - Right Pectoralis Major"
                   const columnName = `${question.text} - ${muscleName}`
-                  row[columnName] = value as number
+                  const rating = getBodyMapRating(value)
+                  row[columnName] = rating > 0 ? rating : ''
+                  row[`${columnName} - Exact spot`] = getBodyMapLocationLabel(value) || ''
                 })
               } else {
                 // If it's not JSON, treat it as a regular answer and put it in the main question column

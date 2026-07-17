@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import {
+  getBodyMapLocationLabel,
+  getBodyMapRating,
+  parseBodyMapAnswerValue,
+} from '@/lib/bodyMapPainLocation'
 
 // Body Map path ID to muscle name mapping
 const getMuscleName = (areaId: string): string => {
@@ -197,7 +202,7 @@ export async function GET(
           // For Body Map questions, create separate rows for each body part
           if (question?.type === 'BODY_MAP' && answer.value && answer.value !== 'No') {
             try {
-              const bodyMapData = JSON.parse(answer.value)
+              const bodyMapData = parseBodyMapAnswerValue(JSON.parse(answer.value))
               const bodyMapRows: Record<string, string | number | null>[] = []
               
               // Convert path IDs to readable names and create separate rows for each body part
@@ -206,6 +211,7 @@ export async function GET(
                 if (key.startsWith('path-')) {
                   muscleName = getMuscleName(key)
                 }
+                const rating = getBodyMapRating(value)
                 
                 bodyMapRows.push({
                   responseId: response.id,
@@ -214,7 +220,8 @@ export async function GET(
                   submittedAt: response.submittedAt.toISOString(),
                   questionText: `${question.text} - ${muscleName}`,
                   questionType: question.type,
-                  answerValue: value as number,
+                  answerValue: rating > 0 ? rating : null,
+                  exactSpot: getBodyMapLocationLabel(value),
                   surveyTitle: survey.title,
                   sessionType: response.sessionType ?? null,
                   matchDay: response.matchDay ?? null

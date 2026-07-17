@@ -13,7 +13,19 @@ const submitResponseSchema = z.object({
     questionId: z.string(),
     value: z.coerce.string(),
   })),
-  bodyMapData: z.record(z.string(), z.number()).optional().nullable()
+  bodyMapData: z
+    .record(
+      z.string(),
+      z.union([
+        z.number(),
+        z.object({
+          rating: z.number(),
+          location: z.string(),
+        }),
+      ])
+    )
+    .optional()
+    .nullable(),
 })
 
 export async function POST(request: NextRequest) {

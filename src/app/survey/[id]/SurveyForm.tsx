@@ -20,6 +20,11 @@ import {
   surveyDraftStorageKey,
   surveyQuestionFingerprint,
 } from '@/lib/surveyFormAppearance'
+import {
+  parseBodyMapAnswerValue,
+  type BodyMapAreaStored,
+  type PainLocationId,
+} from '@/lib/bodyMapPainLocation'
 
 interface SurveyFormProps {
   survey: Survey & {
@@ -90,7 +95,7 @@ export default function SurveyForm({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [playerData, setPlayerData] = useState<{firstName: string, lastName: string, email?: string | null, image?: string | null} | null>(null)
-  const [bodyMapData, setBodyMapData] = useState<Record<string, Record<string, number>>>({})
+  const [bodyMapData, setBodyMapData] = useState<Record<string, Record<string, BodyMapAreaStored>>>({})
   const [showBodyMap, setShowBodyMap] = useState(false)
   const [currentBodyMapQuestionId, setCurrentBodyMapQuestionId] = useState<string | null>(null)
   const [bodyMapView, setBodyMapView] = useState<'front' | 'back'>('front')
@@ -161,7 +166,7 @@ export default function SurveyForm({
         fingerprint?: string
         savedAt?: number
         formData?: Record<string, string | string[]>
-        bodyMapData?: Record<string, Record<string, number>>
+        bodyMapData?: Record<string, Record<string, BodyMapAreaStored>>
       }
       if (!d?.fingerprint || d.fingerprint !== fingerprint) return
       if (!d.savedAt || Date.now() - d.savedAt > 86400000) return
@@ -169,7 +174,11 @@ export default function SurveyForm({
         setFormData((prev) => ({ ...prev, ...d.formData }))
       }
       if (d.bodyMapData && typeof d.bodyMapData === 'object') {
-        setBodyMapData(d.bodyMapData)
+        const restored: Record<string, Record<string, BodyMapAreaStored>> = {}
+        for (const [qId, areas] of Object.entries(d.bodyMapData)) {
+          restored[qId] = parseBodyMapAnswerValue(areas)
+        }
+        setBodyMapData(restored)
       }
     } catch {
       /* ignore corrupted draft */
@@ -283,7 +292,11 @@ export default function SurveyForm({
   }
 
 
-  const handleBodyMapClick = (areaId: string, rating: number) => {
+  const handleBodyMapClick = (
+    areaId: string,
+    rating: number,
+    location?: PainLocationId | null
+  ) => {
     if (!currentBodyMapQuestionId) return
     
     setBodyMapData(prev => {
@@ -297,15 +310,16 @@ export default function SurveyForm({
           ...prev,
           [currentBodyMapQuestionId]: newQuestionData
         }
-      } else {
-        // Add or update the area with the rating
-        return {
-          ...prev,
-          [currentBodyMapQuestionId]: {
-            ...questionData,
-            [areaId]: rating
-          }
-        }
+      }
+
+      if (!location) return prev
+
+      return {
+        ...prev,
+        [currentBodyMapQuestionId]: {
+          ...questionData,
+          [areaId]: { rating, location },
+        },
       }
     })
   }

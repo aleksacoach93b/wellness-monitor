@@ -33,6 +33,23 @@ function selectedDayWindow(dateParam: string | null) {
   return { dayStart, dayEnd, selectedDate: dayKey(dayStart) }
 }
 
+/** Prefer "Wellness" surveys over RPE / others when no surveyId is provided. */
+function pickDefaultSurvey(
+  surveys: Array<{ id: string; title: string; isActive: boolean }>,
+): { id: string; title: string; isActive: boolean } | null {
+  if (!surveys.length) return null
+  const isWellness = (title: string) => {
+    const t = title.toLowerCase()
+    return t.includes('wellness') && !t.includes('rpe')
+  }
+  const wellnessActive = surveys.find((s) => s.isActive && isWellness(s.title))
+  if (wellnessActive) return wellnessActive
+  const wellnessAny = surveys.find((s) => isWellness(s.title))
+  if (wellnessAny) return wellnessAny
+  const active = surveys.find((s) => s.isActive)
+  return active ?? surveys[0] ?? null
+}
+
 /**
  * Live Ops: today's check-in + Daily Wellness card payload for the session's team only.
  * Never accepts a client-supplied teamId — scope is always session.teamId.
@@ -70,20 +87,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
       }
       survey = { id: owned.id, title: owned.title, isActive: owned.isActive }
-    } else if (surveys.length === 1) {
-      const only = surveys[0]
-      survey = { id: only.id, title: only.title, isActive: only.isActive }
     } else {
-      const active = surveys.filter((s) => s.isActive)
-      const pick = active[0] ?? surveys[0] ?? null
-      if (pick) {
-        survey = { id: pick.id, title: pick.title, isActive: pick.isActive }
-      }
+      survey = pickDefaultSurvey(surveys)
     }
 
     const { dayStart, dayEnd, selectedDate } = selectedDayWindow(dateParam)
+    // Only need prev day + last-3 averages — keep the window tight for speed.
     const historyStart = new Date(dayStart)
-    historyStart.setDate(historyStart.getDate() - 14)
+    historyStart.setDate(historyStart.getDate() - 7)
 
     const players = await prisma.player.findMany({
       where: { teamId, isActive: true },
@@ -96,29 +107,54 @@ export async function GET(request: NextRequest) {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     })
 
-    const history =
+    // History without BODY_MAP payloads (huge JSON) — metrics only.
+    // Selected-day BODY_MAP answers are loaded in a second narrow query.
+    const [history, todayBodyMaps] =
       survey
-        ? await prisma.response.findMany({
-            where: {
-              surveyId: survey.id,
-              survey: { teamId },
-              submittedAt: { gte: historyStart, lt: dayEnd },
-              playerId: { not: null },
-            },
-            select: {
-              id: true,
-              playerId: true,
-              submittedAt: true,
-              answers: {
-                select: {
-                  value: true,
-                  question: { select: { text: true, type: true } },
+        ? await Promise.all([
+            prisma.response.findMany({
+              where: {
+                surveyId: survey.id,
+                survey: { teamId },
+                submittedAt: { gte: historyStart, lt: dayEnd },
+                playerId: { not: null },
+              },
+              select: {
+                id: true,
+                playerId: true,
+                submittedAt: true,
+                answers: {
+                  where: { question: { type: { not: 'BODY_MAP' } } },
+                  select: {
+                    value: true,
+                    question: { select: { text: true, type: true } },
+                  },
                 },
               },
-            },
-            orderBy: { submittedAt: 'desc' },
-          })
-        : []
+              orderBy: { submittedAt: 'desc' },
+            }),
+            prisma.response.findMany({
+              where: {
+                surveyId: survey.id,
+                survey: { teamId },
+                submittedAt: { gte: dayStart, lt: dayEnd },
+                playerId: { not: null },
+              },
+              select: {
+                playerId: true,
+                submittedAt: true,
+                answers: {
+                  where: { question: { type: 'BODY_MAP' } },
+                  select: {
+                    value: true,
+                    question: { select: { text: true, type: true } },
+                  },
+                },
+              },
+              orderBy: { submittedAt: 'desc' },
+            }),
+          ])
+        : [[], []]
 
     /** playerId -> dayKey -> latest metrics that day */
     const byPlayerDay = new Map<string, Map<string, ReturnType<typeof parseDayMetrics>>>()
@@ -140,6 +176,18 @@ export async function GET(request: NextRequest) {
           latestToday.set(r.playerId, { submittedAt: r.submittedAt, metrics })
         }
       }
+    }
+
+    // Merge selected-day body maps (newest response that has map data per player).
+    const bodyMerged = new Set<string>()
+    for (const r of todayBodyMaps) {
+      if (!r.playerId || !r.answers.length || bodyMerged.has(r.playerId)) continue
+      const hit = latestToday.get(r.playerId)
+      if (!hit) continue
+      const maps = parseDayMetrics(r.answers)
+      hit.metrics.painAreas = maps.painAreas
+      hit.metrics.sorenessAreas = maps.sorenessAreas
+      bodyMerged.add(r.playerId)
     }
 
     const todayKey = selectedDate

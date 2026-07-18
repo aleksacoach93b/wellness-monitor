@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   Activity,
@@ -78,6 +78,37 @@ function formatDateLabel(isoDate: string) {
   }
 }
 
+function shiftDateKey(isoDate: string, deltaDays: number) {
+  const [y, m, d] = isoDate.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  dt.setDate(dt.getDate() + deltaDays)
+  const yy = dt.getFullYear()
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
+function cacheKey(surveyId: string, date: string) {
+  return `${surveyId || '_'}|${date}`
+}
+
+function pickClientDefaultSurvey(
+  surveys: Array<{ id: string; title: string; isActive: boolean }>,
+) {
+  if (!surveys.length) return null
+  const isWellness = (title: string) => {
+    const t = title.toLowerCase()
+    return t.includes('wellness') && !t.includes('rpe')
+  }
+  return (
+    surveys.find((s) => s.isActive && isWellness(s.title)) ??
+    surveys.find((s) => isWellness(s.title)) ??
+    surveys.find((s) => s.isActive) ??
+    surveys[0] ??
+    null
+  )
+}
+
 export default function LiveOpsPage() {
   const [data, setData] = useState<OpsPayload | null>(null)
   const [surveyId, setSurveyId] = useState<string>('')
@@ -89,23 +120,76 @@ export default function LiveOpsPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
+  const surveyIdRef = useRef(surveyId)
+  const selectedDateRef = useRef(selectedDate)
+  const cacheRef = useRef(new Map<string, OpsPayload>())
+  const abortRef = useRef<AbortController | null>(null)
+  const reqSeqRef = useRef(0)
+  const prefetchingRef = useRef(new Set<string>())
+
+  useEffect(() => {
+    surveyIdRef.current = surveyId
+  }, [surveyId])
+  useEffect(() => {
+    selectedDateRef.current = selectedDate
+  }, [selectedDate])
+
+  const prefetchDay = useCallback(async (sid: string, date: string) => {
+    if (!sid || !date) return
+    const key = cacheKey(sid, date)
+    if (cacheRef.current.has(key) || prefetchingRef.current.has(key)) return
+    prefetchingRef.current.add(key)
+    try {
+      const params = new URLSearchParams({ surveyId: sid, date })
+      const res = await fetch(`/api/ops/today?${params}`, { cache: 'no-store' })
+      if (!res.ok) return
+      const payload = (await res.json()) as OpsPayload
+      cacheRef.current.set(key, payload)
+    } catch {
+      /* ignore prefetch failures */
+    } finally {
+      prefetchingRef.current.delete(key)
+    }
+  }, [])
+
   const load = useCallback(
     async (opts?: {
       silent?: boolean
       surveyIdOverride?: string
       dateOverride?: string
+      force?: boolean
     }) => {
-      if (!opts?.silent) setLoading(true)
+      const sid = opts?.surveyIdOverride ?? surveyIdRef.current
+      const date = opts?.dateOverride ?? selectedDateRef.current
+      const key = cacheKey(sid, date)
+      const cached = cacheRef.current.get(key)
+
+      // Instant paint from cache while revalidating in background.
+      if (cached && !opts?.force) {
+        setData(cached)
+        if (cached.selectedDate) setSelectedDate(cached.selectedDate)
+        if (cached.survey?.id) setSurveyId(cached.survey.id)
+      }
+
+      abortRef.current?.abort()
+      const ac = new AbortController()
+      abortRef.current = ac
+      const seq = ++reqSeqRef.current
+
+      if (!opts?.silent && !cached) setLoading(true)
       else setRefreshing(true)
       setError(null)
+
       try {
-        const sid = opts?.surveyIdOverride ?? surveyId
-        const date = opts?.dateOverride ?? selectedDate
         const params = new URLSearchParams()
         if (sid) params.set('surveyId', sid)
         if (date) params.set('date', date)
         const qs = params.toString() ? `?${params.toString()}` : ''
-        const res = await fetch(`/api/ops/today${qs}`, { cache: 'no-store' })
+        const res = await fetch(`/api/ops/today${qs}`, {
+          cache: 'no-store',
+          signal: ac.signal,
+        })
+        if (seq !== reqSeqRef.current) return
         if (res.status === 401) {
           setError('Unauthorized — please sign in again.')
           return
@@ -116,21 +200,49 @@ export default function LiveOpsPage() {
           return
         }
         const payload = (await res.json()) as OpsPayload
+        if (seq !== reqSeqRef.current) return
+
+        // If API returned a survey and client has none, prefer Wellness when available.
+        let nextSurveyId = payload.survey?.id ?? ''
+        if (!sid && payload.surveys?.length) {
+          const preferred = pickClientDefaultSurvey(payload.surveys)
+          if (preferred && preferred.id !== payload.survey?.id) {
+            setSurveyId(preferred.id)
+            // Reload once against Wellness (silent) — avoids sticking on RPE.
+            void load({
+              silent: true,
+              surveyIdOverride: preferred.id,
+              dateOverride: payload.selectedDate || date,
+              force: true,
+            })
+            return
+          }
+        }
+
+        cacheRef.current.set(cacheKey(nextSurveyId || sid, payload.selectedDate || date), payload)
         setData(payload)
         if (payload.selectedDate) setSelectedDate(payload.selectedDate)
-        if (payload.survey?.id && (!surveyId || opts?.surveyIdOverride)) {
-          setSurveyId(payload.survey.id)
-        } else if (!payload.survey) {
-          setSurveyId('')
+        if (payload.survey?.id) setSurveyId(payload.survey.id)
+        else if (!payload.survey) setSurveyId('')
+
+        const activeSid = payload.survey?.id || sid
+        const activeDate = payload.selectedDate || date
+        if (activeSid && activeDate) {
+          void prefetchDay(activeSid, shiftDateKey(activeDate, -1))
+          void prefetchDay(activeSid, shiftDateKey(activeDate, 1))
         }
-      } catch {
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        if (seq !== reqSeqRef.current) return
         setError('Network error loading live ops')
       } finally {
-        setLoading(false)
-        setRefreshing(false)
+        if (seq === reqSeqRef.current) {
+          setLoading(false)
+          setRefreshing(false)
+        }
       }
     },
-    [surveyId, selectedDate],
+    [prefetchDay],
   )
 
   useEffect(() => {
@@ -141,11 +253,11 @@ export default function LiveOpsPage() {
   useEffect(() => {
     const tick = () => {
       if (typeof document !== 'undefined' && document.hidden) return
-      void load({ silent: true })
+      void load({ silent: true, force: true })
     }
     const id = window.setInterval(tick, 15_000)
     const onVis = () => {
-      if (!document.hidden) void load({ silent: true })
+      if (!document.hidden) void load({ silent: true, force: true })
     }
     document.addEventListener('visibilitychange', onVis)
     return () => {
@@ -187,12 +299,18 @@ export default function LiveOpsPage() {
 
   const onSurveyChange = (next: string) => {
     setSurveyId(next)
-    void load({ surveyIdOverride: next })
+    const key = cacheKey(next, selectedDateRef.current)
+    const cached = cacheRef.current.get(key)
+    if (cached) setData(cached)
+    void load({ surveyIdOverride: next, silent: true })
   }
 
   const onDateChange = (next: string) => {
     setSelectedDate(next)
-    void load({ dateOverride: next })
+    const key = cacheKey(surveyIdRef.current, next)
+    const cached = cacheRef.current.get(key)
+    if (cached) setData(cached)
+    void load({ dateOverride: next, silent: true })
   }
 
   if (loading && !data) {

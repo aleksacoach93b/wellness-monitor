@@ -180,6 +180,8 @@ model Response {
   player  Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
   answers Answer[]
 
+  @@index([surveyId, submittedAt])
+  @@index([surveyId, playerId, submittedAt])
   @@map("responses")
 }
 

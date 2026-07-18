@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, type ReactNode } from 'react'
-import { Survey, Question, Player } from '@prisma/client'
+import { Survey, Question } from '@prisma/client'
 import { CheckCircle, AlertTriangle, Send, ArrowDownAZ, ArrowUpZA } from 'lucide-react'
 import Image from 'next/image'
 import BodyMap from '@/components/BodyMap'
@@ -11,7 +11,12 @@ import { kioskThemes, kioskTextTokens } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
 import type { BodyMapAreaStored, PainLocationId, PainWhenId } from '@/lib/bodyMapPainLocation'
 
-interface PlayerWithStatus extends Player {
+interface PlayerWithStatus {
+  id: string
+  firstName: string
+  lastName: string
+  image: string | null
+  password?: string
   hasResponded: boolean
   responseId?: string
 }

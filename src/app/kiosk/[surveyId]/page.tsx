@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, use, useMemo } from 'react'
+import { useState, useEffect, use, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Survey, Player, Question } from '@prisma/client'
+import dynamic from 'next/dynamic'
+import { Survey, Question } from '@prisma/client'
 import { CheckCircle, Play, User, Home, Maximize, Minimize, ClipboardList, Users, Search, Clock3 } from 'lucide-react'
 import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
@@ -13,7 +14,15 @@ import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
 import KioskClubBrand from '@/components/KioskClubBrand'
 import { kioskThemes, kioskTextTokens, KioskTheme } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
-import CoachModeView from '@/components/CoachModeView'
+
+const CoachModeView = dynamic(() => import('@/components/CoachModeView'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-[40vh] items-center justify-center text-sm text-white/70">
+      Loading coach mode…
+    </div>
+  ),
+})
 
 type StatusFilter = 'pending' | 'done' | 'all'
 
@@ -32,12 +41,32 @@ async function enterFullscreenIfMobile() {
   }
 }
 
-interface PlayerWithStatus extends Player {
+interface PlayerWithStatus {
+  id: string
+  firstName: string
+  lastName: string
+  image: string | null
+  password: string
   hasResponded: boolean
   responseId?: string
 }
 
-function kioskPlayerInitial(player: Pick<Player, 'firstName' | 'lastName'>): string {
+type KioskBootstrap = {
+  survey: Survey & { questions?: Question[] }
+  kioskSettings: {
+    password?: string
+    coachPassword?: string
+    theme?: KioskTheme
+    clubName?: string
+    clubLogo?: string | null
+    showClubBranding?: boolean
+  } | null
+  adminAccessPassword?: string
+  tags: Array<{ name: string; category: string }>
+  players: PlayerWithStatus[]
+}
+
+function kioskPlayerInitial(player: Pick<PlayerWithStatus, 'firstName' | 'lastName'>): string {
   const s = player.firstName?.trim() || player.lastName?.trim()
   if (!s) return '?'
   return s.slice(0, 1).toLocaleUpperCase()
@@ -87,108 +116,80 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [matchDayTags, setMatchDayTags] = useState<string[]>([])
   const [coachPassword, setCoachPassword] = useState('')
   const [storedCoachPassword, setStoredCoachPassword] = useState('')
+  const [kioskGatePassword, setKioskGatePassword] = useState<string | null>(null)
   const [showCoachPasswordModal, setShowCoachPasswordModal] = useState(false)
   const [coachAuthenticated, setCoachAuthenticated] = useState(false)
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Always check kiosk password for each survey
-        const kioskResponse = await fetch(
-          `/api/kiosk-settings?surveyId=${encodeURIComponent(surveyId)}`,
-        )
-        if (kioskResponse.ok) {
-          const kioskSettings = await kioskResponse.json()
-          setKioskTheme(kioskSettings?.theme ?? 'dark')
-          setStoredCoachPassword(kioskSettings?.coachPassword ?? '')
-          setClubName(kioskSettings?.clubName ?? '')
-          setClubLogo(kioskSettings?.clubLogo ?? null)
-          setShowClubBranding(kioskSettings?.showClubBranding ?? true)
-          // Show password prompt if password is set and not already authenticated this session
-          if (kioskSettings?.password && kioskSettings.password.trim() !== '') {
-            const alreadyAuthed = typeof window !== 'undefined' && sessionStorage.getItem(`kiosk-auth-${surveyId}`) === 'true'
-            if (!alreadyAuthed) {
-              setShowKioskPassword(true)
-              return
-            }
-          }
-        }
-        
-        // If no password is set, proceed normally
-        setShowKioskPassword(false)
-        
-        // Fetch survey details
-        const surveyResponse = await fetch(`/api/surveys/${surveyId}`)
-        if (surveyResponse.ok) {
-          const surveyData = await surveyResponse.json()
-          setSurvey(surveyData)
-          if (surveyData.questions) setSurveyQuestions(surveyData.questions)
-          
-          // Check if recurring survey is currently active
-          if (surveyData.isRecurring) {
-            const status = isRecurringSurveyActive(surveyData)
-            if (!status.isCurrentlyActive) {
-              setSurveyNotActive(true)
-              setSurveyStatusMessage(status.statusMessage)
-              return
-            }
-          }
-        }
+  const applyBootstrap = useCallback((data: KioskBootstrap) => {
+    const ks = data.kioskSettings
+    setKioskTheme(ks?.theme ?? 'dark')
+    setStoredCoachPassword(ks?.coachPassword ?? '')
+    setKioskGatePassword(ks?.password ?? '')
+    setClubName(ks?.clubName ?? '')
+    setClubLogo(ks?.clubLogo ?? null)
+    setShowClubBranding(ks?.showClubBranding ?? true)
+    if (data.adminAccessPassword) {
+      setAdminAccessPassword(data.adminAccessPassword)
+    }
 
-        // Fetch players with response status
-        const playersResponse = await fetch(`/api/kiosk/${surveyId}/players`)
-        if (playersResponse.ok) {
-          const playersData = await playersResponse.json()
-          setPlayers(playersData)
+    const tagRows = data.tags || []
+    setSessionTags(tagRows.filter((t) => t.category === 'SESSION').map((t) => t.name))
+    setMatchDayTags(tagRows.filter((t) => t.category === 'MATCHDAY').map((t) => t.name))
+
+    setSurvey(data.survey)
+    if (data.survey?.questions) setSurveyQuestions(data.survey.questions)
+    setPlayers(data.players || [])
+
+    if (data.survey?.isRecurring) {
+      const status = isRecurringSurveyActive(data.survey)
+      if (!status.isCurrentlyActive) {
+        setSurveyNotActive(true)
+        setSurveyStatusMessage(status.statusMessage)
+      } else {
+        setSurveyNotActive(false)
+        setSurveyStatusMessage('')
+      }
+    } else {
+      setSurveyNotActive(false)
+      setSurveyStatusMessage('')
+    }
+  }, [])
+
+  const loadBootstrap = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!opts?.silent) setIsLoading(true)
+      try {
+        const res = await fetch(`/api/kiosk/${surveyId}/bootstrap`, {
+          cache: 'no-store',
+        })
+        if (!res.ok) {
+          console.error('Kiosk bootstrap failed', res.status)
+          return
+        }
+        const data = (await res.json()) as KioskBootstrap
+        applyBootstrap(data)
+
+        const password = data.kioskSettings?.password?.trim() || ''
+        if (password) {
+          const alreadyAuthed =
+            typeof window !== 'undefined' &&
+            sessionStorage.getItem(`kiosk-auth-${surveyId}`) === 'true'
+          setShowKioskPassword(!alreadyAuthed)
+        } else {
+          setShowKioskPassword(false)
         }
       } catch (error) {
-        console.error('Error fetching data:', error)
+        console.error('Error loading kiosk bootstrap:', error)
       } finally {
-        setIsLoading(false)
+        if (!opts?.silent) setIsLoading(false)
       }
-    }
-
-    fetchData()
-  }, [surveyId])
+    },
+    [surveyId, applyBootstrap],
+  )
 
   useEffect(() => {
-    const loadAdminAccessPassword = async () => {
-      try {
-        const response = await fetch(
-          `/api/admin-access?surveyId=${encodeURIComponent(surveyId)}`,
-        )
-        if (response.ok) {
-          const data = await response.json()
-          if (data?.password) {
-            setAdminAccessPassword(data.password)
-          }
-        }
-      } catch (error) {
-        console.error('Error loading admin access password:', error)
-      }
-    }
-
-    loadAdminAccessPassword()
-  }, [surveyId])
-
-  useEffect(() => {
-    const loadTags = async () => {
-      try {
-        const response = await fetch(
-          `/api/tags?surveyId=${encodeURIComponent(surveyId)}`,
-        )
-        if (response.ok) {
-          const data: Array<{ name: string; category: string }> = await response.json()
-          setSessionTags(data.filter((t) => t.category === 'SESSION').map((t) => t.name))
-          setMatchDayTags(data.filter((t) => t.category === 'MATCHDAY').map((t) => t.name))
-        }
-      } catch (error) {
-        console.error('Error loading tags:', error)
-      }
-    }
-
-    loadTags()
-  }, [surveyId])
+    void loadBootstrap()
+  }, [loadBootstrap])
 
   useEffect(() => {
     setRecentIds(readRecentPlayerIds(surveyId))
@@ -215,40 +216,6 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     return () => window.clearTimeout(timer)
   }, [surveyId])
 
-  const fetchData = async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setIsLoading(true)
-    try {
-      // Fetch survey details
-      const surveyResponse = await fetch(`/api/surveys/${surveyId}`)
-      if (surveyResponse.ok) {
-        const surveyData = await surveyResponse.json()
-        setSurvey(surveyData)
-        if (surveyData.questions) setSurveyQuestions(surveyData.questions)
-        
-        // Check if recurring survey is currently active
-        if (surveyData.isRecurring) {
-          const status = isRecurringSurveyActive(surveyData)
-          if (!status.isCurrentlyActive) {
-            setSurveyNotActive(true)
-            setSurveyStatusMessage(status.statusMessage)
-            return
-          }
-        }
-      }
-
-      // Fetch players with response status
-      const playersResponse = await fetch(`/api/kiosk/${surveyId}/players`)
-      if (playersResponse.ok) {
-        const playersData = await playersResponse.json()
-        setPlayers(playersData)
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error)
-    } finally {
-      if (!opts?.silent) setIsLoading(false)
-    }
-  }
-
   useEffect(() => {
     const syncOffline = async () => {
       const before = getOfflineQueueCount()
@@ -260,7 +227,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
             : `${result.synced} offline responses synced`
         )
         window.setTimeout(() => setSyncToast(null), 4000)
-        await fetchData({ silent: true })
+        await loadBootstrap({ silent: true })
       } else if (before > 0 && result.remaining > 0) {
         setSyncToast(`${result.remaining} waiting to sync when online`)
         window.setTimeout(() => setSyncToast(null), 4000)
@@ -273,15 +240,14 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     }
     window.addEventListener('online', onOnline)
     return () => window.removeEventListener('online', onOnline)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surveyId])
+  }, [surveyId, loadBootstrap])
 
   const handleKioskPasswordCorrect = () => {
     setShowKioskPassword(false)
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(`kiosk-auth-${surveyId}`, 'true')
     }
-    fetchData()
+    // Bootstrap already loaded players/survey while password screen was up
   }
 
 
@@ -572,6 +538,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     return (
       <KioskPasswordPrompt
         surveyId={surveyId}
+        expectedPassword={kioskGatePassword}
         theme={kioskTheme}
         clubName={clubName}
         clubLogo={clubLogo}
@@ -933,7 +900,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           sessionTags={sessionTags}
           matchDayTags={matchDayTags}
           onBack={() => setIsCoachMode(false)}
-          onRefresh={fetchData}
+          onRefresh={() => {
+            void loadBootstrap({ silent: true })
+          }}
         />
       ) : (
       <>

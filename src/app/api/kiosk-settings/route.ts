@@ -47,7 +47,7 @@ async function resolveTeamId(request: NextRequest): Promise<string | null> {
 
 export async function GET(request: NextRequest) {
   try {
-    await ensureClubBrandingColumns()
+    // Do NOT run schema ALTER on the hot kiosk read path — columns already exist.
     const teamId = await resolveTeamId(request)
     let settings = teamId
       ? await prisma.kioskSettings.findFirst({ where: { teamId } })

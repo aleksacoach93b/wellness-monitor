@@ -12,18 +12,25 @@ import {
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-function todayWindow() {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  return { today, tomorrow }
+function dayKey(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
-function dayKey(d: Date) {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x.toISOString().slice(0, 10)
+/** Local calendar day window. Optional `date=YYYY-MM-DD` (defaults to today). */
+function selectedDayWindow(dateParam: string | null) {
+  let base = new Date()
+  if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+    const [y, m, d] = dateParam.split('-').map(Number)
+    base = new Date(y, m - 1, d, 12, 0, 0, 0)
+  }
+  const dayStart = new Date(base)
+  dayStart.setHours(0, 0, 0, 0)
+  const dayEnd = new Date(dayStart)
+  dayEnd.setDate(dayEnd.getDate() + 1)
+  return { dayStart, dayEnd, selectedDate: dayKey(dayStart) }
 }
 
 /**
@@ -38,6 +45,7 @@ export async function GET(request: NextRequest) {
 
   const teamId = session.teamId
   const surveyIdParam = request.nextUrl.searchParams.get('surveyId')
+  const dateParam = request.nextUrl.searchParams.get('date')
 
   try {
     const team = await prisma.team.findUnique({
@@ -73,8 +81,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const { today, tomorrow } = todayWindow()
-    const historyStart = new Date(today)
+    const { dayStart, dayEnd, selectedDate } = selectedDayWindow(dateParam)
+    const historyStart = new Date(dayStart)
     historyStart.setDate(historyStart.getDate() - 14)
 
     const players = await prisma.player.findMany({
@@ -94,7 +102,7 @@ export async function GET(request: NextRequest) {
             where: {
               surveyId: survey.id,
               survey: { teamId },
-              submittedAt: { gte: historyStart, lt: tomorrow },
+              submittedAt: { gte: historyStart, lt: dayEnd },
               playerId: { not: null },
             },
             select: {
@@ -128,13 +136,13 @@ export async function GET(request: NextRequest) {
       if (!dayMap.has(key)) {
         const metrics = parseDayMetrics(r.answers)
         dayMap.set(key, metrics)
-        if (r.submittedAt >= today && r.submittedAt < tomorrow && !latestToday.has(r.playerId)) {
+        if (r.submittedAt >= dayStart && r.submittedAt < dayEnd && !latestToday.has(r.playerId)) {
           latestToday.set(r.playerId, { submittedAt: r.submittedAt, metrics })
         }
       }
     }
 
-    const todayKey = dayKey(today)
+    const todayKey = selectedDate
     const teamFatigue: number[] = []
     const teamSoreness: number[] = []
     const teamSleep: number[] = []
@@ -217,6 +225,7 @@ export async function GET(request: NextRequest) {
           isActive: s.isActive,
         })),
         generatedAt: new Date().toISOString(),
+        selectedDate,
         stats: {
           total,
           done,

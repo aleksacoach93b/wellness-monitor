@@ -500,7 +500,8 @@ export default function BodyMap({
 
   const getAreaColor = (areaId: string) => {
     const rating = getBodyMapRating(selectedAreas[areaId])
-    if (!rating) return isPreview ? '#1e293b' : '#d1d5db'
+    // Preview: light anatomical silhouette (Power BI style), not a dark blob
+    if (!rating) return isPreview ? '#dbe4f0' : '#d1d5db'
 
     if (colorScheme === 'soreness') {
       if (rating <= 3) return '#67e8f9'
@@ -515,13 +516,17 @@ export default function BodyMap({
     return '#ef4444'
   }
 
+  const previewStroke = isPreview ? '#0f172a' : '#374151'
+  const previewStrokeWidth = isPreview ? 1.15 : 1
+
   const frontBodySVG = (
     <svg 
       width="400" 
       height="600" 
       viewBox="0 0 595.276 841.89" 
       xmlns="http://www.w3.org/2000/svg"
-      className="max-w-full h-auto"
+      className={isPreview ? 'ops-bodymap-svg h-full w-full' : 'max-w-full h-auto'}
+      preserveAspectRatio="xMidYMid meet"
     >
       <defs>
         <style>
@@ -1633,7 +1638,8 @@ export default function BodyMap({
       height="600" 
       viewBox="0 0 595.276 841.89" 
       xmlns="http://www.w3.org/2000/svg"
-      className="max-w-full h-auto"
+      className={isPreview ? 'ops-bodymap-svg h-full w-full' : 'max-w-full h-auto'}
+      preserveAspectRatio="xMidYMid meet"
     >
       <defs>
         <style>
@@ -2576,8 +2582,15 @@ export default function BodyMap({
       <div
         className="ops-bodymap-preview pointer-events-none select-none [&_.body-area]:cursor-default"
         aria-hidden
+        style={
+          {
+            // Force clearer muscle outlines in card preview
+            ['--bm-stroke' as string]: previewStroke,
+            ['--bm-sw' as string]: String(previewStrokeWidth),
+          } as React.CSSProperties
+        }
       >
-        <div className="mx-auto w-full max-w-[220px]">
+        <div className="ops-bodymap-preview-inner mx-auto h-full w-full">
           {view === 'front' ? frontBodySVG : backBodySVG}
         </div>
       </div>

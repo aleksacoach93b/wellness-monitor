@@ -79,28 +79,62 @@
 }
 
 .sg7-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .sg7-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sg7-card {
   position: relative;
-  width: calc(33.333% - 8px);
-  min-width: 340px;
-  max-width: 420px;
-  flex: 1 1 340px;
-  height: 620px;
+  width: 100%;
+  min-width: 0;
+  height: 640px;
   perspective: 1400px;
 }
 
-@media (max-width: 760px) {
-  .sg7-card {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-  }
+/* Fullscreen cockpit */
+.ops-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: auto;
+  padding: 16px 20px 28px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(34, 211, 238, 0.12), transparent 28%),
+    radial-gradient(circle at 92% 5%, rgba(59, 130, 246, 0.1), transparent 30%),
+    linear-gradient(135deg, #020817 0%, #06172b 46%, #020817 100%);
+}
+
+.ops-fullscreen .sg7-page {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.ops-fullscreen .sg7-card {
+  height: min(78vh, 720px);
+}
+
+.ops-fullscreen-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ops-fullscreen-bar h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.15rem;
+  font-weight: 760;
 }
 
 .sg7-flip {
@@ -665,34 +699,50 @@
   letter-spacing: 0.05em;
 }
 
-.sg7-back-maps {
-  position: relative;
-  z-index: 2;
-  margin-top: 8px;
-  height: 168px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.sg7-map-face {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
+.sg7-back-maps {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  min-height: 220px;
+  max-height: 280px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ops-fullscreen .sg7-back-maps {
+  min-height: 260px;
+  max-height: 340px;
+}
+
 .sg7-map-shell {
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(8, 28, 52, 0.98), rgba(3, 12, 28, 0.95));
-  border: 1px solid rgba(34, 211, 238, 0.12);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(148, 163, 184, 0.08), transparent 55%),
+    linear-gradient(160deg, rgba(15, 36, 62, 0.98), rgba(3, 12, 28, 0.96));
+  border: 1px solid rgba(34, 211, 238, 0.16);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 4px 2px 2px;
+  padding: 8px 6px 6px;
+  min-height: 0;
 }
 
 .sg7-map-label {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #8fa2c0;
+  color: #a8b9d4;
+  margin-bottom: 2px;
 }
 
 .sg7-map-svg {
@@ -705,39 +755,52 @@
   overflow: hidden;
 }
 
-.sg7-map-svg svg {
+.sg7-map-svg svg,
+.ops-bodymap-preview svg {
   width: 100% !important;
   height: 100% !important;
-  max-height: 140px;
+  max-height: none !important;
   display: block;
-  transform: scale(0.92);
-  transform-origin: center center;
+  object-fit: contain;
 }
 
-.ops-bodymap-preview svg {
+.ops-bodymap-preview,
+.ops-bodymap-preview-inner {
   width: 100%;
-  height: auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Light silhouette + crisp muscle edges (Power BI look) */
+.ops-bodymap-preview .body-area {
+  stroke: #0f172a !important;
+  stroke-width: 1.15px !important;
 }
 
 /* Zone detail: exact spot (area) + when */
-.sg7-zone-scroll {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  top: 248px;
-  bottom: 118px;
-  overflow-y: auto;
-  display: grid;
-  gap: 6px;
-  padding-right: 2px;
+.sg7-zone-featured {
+  position: relative;
   z-index: 2;
+  flex: 0 0 auto;
+  max-height: 130px;
+  overflow: auto;
 }
 
 .sg7-zone-card {
-  border-radius: 12px;
-  padding: 8px 10px;
+  border-radius: 14px;
+  padding: 10px 12px;
   background: linear-gradient(135deg, rgba(10, 29, 52, 0.9), rgba(4, 13, 29, 0.72));
   border: 1px solid rgba(34, 211, 238, 0.14);
+}
+
+.sg7-zone-more {
+  margin: 6px 0 0;
+  font-size: 9px;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .sg7-zone-head {
@@ -817,6 +880,15 @@
   margin-top: 4px;
 }
 
+.sg7-map-face .sg7-back-summary,
+.sg7-map-face .sg7-back-main {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  margin-top: 0;
+}
+
 .sg7-back-summary {
   position: absolute;
   left: 14px;
@@ -826,6 +898,13 @@
   grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
   z-index: 2;
+}
+
+.sg7-map-face .sg7-back-summary {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
 }
 
 .sg7-back-summary > div {

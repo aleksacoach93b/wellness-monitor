@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   Clock3,
   ExternalLink,
+  Maximize2,
+  Minimize2,
   RefreshCw,
   Users,
 } from 'lucide-react'
@@ -21,6 +23,7 @@ type OpsPayload = {
   survey: { id: string; title: string; isActive: boolean } | null
   surveys: Array<{ id: string; title: string; isActive: boolean }>
   generatedAt: string
+  selectedDate: string
   stats: { total: number; done: number; pending: number }
   wellnessSummary: TeamWellnessSummary
   players: Array<{
@@ -37,6 +40,14 @@ type OpsPayload = {
 
 type StatusFilter = 'pending' | 'done' | 'all'
 
+function localToday() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function formatTime(iso: string | null) {
   if (!iso) return ''
   try {
@@ -46,22 +57,46 @@ function formatTime(iso: string | null) {
   }
 }
 
+function formatDateLabel(isoDate: string) {
+  try {
+    const [y, m, d] = isoDate.split('-').map(Number)
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
+  } catch {
+    return isoDate
+  }
+}
+
 export default function LiveOpsPage() {
   const [data, setData] = useState<OpsPayload | null>(null)
   const [surveyId, setSurveyId] = useState<string>('')
+  const [selectedDate, setSelectedDate] = useState(localToday)
   const [filter, setFilter] = useState<StatusFilter>('all')
+  const [fullscreen, setFullscreen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(
-    async (opts?: { silent?: boolean; surveyIdOverride?: string }) => {
+    async (opts?: {
+      silent?: boolean
+      surveyIdOverride?: string
+      dateOverride?: string
+    }) => {
       if (!opts?.silent) setLoading(true)
       else setRefreshing(true)
       setError(null)
       try {
         const sid = opts?.surveyIdOverride ?? surveyId
-        const qs = sid ? `?surveyId=${encodeURIComponent(sid)}` : ''
+        const date = opts?.dateOverride ?? selectedDate
+        const params = new URLSearchParams()
+        if (sid) params.set('surveyId', sid)
+        if (date) params.set('date', date)
+        const qs = params.toString() ? `?${params.toString()}` : ''
         const res = await fetch(`/api/ops/today${qs}`, { cache: 'no-store' })
         if (res.status === 401) {
           setError('Unauthorized — please sign in again.')
@@ -74,6 +109,7 @@ export default function LiveOpsPage() {
         }
         const payload = (await res.json()) as OpsPayload
         setData(payload)
+        if (payload.selectedDate) setSelectedDate(payload.selectedDate)
         if (payload.survey?.id && (!surveyId || opts?.surveyIdOverride)) {
           setSurveyId(payload.survey.id)
         } else if (!payload.survey) {
@@ -86,7 +122,7 @@ export default function LiveOpsPage() {
         setRefreshing(false)
       }
     },
-    [surveyId],
+    [surveyId, selectedDate],
   )
 
   useEffect(() => {
@@ -110,6 +146,20 @@ export default function LiveOpsPage() {
     }
   }, [load])
 
+  useEffect(() => {
+    if (!fullscreen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [fullscreen])
+
   const filtered = useMemo(() => {
     const list = data?.players ?? []
     if (filter === 'all') return list
@@ -132,6 +182,11 @@ export default function LiveOpsPage() {
     void load({ surveyIdOverride: next })
   }
 
+  const onDateChange = (next: string) => {
+    setSelectedDate(next)
+    void load({ dateOverride: next })
+  }
+
   if (loading && !data) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -144,6 +199,130 @@ export default function LiveOpsPage() {
   }
 
   const ws = data?.wellnessSummary
+
+  const cockpit = (
+    <div className="sg7-page">
+      {fullscreen ? (
+        <div className="ops-fullscreen-bar">
+          <div>
+            <h2>Live Ops — {data?.team.name}</h2>
+            <p className="mt-1 text-xs text-slate-400">{formatDateLabel(selectedDate)}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={selectedDate}
+              max={localToday()}
+              onChange={(e) => onDateChange(e.target.value)}
+              className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+            />
+            <button
+              type="button"
+              onClick={() => void load({ silent: true })}
+              className="admin-btn admin-btn-ghost"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => setFullscreen(false)}
+              className="admin-btn admin-btn-primary"
+            >
+              <Minimize2 className="h-4 w-4" />
+              Exit full screen
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {ws ? (
+        <div className="sg7-summary">
+          <div className="sg7-readiness">
+            <small>Squad readiness</small>
+            <div className="sg7-readiness-row">
+              <strong style={{ color: ws.teamReadinessColor }}>
+                {ws.teamReadinessPct == null ? '—' : `${ws.teamReadinessPct}%`}
+              </strong>
+            </div>
+          </div>
+          <div>
+            <small>Alert</small>
+            <strong style={{ color: '#ef4444' }}>{ws.alertCount}</strong>
+            <span>require attention</span>
+          </div>
+          <div>
+            <small>Watch</small>
+            <strong style={{ color: '#facc15' }}>{ws.watchCount}</strong>
+            <span>to monitor</span>
+          </div>
+          <div>
+            <small>Ready</small>
+            <strong style={{ color: '#22c55e' }}>{ws.readyCount}</strong>
+            <span>good to go</span>
+          </div>
+          <div>
+            <small>Fatigue ↑</small>
+            <strong style={{ color: ws.teamFatigueDeltaColor }}>{ws.fatigueUpCount}</strong>
+            <span>team Δ {ws.teamFatigueDeltaText}</span>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-slate-200">
+          <Activity className="h-4 w-4 text-cyan-300" />
+          <h2 className="text-base font-bold tracking-wide">Daily Wellness cards</h2>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ['all', `All (${data?.stats.total ?? 0})`],
+              ['pending', `Pending (${data?.stats.pending ?? 0})`],
+              ['done', `Done (${data?.stats.done ?? 0})`],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFilter(key)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                filter === key
+                  ? 'bg-cyan-500 text-slate-950'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!data || data.stats.total === 0 ? (
+        <div className="admin-panel px-5 py-12 text-center">
+          <Users className="mx-auto h-8 w-8 text-slate-300" />
+          <p className="mt-3 font-semibold text-[var(--ad-ink)]">No active players</p>
+          <Link href="/admin/players/new" className="admin-btn admin-btn-primary mt-4">
+            Add player
+          </Link>
+        </div>
+      ) : sortedCards.length === 0 ? (
+        <div className="rounded-2xl border border-slate-700/60 bg-slate-900/40 px-5 py-12 text-center text-sm text-slate-400">
+          {filter === 'pending'
+            ? 'Everyone is done for this survey on this date.'
+            : filter === 'done'
+              ? 'No submissions for this date.'
+              : 'No players found.'}
+        </div>
+      ) : (
+        <div className="sg7-grid">
+          {sortedCards.map((p) => (
+            <WellnessFlipCard key={p.id} player={p} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <div className="space-y-6">
@@ -168,6 +347,14 @@ export default function LiveOpsPage() {
               Updated {formatTime(data.generatedAt)}
             </span>
           ) : null}
+          <button
+            type="button"
+            onClick={() => setFullscreen(true)}
+            className="admin-btn admin-btn-ghost"
+          >
+            <Maximize2 className="h-4 w-4" />
+            Full screen
+          </button>
           <button
             type="button"
             onClick={() => void load({ silent: true })}
@@ -199,6 +386,17 @@ export default function LiveOpsPage() {
       ) : (
         <>
           <section className="admin-panel flex flex-wrap items-end gap-4 p-4 sm:p-5">
+            <div className="min-w-[180px]">
+              <label htmlFor="ops-date">Date</label>
+              <input
+                id="ops-date"
+                type="date"
+                value={selectedDate}
+                max={localToday()}
+                onChange={(e) => onDateChange(e.target.value)}
+                className="mt-1"
+              />
+            </div>
             <div className="min-w-[200px] flex-1">
               <label htmlFor="ops-survey">Survey</label>
               <select
@@ -257,93 +455,7 @@ export default function LiveOpsPage() {
             </div>
           </section>
 
-          <div className="sg7-page">
-            {ws ? (
-              <div className="sg7-summary">
-                <div className="sg7-readiness">
-                  <small>Squad readiness</small>
-                  <div className="sg7-readiness-row">
-                    <strong style={{ color: ws.teamReadinessColor }}>
-                      {ws.teamReadinessPct == null ? '—' : `${ws.teamReadinessPct}%`}
-                    </strong>
-                  </div>
-                </div>
-                <div>
-                  <small>Alert</small>
-                  <strong style={{ color: '#ef4444' }}>{ws.alertCount}</strong>
-                  <span>require attention</span>
-                </div>
-                <div>
-                  <small>Watch</small>
-                  <strong style={{ color: '#facc15' }}>{ws.watchCount}</strong>
-                  <span>to monitor</span>
-                </div>
-                <div>
-                  <small>Ready</small>
-                  <strong style={{ color: '#22c55e' }}>{ws.readyCount}</strong>
-                  <span>good to go</span>
-                </div>
-                <div>
-                  <small>Fatigue ↑</small>
-                  <strong style={{ color: ws.teamFatigueDeltaColor }}>{ws.fatigueUpCount}</strong>
-                  <span>team Δ {ws.teamFatigueDeltaText}</span>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-slate-200">
-                <Activity className="h-4 w-4 text-cyan-300" />
-                <h2 className="text-base font-bold tracking-wide">Daily Wellness cards</h2>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {(
-                  [
-                    ['all', `All (${data.stats.total})`],
-                    ['pending', `Pending (${data.stats.pending})`],
-                    ['done', `Done (${data.stats.done})`],
-                  ] as const
-                ).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setFilter(key)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                      filter === key
-                        ? 'bg-cyan-500 text-slate-950'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {data.stats.total === 0 ? (
-              <div className="admin-panel px-5 py-12 text-center">
-                <Users className="mx-auto h-8 w-8 text-slate-300" />
-                <p className="mt-3 font-semibold text-[var(--ad-ink)]">No active players</p>
-                <Link href="/admin/players/new" className="admin-btn admin-btn-primary mt-4">
-                  Add player
-                </Link>
-              </div>
-            ) : sortedCards.length === 0 ? (
-              <div className="rounded-2xl border border-slate-700/60 bg-slate-900/40 px-5 py-12 text-center text-sm text-slate-400">
-                {filter === 'pending'
-                  ? 'Everyone is done for this survey today.'
-                  : filter === 'done'
-                    ? 'No submissions yet today.'
-                    : 'No players found.'}
-              </div>
-            ) : (
-              <div className="sg7-grid">
-                {sortedCards.map((p) => (
-                  <WellnessFlipCard key={p.id} player={p} />
-                ))}
-              </div>
-            )}
-          </div>
+          {fullscreen ? <div className="ops-fullscreen">{cockpit}</div> : cockpit}
         </>
       )}
     </div>

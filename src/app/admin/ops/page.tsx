@@ -19,7 +19,6 @@ import WellnessFlipCard, {
 } from '@/components/admin/ops/WellnessFlipCard'
 import OpsAlertTicker from '@/components/admin/ops/OpsAlertTicker'
 import OpsWellnessTable from '@/components/admin/ops/OpsWellnessTable'
-import OpsSquadBodyBoard from '@/components/admin/ops/OpsSquadBodyBoard'
 import type { PlayerWellness, TeamWellnessSummary } from '@/lib/opsWellness'
 import './ops-wellness.css'
 
@@ -284,7 +283,7 @@ export default function LiveOpsPage() {
         <div className="flex items-center gap-2 text-slate-200">
           <Activity className="h-4 w-4 text-cyan-300" />
           <h2 className="text-base font-bold tracking-wide">
-            {viewMode === 'table' ? 'Squad results board' : 'Daily Wellness cards'}
+            {viewMode === 'table' ? 'Squad results table' : 'Daily Wellness cards'}
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -346,10 +345,7 @@ export default function LiveOpsPage() {
               : 'No players found.'}
         </div>
       ) : viewMode === 'table' ? (
-        <div className="ops-table-stack">
-          <OpsSquadBodyBoard players={sortedCards} />
-          <OpsWellnessTable players={sortedCards} />
-        </div>
+        <OpsWellnessTable players={sortedCards} />
       ) : (
         <div className="sg7-grid">
           {sortedCards.map((p) => (

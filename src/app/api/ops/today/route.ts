@@ -267,11 +267,21 @@ export async function GET(request: NextRequest) {
       {
         team,
         survey,
-        surveys: surveys.map((s) => ({
-          id: s.id,
-          title: s.title,
-          isActive: s.isActive,
-        })),
+        surveys: [...surveys]
+          .sort((a, b) => {
+            const score = (title: string) => {
+              const t = title.toLowerCase()
+              if (t.includes('wellness') && !t.includes('rpe')) return 0
+              if (t.includes('rpe')) return 2
+              return 1
+            }
+            return score(a.title) - score(b.title) || a.title.localeCompare(b.title)
+          })
+          .map((s) => ({
+            id: s.id,
+            title: s.title,
+            isActive: s.isActive,
+          })),
         generatedAt: new Date().toISOString(),
         selectedDate,
         stats: {

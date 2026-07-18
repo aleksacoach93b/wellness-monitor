@@ -98,7 +98,7 @@ export default function AdminChrome({
   return (
     <div className="admin-shell">
       <div className="admin-bg-mesh" aria-hidden />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-[1400px]">
+      <div className="relative z-10 flex min-h-screen w-full">
         {/* Desktop sidebar */}
         <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col border-r border-white/5 bg-[#0b1220] text-white lg:flex">
           <div className="px-5 pb-4 pt-6">

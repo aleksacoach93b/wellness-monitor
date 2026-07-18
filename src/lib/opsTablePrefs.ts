@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import {
   DEFAULT_OPS_COLUMNS,
@@ -45,9 +46,14 @@ function mergeSurveyColumns(
   raw: unknown,
   surveyId: string,
   nextColumns: OpsColumnConfig[],
-): StoredPrefs {
+): Prisma.InputJsonValue {
   const stored = asStoredPrefs(raw)
-  const bySurvey = { ...(stored.bySurvey ?? {}) }
+  const bySurvey: Record<string, OpsColumnConfig[]> = {}
+  if (stored.bySurvey) {
+    for (const [key, value] of Object.entries(stored.bySurvey)) {
+      bySurvey[key] = normalizeOpsColumns(value)
+    }
+  }
   bySurvey[surveyId] = nextColumns
   return {
     // Keep a copy of last-saved layout for backwards readers.

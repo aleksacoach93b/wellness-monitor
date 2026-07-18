@@ -73,7 +73,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith('/api/')) {
-    if (pathname === '/api/auth/me' || pathname === '/api/auth/invite') {
+    if (
+      pathname === '/api/auth/me' ||
+      pathname === '/api/auth/invite' ||
+      pathname === '/api/auth/admins' ||
+      pathname.startsWith('/api/auth/admins/')
+    ) {
       if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }

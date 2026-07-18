@@ -135,12 +135,20 @@ export default async function AdminPage() {
             Admin Access
           </Link>
           {session.role === 'SUPER' && (
-            <Link
-              href="/admin/invites"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-            >
-              Invite admins
-            </Link>
+            <>
+              <Link
+                href="/admin/admins"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500"
+              >
+                Manage admins
+              </Link>
+              <Link
+                href="/admin/invites"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+              >
+                Invite admins
+              </Link>
+            </>
           )}
         </div>
 

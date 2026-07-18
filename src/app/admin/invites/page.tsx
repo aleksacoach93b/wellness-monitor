@@ -96,6 +96,12 @@ export default function AdminInvitesPage() {
           Invite-only. They will set their own password and create their own team (players, surveys,
           exports). They cannot see Football Club data.
         </p>
+        <p className="mt-2 text-sm">
+          <Link href="/admin/admins" className="font-semibold text-sky-700 underline">
+            Manage existing admins
+          </Link>{' '}
+          (edit, block, delete)
+        </p>
       </div>
 
       <form onSubmit={onCreate} className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

@@ -31,12 +31,20 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               {team?.name || 'Team'}
             </span>
             {session.role === 'SUPER' && (
-              <Link
-                href="/admin/invites"
-                className="text-xs font-semibold text-sky-700 hover:underline"
-              >
-                Invite admins
-              </Link>
+              <>
+                <Link
+                  href="/admin/admins"
+                  className="text-xs font-semibold text-sky-700 hover:underline"
+                >
+                  Manage admins
+                </Link>
+                <Link
+                  href="/admin/invites"
+                  className="text-xs font-semibold text-sky-700 hover:underline"
+                >
+                  Invite
+                </Link>
+              </>
             )}
           </div>
           <div className="flex items-center gap-3">

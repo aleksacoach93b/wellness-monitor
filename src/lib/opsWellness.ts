@@ -13,7 +13,13 @@ import {
 } from '@/lib/bodyMapPainLocation'
 import { getMuscleName } from '@/lib/muscleNames'
 
-export type WellnessMetricKey = 'fatigue' | 'soreness' | 'sleepQuality' | 'mood' | 'readiness'
+export type WellnessMetricKey =
+  | 'fatigue'
+  | 'soreness'
+  | 'sleepQuality'
+  | 'mood'
+  | 'stress'
+  | 'readiness'
 
 export type BodyMapZoneDetail = {
   areaId: string
@@ -63,6 +69,7 @@ export type PlayerWellness = {
   soreness: MetricRow
   sleepQuality: MetricRow
   mood: MetricRow
+  stress: MetricRow
   prevFatigue: number | null
   fatigueDelta: number | null
   fatigueDeltaColor: string
@@ -103,6 +110,7 @@ type DayMetrics = {
   soreness: number | null
   sleepQuality: number | null
   mood: number | null
+  stress: number | null
   sleepBedtime: string | null
   sleepWake: string | null
   sleepDuration: string | null
@@ -142,6 +150,7 @@ function matchMetric(text: string): WellnessMetricKey | null {
     return 'sleepQuality'
   }
   if (t.includes('mood')) return 'mood'
+  if (t.includes('stress')) return 'stress'
   return null
 }
 
@@ -216,6 +225,7 @@ export function parseDayMetrics(answers: AnswerLike[]): DayMetrics {
     soreness: null,
     sleepQuality: null,
     mood: null,
+    stress: null,
     sleepBedtime: null,
     sleepWake: null,
     sleepDuration: null,
@@ -270,6 +280,7 @@ export function parseDayMetrics(answers: AnswerLike[]): DayMetrics {
     const parts: number[] = []
     if (out.sleepQuality != null) parts.push(out.sleepQuality)
     if (out.mood != null) parts.push(out.mood)
+    if (out.stress != null) parts.push(out.stress)
     if (out.fatigue != null) parts.push(out.fatigue)
     if (out.soreness != null) parts.push(out.soreness)
     if (parts.length >= 2) {
@@ -438,12 +449,14 @@ export function buildPlayerWellness(args: {
     soreness: number | null
     sleepQuality: number | null
     mood: number | null
+    stress: number | null
   }
   teamToday: {
     fatigue: number[]
     soreness: number[]
     sleepQuality: number[]
     mood: number[]
+    stress: number[]
   }
 }): PlayerWellness {
   const { today, prevFatigue, avg3, teamToday } = args
@@ -455,13 +468,15 @@ export function buildPlayerWellness(args: {
   const sorenessZ = zScore(today.soreness, teamToday.soreness)
   const sleepZ = zScore(today.sleepQuality, teamToday.sleepQuality)
   const moodZ = zScore(today.mood, teamToday.mood)
+  const stressZ = zScore(today.stress, teamToday.stress)
 
   // Low scores are risky on 1–10 higher-better scales
   const fatigueRiskZ = Math.max(0, -(fatigueZ ?? 0))
   const sorenessRiskZ = Math.max(0, -(sorenessZ ?? 0))
   const sleepRiskZ = Math.max(0, -(sleepZ ?? 0))
   const moodRiskZ = Math.max(0, -(moodZ ?? 0))
-  const riskLoad = fatigueRiskZ + sorenessRiskZ + sleepRiskZ + moodRiskZ
+  const stressRiskZ = Math.max(0, -(stressZ ?? 0))
+  const riskLoad = fatigueRiskZ + sorenessRiskZ + sleepRiskZ + moodRiskZ + stressRiskZ
 
   const pain = summarizeBodyMap(today.painAreas, 'pain')
   const sorenessMap = summarizeBodyMap(today.sorenessAreas, 'soreness')
@@ -524,6 +539,7 @@ export function buildPlayerWellness(args: {
     soreness: metricRow(today.soreness, avg3.soreness, sorenessZ),
     sleepQuality: metricRow(today.sleepQuality, avg3.sleepQuality, sleepZ),
     mood: metricRow(today.mood, avg3.mood, moodZ),
+    stress: metricRow(today.stress, avg3.stress, stressZ),
     prevFatigue,
     fatigueDelta,
     fatigueDeltaColor,

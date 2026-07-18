@@ -153,11 +153,13 @@ export function buildOpsDayPayload(args: {
   const teamSoreness: number[] = []
   const teamSleep: number[] = []
   const teamMood: number[] = []
+  const teamStress: number[] = []
   for (const hit of latestToday.values()) {
     if (hit.metrics.fatigue != null) teamFatigue.push(hit.metrics.fatigue)
     if (hit.metrics.soreness != null) teamSoreness.push(hit.metrics.soreness)
     if (hit.metrics.sleepQuality != null) teamSleep.push(hit.metrics.sleepQuality)
     if (hit.metrics.mood != null) teamMood.push(hit.metrics.mood)
+    if (hit.metrics.stress != null) teamStress.push(hit.metrics.stress)
   }
 
   const playerRows = players.map((p) => {
@@ -181,12 +183,14 @@ export function buildOpsDayPayload(args: {
           soreness: averageFromDays(last3.map((m) => m.soreness)),
           sleepQuality: averageFromDays(last3.map((m) => m.sleepQuality)),
           mood: averageFromDays(last3.map((m) => m.mood)),
+          stress: averageFromDays(last3.map((m) => m.stress)),
         },
         teamToday: {
           fatigue: teamFatigue,
           soreness: teamSoreness,
           sleepQuality: teamSleep,
           mood: teamMood,
+          stress: teamStress,
         },
       })
     }

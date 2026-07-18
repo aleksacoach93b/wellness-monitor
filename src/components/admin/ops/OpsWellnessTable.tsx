@@ -107,7 +107,7 @@ export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[]
           <thead>
             <tr className="ops-group-row">
               <th colSpan={3}>Identity &amp; status</th>
-              <th colSpan={4}>Sleep stats</th>
+              <th colSpan={5}>Sleep</th>
               <th colSpan={4}>Wellness load</th>
               <th colSpan={1}>Readiness</th>
             </tr>
@@ -119,10 +119,11 @@ export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[]
               <th>Wake</th>
               <th>Duration</th>
               <th>Quality</th>
-              <th>Fatigue</th>
-              <th>Mood</th>
               <th>Sleep risk</th>
+              <th>Fatigue</th>
               <th>Soreness</th>
+              <th>Mood</th>
+              <th>Stress</th>
               <th>Score</th>
             </tr>
           </thead>
@@ -177,12 +178,6 @@ export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[]
                     <LoadCell value={w?.sleepQuality.value ?? null} />
                   </td>
                   <td>
-                    <LoadCell value={w?.fatigue.value ?? null} />
-                  </td>
-                  <td>
-                    <LoadCell value={w?.mood.value ?? null} />
-                  </td>
-                  <td>
                     {w ? (
                       <span
                         className={`ops-badge ${w.risk.sleep ? 'is-warn' : 'is-ok'}`}
@@ -194,7 +189,16 @@ export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[]
                     )}
                   </td>
                   <td>
+                    <LoadCell value={w?.fatigue.value ?? null} />
+                  </td>
+                  <td>
                     <LoadCell value={w?.soreness.value ?? null} />
+                  </td>
+                  <td>
+                    <LoadCell value={w?.mood.value ?? null} />
+                  </td>
+                  <td>
+                    <LoadCell value={w?.stress.value ?? null} />
                   </td>
                   <td>
                     {w?.readiness != null ? (

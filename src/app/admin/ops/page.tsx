@@ -7,14 +7,18 @@ import {
   CheckCircle2,
   Clock3,
   ExternalLink,
+  LayoutGrid,
   Maximize2,
   Minimize2,
   RefreshCw,
+  Table2,
   Users,
 } from 'lucide-react'
 import WellnessFlipCard, {
   type OpsPlayerCard,
 } from '@/components/admin/ops/WellnessFlipCard'
+import OpsAlertTicker from '@/components/admin/ops/OpsAlertTicker'
+import OpsWellnessTable from '@/components/admin/ops/OpsWellnessTable'
 import type { PlayerWellness, TeamWellnessSummary } from '@/lib/opsWellness'
 import './ops-wellness.css'
 
@@ -39,6 +43,7 @@ type OpsPayload = {
 }
 
 type StatusFilter = 'pending' | 'done' | 'all'
+type ViewMode = 'cards' | 'table'
 
 function localToday() {
   const d = new Date()
@@ -76,6 +81,7 @@ export default function LiveOpsPage() {
   const [surveyId, setSurveyId] = useState<string>('')
   const [selectedDate, setSelectedDate] = useState(localToday)
   const [filter, setFilter] = useState<StatusFilter>('all')
+  const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [fullscreen, setFullscreen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -236,6 +242,10 @@ export default function LiveOpsPage() {
         </div>
       ) : null}
 
+      {data?.players?.length ? (
+        <OpsAlertTicker players={data.players as OpsPlayerCard[]} />
+      ) : null}
+
       {ws ? (
         <div className="sg7-summary">
           <div className="sg7-readiness">
@@ -272,9 +282,29 @@ export default function LiveOpsPage() {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-slate-200">
           <Activity className="h-4 w-4 text-cyan-300" />
-          <h2 className="text-base font-bold tracking-wide">Daily Wellness cards</h2>
+          <h2 className="text-base font-bold tracking-wide">
+            {viewMode === 'table' ? 'Squad results table' : 'Daily Wellness cards'}
+          </h2>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="ops-view-switch" role="group" aria-label="View mode">
+            <button
+              type="button"
+              className={viewMode === 'table' ? 'is-on' : ''}
+              onClick={() => setViewMode('table')}
+            >
+              <Table2 className="h-3.5 w-3.5" />
+              Table
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'cards' ? 'is-on' : ''}
+              onClick={() => setViewMode('cards')}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Cards
+            </button>
+          </div>
           {(
             [
               ['all', `All (${data?.stats.total ?? 0})`],
@@ -314,6 +344,8 @@ export default function LiveOpsPage() {
               ? 'No submissions for this date.'
               : 'No players found.'}
         </div>
+      ) : viewMode === 'table' ? (
+        <OpsWellnessTable players={sortedCards} />
       ) : (
         <div className="sg7-grid">
           {sortedCards.map((p) => (

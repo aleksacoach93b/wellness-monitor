@@ -2434,6 +2434,42 @@
   background: rgba(239, 68, 68, 0.12);
 }
 
+.ops-rules-section-label {
+  margin: 0 0 8px;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.ops-rules-empty {
+  margin-bottom: 8px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px dashed rgba(126, 177, 247, 0.35);
+  background: rgba(15, 23, 42, 0.45);
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ops-rules-empty strong {
+  color: #e2e8f0;
+}
+
+.ops-rules-item.is-flash {
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25);
+}
+
+.ops-rules-error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .ops-rules-create {
   margin-top: 14px;
   padding-top: 14px;

@@ -318,12 +318,25 @@ export default function LiveOpsPage() {
     [],
   )
 
+  const refreshRulesList = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ops/rules', { cache: 'no-store' })
+      if (!res.ok) return
+      const body = await res.json()
+      if (Array.isArray(body?.rules)) setRules(body.rules)
+    } catch {
+      // ignore — Live Ops day payload remains source of truth
+    }
+  }, [])
+
   useEffect(() => {
     const today = localToday()
     selectedDateRef.current = today
     void loadDay({ date: today }).then(() => {
       const sid = surveyIdRef.current
       if (sid) void hydrateMonthBackground(sid, monthKey(today))
+      // Backup: rules list from dedicated endpoint if day payload omitted them.
+      void refreshRulesList()
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -477,12 +490,15 @@ export default function LiveOpsPage() {
   const reloadAfterRulesChange = useCallback(async () => {
     cacheRef.current.clear()
     hydratedMonthsRef.current.clear()
-    await loadDay({
-      date: selectedDateRef.current,
-      surveyIdOverride: surveyIdRef.current || undefined,
-      silent: true,
-    })
-  }, [loadDay])
+    await Promise.all([
+      refreshRulesList(),
+      loadDay({
+        date: selectedDateRef.current,
+        surveyIdOverride: surveyIdRef.current || undefined,
+        silent: true,
+      }),
+    ])
+  }, [loadDay, refreshRulesList])
 
   const createRule = useCallback(
     async (input: {
@@ -493,7 +509,7 @@ export default function LiveOpsPage() {
       severity: OpsRuleDTO['severity']
       enabled: boolean
       surveyId: string | null
-    }) => {
+    }): Promise<{ ok: boolean; error?: string; rule?: OpsRuleDTO }> => {
       setRulesBusy(true)
       try {
         const res = await fetch('/api/ops/rules', {
@@ -501,8 +517,21 @@ export default function LiveOpsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(input),
         })
-        if (!res.ok) return
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          return {
+            ok: false,
+            error: typeof body?.error === 'string' ? body.error : 'Failed to create rule',
+          }
+        }
+        const rule = body?.rule as OpsRuleDTO | undefined
+        if (rule?.id) {
+          setRules((prev) => (prev.some((r) => r.id === rule.id) ? prev : [...prev, rule]))
+        }
         await reloadAfterRulesChange()
+        return { ok: true, rule }
+      } catch {
+        return { ok: false, error: 'Network error creating rule' }
       } finally {
         setRulesBusy(false)
       }

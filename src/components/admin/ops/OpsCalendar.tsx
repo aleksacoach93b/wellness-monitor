@@ -9,6 +9,8 @@ type Props = {
   selectedDate: string
   surveyId: string
   onSelect: (date: string) => void
+  /** Fired when the visible calendar month changes (YYYY-MM) so parent can prefetch. */
+  onMonthChange?: (month: string) => void
 }
 
 const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
@@ -31,7 +33,12 @@ function localTodayKey() {
   return toKey(n.getFullYear(), n.getMonth(), n.getDate())
 }
 
-export default function OpsCalendar({ selectedDate, surveyId, onSelect }: Props) {
+export default function OpsCalendar({
+  selectedDate,
+  surveyId,
+  onSelect,
+  onMonthChange,
+}: Props) {
   const selected = parseKey(selectedDate)
   const [cursor, setCursor] = useState({ y: selected.y, m0: selected.m0 })
   const [mode, setMode] = useState<'month' | 'week'>('month')
@@ -45,6 +52,7 @@ export default function OpsCalendar({ selectedDate, surveyId, onSelect }: Props)
 
   useEffect(() => {
     const month = `${cursor.y}-${pad(cursor.m0 + 1)}`
+    onMonthChange?.(month)
     const params = new URLSearchParams({ month })
     if (surveyId) params.set('surveyId', surveyId)
     let cancelled = false
@@ -59,7 +67,7 @@ export default function OpsCalendar({ selectedDate, surveyId, onSelect }: Props)
     return () => {
       cancelled = true
     }
-  }, [cursor.y, cursor.m0, surveyId])
+  }, [cursor.y, cursor.m0, surveyId, onMonthChange])
 
   const cells = useMemo(() => {
     if (mode === 'week') {

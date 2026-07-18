@@ -78,35 +78,29 @@ function formatDateLabel(isoDate: string) {
   }
 }
 
-function shiftDateKey(isoDate: string, deltaDays: number) {
-  const [y, m, d] = isoDate.split('-').map(Number)
-  const dt = new Date(y, m - 1, d)
-  dt.setDate(dt.getDate() + deltaDays)
-  const yy = dt.getFullYear()
-  const mm = String(dt.getMonth() + 1).padStart(2, '0')
-  const dd = String(dt.getDate()).padStart(2, '0')
-  return `${yy}-${mm}-${dd}`
+function monthKey(isoDate: string) {
+  return isoDate.slice(0, 7)
 }
 
 function cacheKey(surveyId: string, date: string) {
   return `${surveyId || '_'}|${date}`
 }
 
-function pickClientDefaultSurvey(
-  surveys: Array<{ id: string; title: string; isActive: boolean }>,
-) {
-  if (!surveys.length) return null
-  const isWellness = (title: string) => {
-    const t = title.toLowerCase()
-    return t.includes('wellness') && !t.includes('rpe')
-  }
-  return (
-    surveys.find((s) => s.isActive && isWellness(s.title)) ??
-    surveys.find((s) => isWellness(s.title)) ??
-    surveys.find((s) => s.isActive) ??
-    surveys[0] ??
-    null
-  )
+type MonthDataPayload = {
+  team: OpsPayload['team']
+  survey: OpsPayload['survey']
+  surveys: OpsPayload['surveys']
+  month: string
+  generatedAt: string
+  days: Record<
+    string,
+    {
+      selectedDate: string
+      stats: OpsPayload['stats']
+      wellnessSummary: OpsPayload['wellnessSummary']
+      players: OpsPayload['players']
+    }
+  >
 }
 
 export default function LiveOpsPage() {
@@ -123,9 +117,15 @@ export default function LiveOpsPage() {
   const surveyIdRef = useRef(surveyId)
   const selectedDateRef = useRef(selectedDate)
   const cacheRef = useRef(new Map<string, OpsPayload>())
-  const abortRef = useRef<AbortController | null>(null)
-  const reqSeqRef = useRef(0)
-  const prefetchingRef = useRef(new Set<string>())
+  const hydratedMonthsRef = useRef(new Set<string>())
+  const enrichAbortRef = useRef<AbortController | null>(null)
+  const enrichSeqRef = useRef(0)
+  const hasPaintedRef = useRef(false)
+  const metaRef = useRef<{
+    team: OpsPayload['team'] | null
+    surveys: OpsPayload['surveys']
+    survey: OpsPayload['survey']
+  }>({ team: null, surveys: [], survey: null })
 
   useEffect(() => {
     surveyIdRef.current = surveyId
@@ -134,62 +134,78 @@ export default function LiveOpsPage() {
     selectedDateRef.current = selectedDate
   }, [selectedDate])
 
-  const prefetchDay = useCallback(async (sid: string, date: string) => {
-    if (!sid || !date) return
-    const key = cacheKey(sid, date)
-    if (cacheRef.current.has(key) || prefetchingRef.current.has(key)) return
-    prefetchingRef.current.add(key)
-    try {
-      const params = new URLSearchParams({ surveyId: sid, date })
-      const res = await fetch(`/api/ops/today?${params}`, { cache: 'no-store' })
-      if (!res.ok) return
-      const payload = (await res.json()) as OpsPayload
-      cacheRef.current.set(key, payload)
-    } catch {
-      /* ignore prefetch failures */
-    } finally {
-      prefetchingRef.current.delete(key)
-    }
+  const applyDayFromCache = useCallback((sid: string, date: string) => {
+    const cached = cacheRef.current.get(cacheKey(sid, date))
+    if (!cached) return false
+    setData(cached)
+    return true
   }, [])
 
-  const load = useCallback(
+  const putDayInCache = useCallback((sid: string, payload: OpsPayload) => {
+    const date = payload.selectedDate
+    cacheRef.current.set(cacheKey(sid, date), payload)
+  }, [])
+
+  /** Enrich selected day with body maps / freshest today payload (does not block table). */
+  const enrichDay = useCallback(
+    async (sid: string, date: string) => {
+      if (!sid || !date) return
+      enrichAbortRef.current?.abort()
+      const ac = new AbortController()
+      enrichAbortRef.current = ac
+      const seq = ++enrichSeqRef.current
+      try {
+        const params = new URLSearchParams({ surveyId: sid, date })
+        const res = await fetch(`/api/ops/today?${params}`, {
+          cache: 'no-store',
+          signal: ac.signal,
+        })
+        if (seq !== enrichSeqRef.current) return
+        if (!res.ok) return
+        const payload = (await res.json()) as OpsPayload
+        if (seq !== enrichSeqRef.current) return
+        putDayInCache(sid, payload)
+        // Only paint if user is still on this day.
+        if (selectedDateRef.current === date && surveyIdRef.current === sid) {
+          setData(payload)
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+      }
+    },
+    [putDayInCache],
+  )
+
+  const hydrateMonth = useCallback(
     async (opts?: {
-      silent?: boolean
       surveyIdOverride?: string
-      dateOverride?: string
+      month?: string
+      applyDate?: string
       force?: boolean
+      silent?: boolean
+      /** When false, only fill cache (used for adjacent-month prefetch). Default true. */
+      paint?: boolean
     }) => {
       const sid = opts?.surveyIdOverride ?? surveyIdRef.current
-      const date = opts?.dateOverride ?? selectedDateRef.current
-      const key = cacheKey(sid, date)
-      const cached = cacheRef.current.get(key)
+      const applyDate = opts?.applyDate ?? selectedDateRef.current
+      const month = opts?.month ?? monthKey(applyDate)
+      const paint = opts?.paint !== false
+      const hydrateKey = `${sid || '_'}|${month}`
 
-      // Instant paint from cache while revalidating in background.
-      if (cached && !opts?.force) {
-        setData(cached)
-        if (cached.selectedDate) setSelectedDate(cached.selectedDate)
-        if (cached.survey?.id) setSurveyId(cached.survey.id)
+      // Instant path: month already in memory.
+      if (!opts?.force && hydratedMonthsRef.current.has(hydrateKey)) {
+        if (paint && sid) applyDayFromCache(sid, applyDate)
+        return
       }
 
-      abortRef.current?.abort()
-      const ac = new AbortController()
-      abortRef.current = ac
-      const seq = ++reqSeqRef.current
-
-      if (!opts?.silent && !cached) setLoading(true)
+      if (!opts?.silent) setLoading(true)
       else setRefreshing(true)
       setError(null)
 
       try {
-        const params = new URLSearchParams()
+        const params = new URLSearchParams({ month })
         if (sid) params.set('surveyId', sid)
-        if (date) params.set('date', date)
-        const qs = params.toString() ? `?${params.toString()}` : ''
-        const res = await fetch(`/api/ops/today${qs}`, {
-          cache: 'no-store',
-          signal: ac.signal,
-        })
-        if (seq !== reqSeqRef.current) return
+        const res = await fetch(`/api/ops/month-data?${params}`, { cache: 'no-store' })
         if (res.status === 401) {
           setError('Unauthorized — please sign in again.')
           return
@@ -199,72 +215,92 @@ export default function LiveOpsPage() {
           setError(body.error || 'Failed to load live ops')
           return
         }
-        const payload = (await res.json()) as OpsPayload
-        if (seq !== reqSeqRef.current) return
+        const payload = (await res.json()) as MonthDataPayload
+        const nextSid = payload.survey?.id || sid
+        if (!nextSid) {
+          setError('No surveys found for this team.')
+          return
+        }
 
-        // If API returned a survey and client has none, prefer Wellness when available.
-        let nextSurveyId = payload.survey?.id ?? ''
-        if (!sid && payload.surveys?.length) {
-          const preferred = pickClientDefaultSurvey(payload.surveys)
-          if (preferred && preferred.id !== payload.survey?.id) {
-            setSurveyId(preferred.id)
-            // Reload once against Wellness (silent) — avoids sticking on RPE.
-            void load({
-              silent: true,
-              surveyIdOverride: preferred.id,
-              dateOverride: payload.selectedDate || date,
-              force: true,
-            })
-            return
+        metaRef.current = {
+          team: payload.team,
+          surveys: payload.surveys,
+          survey: payload.survey,
+        }
+        setSurveyId(nextSid)
+        surveyIdRef.current = nextSid
+
+        for (const [date, day] of Object.entries(payload.days)) {
+          const full: OpsPayload = {
+            team: payload.team,
+            survey: payload.survey,
+            surveys: payload.surveys,
+            generatedAt: payload.generatedAt,
+            selectedDate: date,
+            stats: day.stats,
+            wellnessSummary: day.wellnessSummary,
+            players: day.players,
+          }
+          cacheRef.current.set(cacheKey(nextSid, date), full)
+        }
+        hydratedMonthsRef.current.add(`${nextSid}|${month}`)
+        if (sid && sid !== nextSid) {
+          hydratedMonthsRef.current.add(`${sid}|${month}`)
+        }
+
+        if (!paint) return
+
+        // Only paint the requested day (never jump to day 1 of a prefetched month).
+        if (payload.days[applyDate]) {
+          selectedDateRef.current = applyDate
+          setSelectedDate(applyDate)
+          applyDayFromCache(nextSid, applyDate)
+          hasPaintedRef.current = true
+          void enrichDay(nextSid, applyDate)
+        } else if (!hasPaintedRef.current) {
+          const fallback = Object.keys(payload.days)[0]
+          if (fallback) {
+            selectedDateRef.current = fallback
+            setSelectedDate(fallback)
+            applyDayFromCache(nextSid, fallback)
+            hasPaintedRef.current = true
+            void enrichDay(nextSid, fallback)
           }
         }
-
-        cacheRef.current.set(cacheKey(nextSurveyId || sid, payload.selectedDate || date), payload)
-        setData(payload)
-        if (payload.selectedDate) setSelectedDate(payload.selectedDate)
-        if (payload.survey?.id) setSurveyId(payload.survey.id)
-        else if (!payload.survey) setSurveyId('')
-
-        const activeSid = payload.survey?.id || sid
-        const activeDate = payload.selectedDate || date
-        if (activeSid && activeDate) {
-          void prefetchDay(activeSid, shiftDateKey(activeDate, -1))
-          void prefetchDay(activeSid, shiftDateKey(activeDate, 1))
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        if (seq !== reqSeqRef.current) return
+      } catch {
         setError('Network error loading live ops')
       } finally {
-        if (seq === reqSeqRef.current) {
-          setLoading(false)
-          setRefreshing(false)
-        }
+        setLoading(false)
+        setRefreshing(false)
       }
     },
-    [prefetchDay],
+    [applyDayFromCache, enrichDay],
   )
 
   useEffect(() => {
-    void load()
+    void hydrateMonth({ applyDate: localToday() })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     const tick = () => {
       if (typeof document !== 'undefined' && document.hidden) return
-      void load({ silent: true, force: true })
+      const sid = surveyIdRef.current
+      const date = selectedDateRef.current
+      if (!sid || !date) return
+      // Soft refresh of the visible day only — never blocks calendar navigation.
+      void enrichDay(sid, date)
     }
-    const id = window.setInterval(tick, 15_000)
+    const id = window.setInterval(tick, 30_000)
     const onVis = () => {
-      if (!document.hidden) void load({ silent: true, force: true })
+      if (!document.hidden) tick()
     }
     document.addEventListener('visibilitychange', onVis)
     return () => {
       window.clearInterval(id)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [load])
+  }, [enrichDay])
 
   useEffect(() => {
     if (!fullscreen) return
@@ -298,20 +334,77 @@ export default function LiveOpsPage() {
   }, [filtered])
 
   const onSurveyChange = (next: string) => {
+    surveyIdRef.current = next
     setSurveyId(next)
-    const key = cacheKey(next, selectedDateRef.current)
-    const cached = cacheRef.current.get(key)
-    if (cached) setData(cached)
-    void load({ surveyIdOverride: next, silent: true })
+    const date = selectedDateRef.current
+    const painted = applyDayFromCache(next, date)
+    if (painted) {
+      void enrichDay(next, date)
+      void hydrateMonth({
+        surveyIdOverride: next,
+        month: monthKey(date),
+        applyDate: date,
+        silent: true,
+      })
+      return
+    }
+    void hydrateMonth({
+      surveyIdOverride: next,
+      month: monthKey(date),
+      applyDate: date,
+      force: true,
+      silent: true,
+    })
   }
 
   const onDateChange = (next: string) => {
+    // Synchronous — table must flip on the same click, no waiting for network.
+    selectedDateRef.current = next
     setSelectedDate(next)
-    const key = cacheKey(surveyIdRef.current, next)
-    const cached = cacheRef.current.get(key)
-    if (cached) setData(cached)
-    void load({ dateOverride: next, silent: true })
+    const sid = surveyIdRef.current
+    const painted = sid ? applyDayFromCache(sid, next) : false
+    if (painted) {
+      void enrichDay(sid, next)
+      return
+    }
+    // Month not hydrated yet (e.g. jumped via week nav) — load that month, then paint.
+    void hydrateMonth({
+      month: monthKey(next),
+      applyDate: next,
+      silent: true,
+      force: true,
+    })
   }
+
+  const onMonthChange = useCallback(
+    (month: string) => {
+      const sid = surveyIdRef.current
+      if (!sid) return
+      void hydrateMonth({
+        surveyIdOverride: sid,
+        month,
+        applyDate: selectedDateRef.current,
+        silent: true,
+        paint: false,
+      })
+    },
+    [hydrateMonth],
+  )
+
+  const refreshVisible = useCallback(() => {
+    const sid = surveyIdRef.current
+    const date = selectedDateRef.current
+    setRefreshing(true)
+    void hydrateMonth({
+      surveyIdOverride: sid,
+      month: monthKey(date),
+      applyDate: date,
+      force: true,
+      silent: true,
+    }).finally(() => {
+      if (sid) void enrichDay(sid, date)
+    })
+  }, [hydrateMonth, enrichDay])
 
   if (loading && !data) {
     return (
@@ -344,7 +437,7 @@ export default function LiveOpsPage() {
             />
             <button
               type="button"
-              onClick={() => void load({ silent: true })}
+              onClick={() => void refreshVisible()}
               className="admin-btn admin-btn-ghost"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -366,6 +459,7 @@ export default function LiveOpsPage() {
         selectedDate={selectedDate}
         surveyId={surveyId}
         onSelect={onDateChange}
+        onMonthChange={onMonthChange}
       />
 
       {data?.players?.length ? (
@@ -518,7 +612,7 @@ export default function LiveOpsPage() {
           </button>
           <button
             type="button"
-            onClick={() => void load({ silent: true })}
+            onClick={() => void refreshVisible()}
             disabled={refreshing}
             className="admin-btn admin-btn-ghost"
           >

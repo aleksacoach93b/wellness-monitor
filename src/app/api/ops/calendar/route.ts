@@ -38,12 +38,22 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
       }
     } else {
-      const fallback = await prisma.survey.findFirst({
+      const surveys = await prisma.survey.findMany({
         where: { teamId },
+        select: { id: true, title: true, isActive: true },
         orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }],
-        select: { id: true },
       })
-      surveyId = fallback?.id ?? null
+      const isWellness = (title: string) => {
+        const t = title.toLowerCase()
+        return t.includes('wellness') && !t.includes('rpe')
+      }
+      const pick =
+        surveys.find((s) => s.isActive && isWellness(s.title)) ??
+        surveys.find((s) => isWellness(s.title)) ??
+        surveys.find((s) => s.isActive) ??
+        surveys[0] ??
+        null
+      surveyId = pick?.id ?? null
     }
 
     const activePlayers = await prisma.player.count({

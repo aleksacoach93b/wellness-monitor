@@ -40,6 +40,28 @@ function LoadCell({ value }: { value: number | null }) {
   )
 }
 
+/** Parse "9h 40m" / "8h" / "7.5 h" into hours for color banding. */
+function durationHours(text: string | null | undefined): number | null {
+  if (!text || text === '-' || text === '—') return null
+  const hm = text.match(/(\d+)\s*h(?:\s*(\d+)\s*m)?/i)
+  if (hm) {
+    const h = Number(hm[1])
+    const m = Number(hm[2] ?? 0)
+    if (!Number.isFinite(h)) return null
+    return h + (Number.isFinite(m) ? m / 60 : 0)
+  }
+  const n = Number(String(text).replace(',', '.').replace(/[^\d.]/g, ''))
+  return Number.isFinite(n) ? n : null
+}
+
+function durationColor(text: string | null | undefined): string {
+  const h = durationHours(text)
+  if (h == null) return '#94a3b8'
+  if (h >= 9) return '#22c55e'
+  if (h >= 7) return '#facc15'
+  return '#ef4444'
+}
+
 function statusBadge(w: OpsPlayerCard['wellness'], pending: boolean) {
   if (pending || !w) {
     return (
@@ -111,15 +133,6 @@ export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[]
               const name = `${p.firstName} ${p.lastName}`
               const initials =
                 `${p.firstName?.[0] ?? ''}${p.lastName?.[0] ?? ''}`.toUpperCase() || '?'
-              const durationColor =
-                !w?.sleepDuration || w.sleepDuration === '-'
-                  ? '#94a3b8'
-                  : /^(9|1\d)/.test(w.sleepDuration)
-                    ? '#22c55e'
-                    : /^(7|8)/.test(w.sleepDuration)
-                      ? '#facc15'
-                      : '#ef4444'
-
               return (
                 <tr
                   key={p.id}
@@ -156,7 +169,7 @@ export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[]
                   <td className="ops-mono">{w?.sleepBedtime ?? '—'}</td>
                   <td className="ops-mono">{w?.sleepWake ?? '—'}</td>
                   <td>
-                    <span style={{ color: durationColor, fontWeight: 650 }}>
+                    <span style={{ color: durationColor(w?.sleepDuration), fontWeight: 650 }}>
                       {w?.sleepDuration ?? '—'}
                     </span>
                   </td>

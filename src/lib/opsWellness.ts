@@ -147,11 +147,55 @@ function matchMetric(text: string): WellnessMetricKey | null {
 
 function matchSleepField(text: string): 'bed' | 'wake' | 'duration' | null {
   const t = norm(text)
-  if (t.includes('go to sleep') || t.includes('bedtime') || t.includes('fall asleep')) return 'bed'
-  if (t.includes('wake')) return 'wake'
+  if (
+    t.includes('go to sleep') ||
+    t.includes('bedtime') ||
+    t.includes('bed time') ||
+    t.includes('fall asleep') ||
+    t.includes('went to bed') ||
+    t.includes('to bed') ||
+    (t.includes('bed') && t.includes('time'))
+  ) {
+    return 'bed'
+  }
+  if (t.includes('wake') || t.includes('get up') || t.includes('got up')) return 'wake'
   if (t.includes('sleep duration') || (t.includes('sleep') && t.includes('hour'))) return 'duration'
   if (t.includes('duration') && t.includes('sleep')) return 'duration'
   return null
+}
+
+/** Parse TIME answers like "22:45", "22:45:00", or "9:05". */
+function parseClockMinutes(value: string | null | undefined): number | null {
+  if (!value) return null
+  const s = String(value).trim()
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/)
+  if (!m) return null
+  const h = Number(m[1])
+  const min = Number(m[2])
+  if (!Number.isFinite(h) || !Number.isFinite(min) || h > 23 || min > 59) return null
+  return h * 60 + min
+}
+
+/**
+ * Sleep duration from bed → wake. Overnight spans (bed after wake) add 24h.
+ * Returns display like "9h 40m" / "8h".
+ */
+export function sleepDurationFromTimes(
+  bedtime: string | null | undefined,
+  wake: string | null | undefined,
+): string | null {
+  const bedMin = parseClockMinutes(bedtime)
+  const wakeMin = parseClockMinutes(wake)
+  if (bedMin == null || wakeMin == null) return null
+
+  let mins = wakeMin - bedMin
+  if (mins <= 0) mins += 24 * 60
+  if (mins <= 0 || mins > 24 * 60) return null
+
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  if (m === 0) return `${h}h`
+  return `${h}h ${String(m).padStart(2, '0')}m`
 }
 
 function matchBodyMapKind(text: string): 'pain' | 'soreness' | null {
@@ -216,6 +260,10 @@ export function parseDayMetrics(answers: AnswerLike[]): DayMetrics {
       else out.sleepDuration = `${raw} h`
     }
   }
+
+  // Prefer duration computed from bed + wake (handles overnight sleep).
+  const computedDuration = sleepDurationFromTimes(out.sleepBedtime, out.sleepWake)
+  if (computedDuration) out.sleepDuration = computedDuration
 
   // Derive readiness if missing: all 1–10 scales are higher-better
   if (out.readiness == null) {

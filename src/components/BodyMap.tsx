@@ -30,6 +30,10 @@ interface BodyMapProps {
   onClose: () => void
   /** Match SurveyForm / URL ?surveyTheme= */
   appearanceTheme?: SurveyAppearanceTheme
+  /** Compact read-only SVG for Live Ops / wellness cards */
+  mode?: 'fullscreen' | 'preview'
+  /** Intensity palette — soreness uses cyan/amber/pink like Power BI */
+  colorScheme?: 'default' | 'pain' | 'soreness'
 }
 
 const DRAG_THRESHOLD_PX = 12
@@ -42,7 +46,10 @@ export default function BodyMap({
   onContinue,
   onClose,
   appearanceTheme = 'default',
+  mode = 'fullscreen',
+  colorScheme = 'default',
 }: BodyMapProps) {
+  const isPreview = mode === 'preview'
   const t = useMemo(() => getSurveyBodyMapTokens(appearanceTheme), [appearanceTheme])
   const initialScale = typeof window !== 'undefined' && window.innerWidth < 768 ? 1.05 : 0.85
   const [scale, setScale] = useState(initialScale)
@@ -493,13 +500,19 @@ export default function BodyMap({
 
   const getAreaColor = (areaId: string) => {
     const rating = getBodyMapRating(selectedAreas[areaId])
-    if (!rating) return '#d1d5db' // Slightly stronger default for tablet contrast
-    
-    // Color based on rating intensity
-    if (rating <= 3) return '#22c55e' // Green for mild pain (1-3)
-    if (rating <= 6) return '#eab308' // Yellow for moderate pain (4-6)
-    if (rating <= 8) return '#f97316' // Orange for high pain (7-8)
-    return '#ef4444' // Red for severe pain (9-10)
+    if (!rating) return isPreview ? '#1e293b' : '#d1d5db'
+
+    if (colorScheme === 'soreness') {
+      if (rating <= 3) return '#67e8f9'
+      if (rating <= 6) return '#fbbf24'
+      return '#fb7185'
+    }
+
+    // Pain / default: green → yellow → orange → red
+    if (rating <= 3) return '#22c55e'
+    if (rating <= 6) return '#eab308'
+    if (rating <= 8) return '#f97316'
+    return '#ef4444'
   }
 
   const frontBodySVG = (
@@ -2557,6 +2570,19 @@ export default function BodyMap({
       </div>
     </div>
   )
+
+  if (isPreview) {
+    return (
+      <div
+        className="ops-bodymap-preview pointer-events-none select-none [&_.body-area]:cursor-default"
+        aria-hidden
+      >
+        <div className="mx-auto w-full max-w-[220px]">
+          {view === 'front' ? frontBodySVG : backBodySVG}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div 

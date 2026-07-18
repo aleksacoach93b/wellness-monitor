@@ -2,25 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import {
   Activity,
   CheckCircle2,
   Clock3,
   ExternalLink,
   RefreshCw,
-  User,
   Users,
 } from 'lucide-react'
-
-type OpsPlayer = {
-  id: string
-  firstName: string
-  lastName: string
-  image: string | null
-  status: 'done' | 'pending'
-  submittedAt: string | null
-}
+import WellnessFlipCard, {
+  type OpsPlayerCard,
+} from '@/components/admin/ops/WellnessFlipCard'
+import type { PlayerWellness, TeamWellnessSummary } from '@/lib/opsWellness'
+import './ops-wellness.css'
 
 type OpsPayload = {
   team: { id: string; name: string }
@@ -28,7 +22,17 @@ type OpsPayload = {
   surveys: Array<{ id: string; title: string; isActive: boolean }>
   generatedAt: string
   stats: { total: number; done: number; pending: number }
-  players: OpsPlayer[]
+  wellnessSummary: TeamWellnessSummary
+  players: Array<{
+    id: string
+    firstName: string
+    lastName: string
+    image: string | null
+    status: 'done' | 'pending'
+    submittedAt: string | null
+    rank: number | null
+    wellness: PlayerWellness | null
+  }>
 }
 
 type StatusFilter = 'pending' | 'done' | 'all'
@@ -45,7 +49,7 @@ function formatTime(iso: string | null) {
 export default function LiveOpsPage() {
   const [data, setData] = useState<OpsPayload | null>(null)
   const [surveyId, setSurveyId] = useState<string>('')
-  const [filter, setFilter] = useState<StatusFilter>('pending')
+  const [filter, setFilter] = useState<StatusFilter>('all')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -87,11 +91,9 @@ export default function LiveOpsPage() {
 
   useEffect(() => {
     void load()
-    // initial load only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Auto-refresh every 15s while tab visible
   useEffect(() => {
     const tick = () => {
       if (typeof document !== 'undefined' && document.hidden) return
@@ -114,6 +116,17 @@ export default function LiveOpsPage() {
     return list.filter((p) => p.status === filter)
   }, [data?.players, filter])
 
+  const sortedCards = useMemo(() => {
+    const list = [...filtered] as OpsPlayerCard[]
+    return list.sort((a, b) => {
+      if (a.status !== b.status) return a.status === 'pending' ? -1 : 1
+      const ar = a.wellness?.readiness ?? -1
+      const br = b.wellness?.readiness ?? -1
+      if (ar !== br) return br - ar
+      return `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`)
+    })
+  }, [filtered])
+
   const onSurveyChange = (next: string) => {
     setSurveyId(next)
     void load({ surveyIdOverride: next })
@@ -130,6 +143,8 @@ export default function LiveOpsPage() {
     )
   }
 
+  const ws = data?.wellnessSummary
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -139,11 +154,11 @@ export default function LiveOpsPage() {
           <p className="admin-sub">
             {data?.team.name ? (
               <>
-                Today&apos;s check-in for <strong>{data.team.name}</strong> — who still needs to
-                submit.
+                Daily wellness cockpit for <strong>{data.team.name}</strong> — check-ins, readiness,
+                pain &amp; soreness maps.
               </>
             ) : (
-              'Today’s check-in status for your team.'
+              'Daily wellness cockpit for your team.'
             )}
           </p>
         </div>
@@ -242,18 +257,51 @@ export default function LiveOpsPage() {
             </div>
           </section>
 
-          <section className="admin-panel overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ad-line)] px-4 py-3 sm:px-5">
-              <div className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-teal-700" />
-                <h2 className="admin-display text-lg font-bold">Players today</h2>
+          <div className="sg7-page">
+            {ws ? (
+              <div className="sg7-summary">
+                <div className="sg7-readiness">
+                  <small>Squad readiness</small>
+                  <div className="sg7-readiness-row">
+                    <strong style={{ color: ws.teamReadinessColor }}>
+                      {ws.teamReadinessPct == null ? '—' : `${ws.teamReadinessPct}%`}
+                    </strong>
+                  </div>
+                </div>
+                <div>
+                  <small>Alert</small>
+                  <strong style={{ color: '#ef4444' }}>{ws.alertCount}</strong>
+                  <span>require attention</span>
+                </div>
+                <div>
+                  <small>Watch</small>
+                  <strong style={{ color: '#facc15' }}>{ws.watchCount}</strong>
+                  <span>to monitor</span>
+                </div>
+                <div>
+                  <small>Ready</small>
+                  <strong style={{ color: '#22c55e' }}>{ws.readyCount}</strong>
+                  <span>good to go</span>
+                </div>
+                <div>
+                  <small>Fatigue ↑</small>
+                  <strong style={{ color: ws.teamFatigueDeltaColor }}>{ws.fatigueUpCount}</strong>
+                  <span>team Δ {ws.teamFatigueDeltaText}</span>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-slate-200">
+                <Activity className="h-4 w-4 text-cyan-300" />
+                <h2 className="text-base font-bold tracking-wide">Daily Wellness cards</h2>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {(
                   [
+                    ['all', `All (${data.stats.total})`],
                     ['pending', `Pending (${data.stats.pending})`],
                     ['done', `Done (${data.stats.done})`],
-                    ['all', `All (${data.stats.total})`],
                   ] as const
                 ).map(([key, label]) => (
                   <button
@@ -262,8 +310,8 @@ export default function LiveOpsPage() {
                     onClick={() => setFilter(key)}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                       filter === key
-                        ? 'bg-teal-600 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        ? 'bg-cyan-500 text-slate-950'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                     }`}
                   >
                     {label}
@@ -273,18 +321,15 @@ export default function LiveOpsPage() {
             </div>
 
             {data.stats.total === 0 ? (
-              <div className="px-5 py-12 text-center">
+              <div className="admin-panel px-5 py-12 text-center">
                 <Users className="mx-auto h-8 w-8 text-slate-300" />
                 <p className="mt-3 font-semibold text-[var(--ad-ink)]">No active players</p>
-                <p className="mt-1 text-sm text-[var(--ad-muted)]">
-                  Add players for this team to track check-ins.
-                </p>
                 <Link href="/admin/players/new" className="admin-btn admin-btn-primary mt-4">
                   Add player
                 </Link>
               </div>
-            ) : filtered.length === 0 ? (
-              <div className="px-5 py-12 text-center text-sm text-[var(--ad-muted)]">
+            ) : sortedCards.length === 0 ? (
+              <div className="rounded-2xl border border-slate-700/60 bg-slate-900/40 px-5 py-12 text-center text-sm text-slate-400">
                 {filter === 'pending'
                   ? 'Everyone is done for this survey today.'
                   : filter === 'done'
@@ -292,51 +337,13 @@ export default function LiveOpsPage() {
                     : 'No players found.'}
               </div>
             ) : (
-              <ul className="divide-y divide-[var(--ad-line)]">
-                {filtered.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex items-center gap-3 px-4 py-3 sm:px-5"
-                  >
-                    <div className="shrink-0">
-                      {p.image ? (
-                        <Image
-                          src={p.image}
-                          alt=""
-                          width={44}
-                          height={44}
-                          unoptimized
-                          className="h-11 w-11 rounded-full object-cover ring-1 ring-[var(--ad-line)]"
-                        />
-                      ) : (
-                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--ad-accent-soft)]">
-                          <User className="h-5 w-5 text-teal-700" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-[var(--ad-ink)]">
-                        {p.firstName}{' '}
-                        <span className="font-bold">{p.lastName}</span>
-                      </p>
-                      <p className="text-xs text-[var(--ad-muted)]">
-                        {p.status === 'done'
-                          ? `Submitted ${formatTime(p.submittedAt)}`
-                          : 'Not submitted today'}
-                      </p>
-                    </div>
-                    <span
-                      className={`admin-badge ${
-                        p.status === 'done' ? 'admin-badge-ok' : 'admin-badge-warn'
-                      }`}
-                    >
-                      {p.status === 'done' ? 'Done' : 'Pending'}
-                    </span>
-                  </li>
+              <div className="sg7-grid">
+                {sortedCards.map((p) => (
+                  <WellnessFlipCard key={p.id} player={p} />
                 ))}
-              </ul>
+              </div>
             )}
-          </section>
+          </div>
         </>
       )}
     </div>

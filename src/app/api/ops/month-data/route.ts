@@ -99,17 +99,20 @@ export async function GET(request: NextRequest) {
       ReturnType<typeof buildOpsDayPayload>
     > = {}
 
-    // Build every calendar day in the month so clicks are always instant.
-    const cursor = new Date(monthStart)
-    while (cursor < monthEnd) {
-      const key = dayKey(cursor)
+    // Only materialize days that have at least one submission (+ keep payload small).
+    const activeDays = new Set<string>()
+    for (const dayMap of latestByPlayerDay.values()) {
+      for (const key of dayMap.keys()) {
+        if (key >= dayKey(monthStart) && key < dayKey(monthEnd)) activeDays.add(key)
+      }
+    }
+    for (const key of activeDays) {
       days[key] = buildOpsDayPayload({
         players,
         byPlayerDay,
         latestByPlayerDay,
         selectedDate: key,
       })
-      cursor.setDate(cursor.getDate() + 1)
     }
 
     return NextResponse.json(

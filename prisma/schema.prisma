@@ -32,13 +32,14 @@ model Team {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  players        Player[]
-  surveys        Survey[]
-  tags           Tag[]
-  kioskSettings  KioskSettings[]
-  memberships    TeamMembership[]
-  invites        Invite[]
-  adminAccess    AdminAccessSettings?
+  players             Player[]
+  surveys             Survey[]
+  tags                Tag[]
+  kioskSettings       KioskSettings[]
+  memberships         TeamMembership[]
+  invites             Invite[]
+  adminAccess         AdminAccessSettings?
+  opsTablePreferences OpsTablePreference[]
 
   @@map("teams")
 }
@@ -53,10 +54,29 @@ model AdminUser {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  memberships  TeamMembership[]
-  invitesSent  Invite[]         @relation("InvitesSent")
+  memberships         TeamMembership[]
+  invitesSent         Invite[]              @relation("InvitesSent")
+  opsTablePreferences OpsTablePreference[]
 
   @@map("admin_users")
+}
+
+/// Per-team + per-admin Live Ops table column layout (enable + order).
+model OpsTablePreference {
+  id          String   @id @default(cuid())
+  teamId      String
+  adminUserId String
+  /// JSON array: [{ id: OpsColumnId, enabled: boolean }, ...]
+  columns     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, adminUserId])
+  @@index([adminUserId])
+  @@map("ops_table_preferences")
 }
 
 model TeamMembership {

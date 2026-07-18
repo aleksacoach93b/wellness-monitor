@@ -2,6 +2,14 @@
 
 import Image from 'next/image'
 import type { OpsPlayerCard } from '@/components/admin/ops/WellnessFlipCard'
+import {
+  DEFAULT_OPS_COLUMNS,
+  enabledColumns,
+  groupSpans,
+  metaFor,
+  type OpsColumnConfig,
+  type OpsColumnId,
+} from '@/lib/opsTableColumns'
 
 function fmt(n: number | null | undefined, digits = 1) {
   if (n == null || !Number.isFinite(n)) return '—'
@@ -40,7 +48,6 @@ function LoadCell({ value }: { value: number | null }) {
   )
 }
 
-/** Parse "9h 40m" / "8h" / "7.5 h" into hours for color banding. */
 function durationHours(text: string | null | undefined): number | null {
   if (!text || text === '-' || text === '—') return null
   const hm = text.match(/(\d+)\s*h(?:\s*(\d+)\s*m)?/i)
@@ -91,7 +98,140 @@ function statusBadge(w: OpsPlayerCard['wellness'], pending: boolean) {
   )
 }
 
-export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[] }) {
+function renderCell(id: OpsColumnId, p: OpsPlayerCard) {
+  const w = p.wellness
+  const pending = p.status === 'pending' || !w
+  const name = `${p.firstName} ${p.lastName}`
+  const initials =
+    `${p.firstName?.[0] ?? ''}${p.lastName?.[0] ?? ''}`.toUpperCase() || '?'
+
+  switch (id) {
+    case 'athlete':
+      return (
+        <td key={id} className="ops-sticky-col">
+          <div className="ops-cell-athlete">
+            <div className="ops-cell-avatar">
+              {p.image ? (
+                <Image
+                  src={p.image}
+                  alt=""
+                  width={36}
+                  height={36}
+                  unoptimized
+                  className="ops-t-avatar-img"
+                />
+              ) : (
+                <span>{initials}</span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="ops-cell-name">{name}</div>
+              <div className="ops-cell-sub">{p.rank != null ? `#${p.rank}` : '—'}</div>
+            </div>
+          </div>
+        </td>
+      )
+    case 'performance':
+      return <td key={id}>{statusBadge(w, pending)}</td>
+    case 'submitted':
+      return (
+        <td key={id} className="ops-mono">
+          {timeShort(p.submittedAt)}
+        </td>
+      )
+    case 'bed':
+      return (
+        <td key={id} className="ops-mono">
+          {w?.sleepBedtime ?? '—'}
+        </td>
+      )
+    case 'wake':
+      return (
+        <td key={id} className="ops-mono">
+          {w?.sleepWake ?? '—'}
+        </td>
+      )
+    case 'duration':
+      return (
+        <td key={id}>
+          <span style={{ color: durationColor(w?.sleepDuration), fontWeight: 650 }}>
+            {w?.sleepDuration ?? '—'}
+          </span>
+        </td>
+      )
+    case 'quality':
+      return (
+        <td key={id}>
+          <LoadCell value={w?.sleepQuality.value ?? null} />
+        </td>
+      )
+    case 'sleepRisk':
+      return (
+        <td key={id}>
+          {w ? (
+            <span className={`ops-badge ${w.risk.sleep ? 'is-warn' : 'is-ok'}`}>
+              {w.risk.sleep ? 'Attention' : 'Stable'}
+            </span>
+          ) : (
+            <span className="ops-t-muted">—</span>
+          )}
+        </td>
+      )
+    case 'fatigue':
+      return (
+        <td key={id}>
+          <LoadCell value={w?.fatigue.value ?? null} />
+        </td>
+      )
+    case 'soreness':
+      return (
+        <td key={id}>
+          <LoadCell value={w?.soreness.value ?? null} />
+        </td>
+      )
+    case 'mood':
+      return (
+        <td key={id}>
+          <LoadCell value={w?.mood.value ?? null} />
+        </td>
+      )
+    case 'stress':
+      return (
+        <td key={id}>
+          <LoadCell value={w?.stress.value ?? null} />
+        </td>
+      )
+    case 'readiness':
+      return (
+        <td key={id}>
+          {w?.readiness != null ? (
+            <span className="ops-ready-score" style={{ color: w.readinessColor }}>
+              {w.readiness.toFixed(1)}
+            </span>
+          ) : (
+            <span className="ops-t-muted">—</span>
+          )}
+        </td>
+      )
+    default:
+      return (
+        <td key={id}>
+          <span className="ops-t-muted">—</span>
+        </td>
+      )
+  }
+}
+
+export default function OpsWellnessTable({
+  players,
+  columns = DEFAULT_OPS_COLUMNS,
+}: {
+  players: OpsPlayerCard[]
+  columns?: OpsColumnConfig[]
+}) {
+  const visible = enabledColumns(columns)
+  const spans = groupSpans(visible)
+
   const rows = [...players].sort((a, b) => {
     if (a.status !== b.status) return a.status === 'done' ? -1 : 1
     const ar = a.wellness?.readiness ?? -1
@@ -106,34 +246,27 @@ export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[]
         <table className="ops-classic ops-classic-grouped">
           <thead>
             <tr className="ops-group-row">
-              <th colSpan={3}>Identity &amp; status</th>
-              <th colSpan={5}>Sleep</th>
-              <th colSpan={4}>Wellness load</th>
-              <th colSpan={1}>Readiness</th>
+              {spans.map((s) => (
+                <th key={`${s.group}-${s.span}`} colSpan={s.span}>
+                  {s.group}
+                </th>
+              ))}
             </tr>
             <tr className="ops-col-row">
-              <th className="ops-sticky-col">Athlete</th>
-              <th>Performance</th>
-              <th>Submitted</th>
-              <th>Bed</th>
-              <th>Wake</th>
-              <th>Duration</th>
-              <th>Quality</th>
-              <th>Sleep risk</th>
-              <th>Fatigue</th>
-              <th>Soreness</th>
-              <th>Mood</th>
-              <th>Stress</th>
-              <th>Score</th>
+              {visible.map((col) => (
+                <th
+                  key={col.id}
+                  className={col.id === 'athlete' ? 'ops-sticky-col' : undefined}
+                >
+                  {metaFor(col.id).label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((p) => {
               const w = p.wellness
               const pending = p.status === 'pending' || !w
-              const name = `${p.firstName} ${p.lastName}`
-              const initials =
-                `${p.firstName?.[0] ?? ''}${p.lastName?.[0] ?? ''}`.toUpperCase() || '?'
               return (
                 <tr
                   key={p.id}
@@ -141,77 +274,7 @@ export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[]
                     w?.statusText === 'ALERT' ? 'is-alert' : ''
                   }`}
                 >
-                  <td className="ops-sticky-col">
-                    <div className="ops-cell-athlete">
-                      <div className="ops-cell-avatar">
-                        {p.image ? (
-                          <Image
-                            src={p.image}
-                            alt=""
-                            width={36}
-                            height={36}
-                            unoptimized
-                            className="ops-t-avatar-img"
-                          />
-                        ) : (
-                          <span>{initials}</span>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="ops-cell-name">{name}</div>
-                        <div className="ops-cell-sub">
-                          {p.rank != null ? `#${p.rank}` : '—'}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{statusBadge(w, pending)}</td>
-                  <td className="ops-mono">{timeShort(p.submittedAt)}</td>
-                  <td className="ops-mono">{w?.sleepBedtime ?? '—'}</td>
-                  <td className="ops-mono">{w?.sleepWake ?? '—'}</td>
-                  <td>
-                    <span style={{ color: durationColor(w?.sleepDuration), fontWeight: 650 }}>
-                      {w?.sleepDuration ?? '—'}
-                    </span>
-                  </td>
-                  <td>
-                    <LoadCell value={w?.sleepQuality.value ?? null} />
-                  </td>
-                  <td>
-                    {w ? (
-                      <span
-                        className={`ops-badge ${w.risk.sleep ? 'is-warn' : 'is-ok'}`}
-                      >
-                        {w.risk.sleep ? 'Attention' : 'Stable'}
-                      </span>
-                    ) : (
-                      <span className="ops-t-muted">—</span>
-                    )}
-                  </td>
-                  <td>
-                    <LoadCell value={w?.fatigue.value ?? null} />
-                  </td>
-                  <td>
-                    <LoadCell value={w?.soreness.value ?? null} />
-                  </td>
-                  <td>
-                    <LoadCell value={w?.mood.value ?? null} />
-                  </td>
-                  <td>
-                    <LoadCell value={w?.stress.value ?? null} />
-                  </td>
-                  <td>
-                    {w?.readiness != null ? (
-                      <span
-                        className="ops-ready-score"
-                        style={{ color: w.readinessColor }}
-                      >
-                        {w.readiness.toFixed(1)}
-                      </span>
-                    ) : (
-                      <span className="ops-t-muted">—</span>
-                    )}
-                  </td>
+                  {visible.map((col) => renderCell(col.id, p))}
                 </tr>
               )
             })}

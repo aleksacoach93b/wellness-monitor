@@ -19,9 +19,15 @@ import WellnessFlipCard, {
 } from '@/components/admin/ops/WellnessFlipCard'
 import OpsAlertTicker from '@/components/admin/ops/OpsAlertTicker'
 import OpsWellnessTable from '@/components/admin/ops/OpsWellnessTable'
+import OpsColumnBuilder from '@/components/admin/ops/OpsColumnBuilder'
 import OpsCalendar from '@/components/admin/ops/OpsCalendar'
 import OpsBodyMapsSection from '@/components/admin/ops/OpsBodyMapsSection'
 import type { PlayerWellness, TeamWellnessSummary } from '@/lib/opsWellness'
+import {
+  DEFAULT_OPS_COLUMNS,
+  normalizeOpsColumns,
+  type OpsColumnConfig,
+} from '@/lib/opsTableColumns'
 import './ops-wellness.css'
 
 type OpsPayload = {
@@ -123,6 +129,8 @@ export default function LiveOpsPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [tableColumns, setTableColumns] = useState<OpsColumnConfig[]>(DEFAULT_OPS_COLUMNS)
+  const [savingColumns, setSavingColumns] = useState(false)
 
   const surveyIdRef = useRef(surveyId)
   const selectedDateRef = useRef(selectedDate)
@@ -131,6 +139,7 @@ export default function LiveOpsPage() {
   const navAbortRef = useRef<AbortController | null>(null)
   const navSeqRef = useRef(0)
   const prefetchingRef = useRef(new Set<string>())
+  const saveColumnsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     surveyIdRef.current = surveyId
@@ -302,6 +311,40 @@ export default function LiveOpsPage() {
       if (sid) void hydrateMonthBackground(sid, monthKey(today))
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetch('/api/ops/table-preferences', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => {
+        if (cancelled || !payload?.columns) return
+        setTableColumns(normalizeOpsColumns(payload.columns))
+      })
+      .catch(() => {
+        /* keep defaults */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const persistColumns = useCallback((next: OpsColumnConfig[]) => {
+    const normalized = normalizeOpsColumns(next)
+    setTableColumns(normalized)
+    if (saveColumnsTimerRef.current) clearTimeout(saveColumnsTimerRef.current)
+    saveColumnsTimerRef.current = setTimeout(() => {
+      setSavingColumns(true)
+      void fetch('/api/ops/table-preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ columns: normalized }),
+      })
+        .catch(() => {
+          /* keep local layout even if save fails */
+        })
+        .finally(() => setSavingColumns(false))
+    }, 350)
   }, [])
 
   useEffect(() => {
@@ -492,6 +535,13 @@ export default function LiveOpsPage() {
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {viewMode === 'table' ? (
+            <OpsColumnBuilder
+              columns={tableColumns}
+              onChange={persistColumns}
+              saving={savingColumns}
+            />
+          ) : null}
           <div className="ops-view-switch" role="group" aria-label="View mode">
             <button
               type="button"
@@ -551,7 +601,7 @@ export default function LiveOpsPage() {
         </div>
       ) : viewMode === 'table' ? (
         <div className="ops-table-stack">
-          <OpsWellnessTable players={sortedCards} />
+          <OpsWellnessTable players={sortedCards} columns={tableColumns} />
           <OpsBodyMapsSection players={sortedCards} />
         </div>
       ) : (

@@ -1,0 +1,163 @@
+'use client'
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, ChevronUp, GripVertical, RotateCcw, Settings2 } from 'lucide-react'
+import {
+  DEFAULT_OPS_COLUMNS,
+  metaFor,
+  normalizeOpsColumns,
+  type OpsColumnConfig,
+} from '@/lib/opsTableColumns'
+
+type Props = {
+  columns: OpsColumnConfig[]
+  onChange: (next: OpsColumnConfig[]) => void
+  saving?: boolean
+}
+
+export default function OpsColumnBuilder({ columns, onChange, saving }: Props) {
+  const [open, setOpen] = useState(false)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  const normalized = useMemo(() => normalizeOpsColumns(columns), [columns])
+  const enabledCount = normalized.filter((c) => c.enabled).length
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (!panelRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const move = (index: number, dir: -1 | 1) => {
+    const next = [...normalized]
+    const target = index + dir
+    if (target < 0 || target >= next.length) return
+    // Keep athlete pinned at top.
+    if (next[index].id === 'athlete' || next[target].id === 'athlete') return
+    ;[next[index], next[target]] = [next[target], next[index]]
+    onChange(next)
+  }
+
+  const toggle = (id: string) => {
+    const meta = metaFor(id as OpsColumnConfig['id'])
+    if (meta.required) return
+    onChange(
+      normalized.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c)),
+    )
+  }
+
+  const onDragStart = (id: string) => {
+    if (id === 'athlete') return
+    setDragId(id)
+  }
+
+  const onDragOver = (e: React.DragEvent, overId: string) => {
+    e.preventDefault()
+    if (!dragId || dragId === overId || overId === 'athlete' || dragId === 'athlete') return
+    const from = normalized.findIndex((c) => c.id === dragId)
+    const to = normalized.findIndex((c) => c.id === overId)
+    if (from < 0 || to < 0 || from === to) return
+    const next = [...normalized]
+    const [item] = next.splice(from, 1)
+    next.splice(to, 0, item)
+    onChange(next)
+  }
+
+  const onDragEnd = () => setDragId(null)
+
+  return (
+    <div className="ops-col-builder" ref={panelRef}>
+      <button
+        type="button"
+        className={`ops-col-builder-toggle${open ? ' is-open' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <Settings2 className="h-3.5 w-3.5" />
+        Customize columns
+        <span className="ops-col-builder-count">
+          {enabledCount}/{normalized.length}
+        </span>
+        {saving ? <em className="ops-col-builder-saving">Saving…</em> : null}
+      </button>
+
+      {open ? (
+        <div className="ops-col-builder-panel">
+          <header className="ops-col-builder-head">
+            <div>
+              <strong>Your monitoring layout</strong>
+              <p>Toggle metrics and reorder — saved for this account on this team.</p>
+            </div>
+            <button
+              type="button"
+              className="ops-col-builder-reset"
+              onClick={() => onChange(DEFAULT_OPS_COLUMNS)}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset
+            </button>
+          </header>
+
+          <ul className="ops-col-builder-list">
+            {normalized.map((col, index) => {
+              const meta = metaFor(col.id)
+              return (
+                <li
+                  key={col.id}
+                  className={`ops-col-builder-item${col.enabled ? ' is-on' : ''}${
+                    dragId === col.id ? ' is-dragging' : ''
+                  }`}
+                  draggable={!meta.required}
+                  onDragStart={() => onDragStart(col.id)}
+                  onDragOver={(e) => onDragOver(e, col.id)}
+                  onDragEnd={onDragEnd}
+                >
+                  <span className="ops-col-builder-grip" aria-hidden>
+                    <GripVertical className="h-3.5 w-3.5" />
+                  </span>
+                  <label className="ops-col-builder-check">
+                    <input
+                      type="checkbox"
+                      checked={col.enabled}
+                      disabled={meta.required}
+                      onChange={() => toggle(col.id)}
+                    />
+                    <span>
+                      <b>{meta.label}</b>
+                      <small>
+                        {meta.group}
+                        {meta.description ? ` · ${meta.description}` : ''}
+                      </small>
+                    </span>
+                  </label>
+                  <div className="ops-col-builder-move">
+                    <button
+                      type="button"
+                      aria-label="Move up"
+                      disabled={index === 0 || col.id === 'athlete' || normalized[index - 1]?.id === 'athlete'}
+                      onClick={() => move(index, -1)}
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Move down"
+                      disabled={index === normalized.length - 1 || col.id === 'athlete'}
+                      onClick={() => move(index, 1)}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  )
+}

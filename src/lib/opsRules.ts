@@ -262,8 +262,6 @@ export function metricValueForPlayer(
       return w.risk.sleep ? 1 : 0
     case 'painMax':
       return w.pain.hasData ? (w.pain.max ?? null) : null
-    case 'pending':
-      return player.status === 'pending' ? 1 : 0
   }
 }
 

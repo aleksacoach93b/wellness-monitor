@@ -5,8 +5,8 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 /**
- * Single-round-trip payload for kiosk open:
- * settings + survey + players/status + tags + admin-access password.
+ * Fast kiosk open payload — NO player images / NO questions.
+ * Images hydrate via /avatars; questions load when coach mode opens.
  */
 export async function GET(
   _request: Request,
@@ -17,10 +17,23 @@ export async function GET(
 
     const survey = await prisma.survey.findUnique({
       where: { id: surveyId },
-      include: {
-        questions: {
-          orderBy: { order: 'asc' },
-        },
+      select: {
+        id: true,
+        teamId: true,
+        title: true,
+        description: true,
+        isActive: true,
+        isRecurring: true,
+        startDate: true,
+        endDate: true,
+        dailyStartTime: true,
+        dailyEndTime: true,
+        timezone: true,
+        trackSessionType: true,
+        trackMatchDay: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
       },
     })
 
@@ -71,8 +84,8 @@ export async function GET(
           id: true,
           firstName: true,
           lastName: true,
-          image: true,
           password: true,
+          // image intentionally omitted — hydrate via /avatars
         },
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       }),
@@ -97,6 +110,7 @@ export async function GET(
       const responseId = responseByPlayer.get(player.id)
       return {
         ...player,
+        image: null as string | null,
         hasResponded: Boolean(responseId),
         responseId,
       }
@@ -112,7 +126,6 @@ export async function GET(
       },
       {
         headers: {
-          // Private device kiosk; avoid intermediary caching of live status
           'Cache-Control': 'private, no-store',
         },
       },

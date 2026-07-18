@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use, useMemo, useCallback } from 'react'
+import { useState, useEffect, use, useMemo, useCallback, type Dispatch, type SetStateAction } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Survey, Question } from '@prisma/client'
@@ -64,6 +64,24 @@ type KioskBootstrap = {
   adminAccessPassword?: string
   tags: Array<{ name: string; category: string }>
   players: PlayerWithStatus[]
+}
+
+async function hydrateKioskAvatars(
+  surveyId: string,
+  setPlayers: Dispatch<SetStateAction<PlayerWithStatus[]>>,
+) {
+  try {
+    const res = await fetch(`/api/kiosk/${surveyId}/avatars`, { cache: 'default' })
+    if (!res.ok) return
+    const data = (await res.json()) as { avatars?: Record<string, string> }
+    const avatars = data.avatars || {}
+    if (!Object.keys(avatars).length) return
+    setPlayers((prev) =>
+      prev.map((p) => (avatars[p.id] ? { ...p, image: avatars[p.id] } : p)),
+    )
+  } catch (error) {
+    console.error('Avatar hydrate failed:', error)
+  }
 }
 
 function kioskPlayerInitial(player: Pick<PlayerWithStatus, 'firstName' | 'lastName'>): string {
@@ -137,7 +155,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     setMatchDayTags(tagRows.filter((t) => t.category === 'MATCHDAY').map((t) => t.name))
 
     setSurvey(data.survey)
-    if (data.survey?.questions) setSurveyQuestions(data.survey.questions)
+    // Questions are loaded lazily for coach mode (keeps open path tiny)
+    if (data.survey?.questions?.length) setSurveyQuestions(data.survey.questions)
     setPlayers(data.players || [])
 
     if (data.survey?.isRecurring) {
@@ -178,6 +197,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         } else {
           setShowKioskPassword(false)
         }
+
+        // Show UI immediately; photos fill in after (were ~12MB blocking open)
+        void hydrateKioskAvatars(surveyId, setPlayers)
       } catch (error) {
         console.error('Error loading kiosk bootstrap:', error)
       } finally {
@@ -377,6 +399,25 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     }
   }, [surveyId])
 
+  const ensureCoachQuestions = useCallback(async () => {
+    if (surveyQuestions.length > 0) return
+    try {
+      const res = await fetch(`/api/surveys/${surveyId}`, { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      if (Array.isArray(data?.questions)) {
+        setSurveyQuestions(data.questions)
+      }
+    } catch (error) {
+      console.error('Failed to load survey questions for coach mode:', error)
+    }
+  }, [surveyId, surveyQuestions.length])
+
+  const enterCoachMode = useCallback(() => {
+    setIsCoachMode(true)
+    void ensureCoachQuestions()
+  }, [ensureCoachQuestions])
+
   const handleCoachToggle = () => {
     if (isCoachMode) {
       setIsCoachMode(false)
@@ -386,7 +427,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       setShowCoachPasswordModal(true)
       return
     }
-    setIsCoachMode(true)
+    enterCoachMode()
   }
 
   const handleCoachPasswordSubmit = () => {
@@ -394,7 +435,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       setCoachAuthenticated(true)
       setShowCoachPasswordModal(false)
       setCoachPassword('')
-      setIsCoachMode(true)
+      enterCoachMode()
     } else {
       alert('Incorrect password. Please try again.')
       setCoachPassword('')
@@ -892,7 +933,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         </div>
       )}
 
-      {isCoachMode && survey && surveyQuestions.length > 0 ? (
+      {isCoachMode && survey ? (
+        surveyQuestions.length > 0 ? (
         <CoachModeView
           survey={{ ...survey, questions: surveyQuestions }}
           players={players}
@@ -902,8 +944,17 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           onBack={() => setIsCoachMode(false)}
           onRefresh={() => {
             void loadBootstrap({ silent: true })
+            void hydrateKioskAvatars(surveyId, setPlayers)
           }}
         />
+        ) : (
+          <div className={`flex min-h-screen items-center justify-center ${activeTheme.rootBackground}`}>
+            <div className="text-center">
+              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-slate-500 border-t-teal-400" />
+              <p className={`mt-4 text-sm ${text.textSoft}`}>Loading coach mode…</p>
+            </div>
+          </div>
+        )
       ) : (
       <>
       <div className={`relative ${activeTheme.panelBackground} backdrop-blur-xl py-4 sm:py-8`}>

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, use, useMemo, useCallback, type Dispatch, type SetStateAction } from 'react'
+import { useState, useEffect, use, useMemo, useCallback, useRef, type Dispatch, type SetStateAction } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Survey, Question } from '@prisma/client'
-import { CheckCircle, Play, User, Home, Maximize, Minimize, ClipboardList, Users, Search, Clock3 } from 'lucide-react'
+import { CheckCircle, Play, User, Home, Maximize, Minimize, ClipboardList, Users, Search, Clock3, MoreVertical } from 'lucide-react'
 import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
@@ -137,6 +137,27 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [kioskGatePassword, setKioskGatePassword] = useState<string | null>(null)
   const [showCoachPasswordModal, setShowCoachPasswordModal] = useState(false)
   const [coachAuthenticated, setCoachAuthenticated] = useState(false)
+  const [staffMenuOpen, setStaffMenuOpen] = useState(false)
+  const staffMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!staffMenuOpen) return
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      const el = staffMenuRef.current
+      if (el && !el.contains(e.target as Node)) setStaffMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setStaffMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [staffMenuOpen])
 
   const applyBootstrap = useCallback((data: KioskBootstrap) => {
     const ks = data.kioskSettings
@@ -665,10 +686,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       <div className={`absolute inset-0 ${activeTheme.overlayOne}`}></div>
       <div className={`absolute top-0 left-0 w-full h-full ${activeTheme.overlayTwo}`}></div>
       
-      {/* Kiosk Header — compact, design-first */}
+      {/* Kiosk Header — player-first; staff actions in discreet menu */}
       <header className={`sticky top-0 z-30 ${activeTheme.headerBackground}`}>
         <div className={`absolute inset-0 ${activeTheme.headerOverlay}`} aria-hidden />
-        <div className="relative mx-auto flex max-w-7xl items-center gap-3 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-3.5">
+        <div className="relative mx-auto flex max-w-7xl items-center gap-3 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-3">
           {showClubBranding && (clubName || clubLogo) ? (
             <KioskClubBrand
               clubName={clubName}
@@ -682,62 +703,92 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           ) : null}
 
           <div className="min-w-0 flex-1">
-            <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${text.textFaint}`}>
-              {isCoachMode ? 'Coach mode' : 'Player check-in'}
-            </p>
             <h1
-              className={`truncate text-[1.05rem] font-semibold tracking-tight sm:text-xl lg:text-2xl ${text.textStrong}`}
+              className={`truncate text-[1.15rem] font-semibold tracking-tight sm:text-xl lg:text-2xl ${text.textStrong}`}
             >
               {survey.title}
             </h1>
             <p className={`mt-0.5 truncate text-xs sm:text-sm ${text.textSoft}`}>
-              {isCoachMode ? 'Fill in data for each player' : 'Search or tap your name to start'}
+              {isCoachMode ? 'Coach mode · fill in for each player' : 'Tap your name to start'}
             </p>
           </div>
 
-          <div
-            className={`flex shrink-0 items-center gap-1 rounded-2xl border p-1 backdrop-blur-md sm:gap-1.5 sm:p-1.5 ${
-              kioskTheme === 'light' || kioskTheme === 'sand'
-                ? 'border-slate-200/80 bg-white/70'
-                : 'border-white/10 bg-black/25'
-            }`}
-          >
+          <div className="relative shrink-0" ref={staffMenuRef}>
             <button
               type="button"
-              onClick={handleCoachToggle}
-              className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold transition-colors sm:h-11 sm:px-3.5 sm:text-sm ${
-                isCoachMode
-                  ? `${activeTheme.primaryButton} text-white`
-                  : `${text.textSoft} hover:bg-white/10`
-              }`}
-              title={isCoachMode ? 'Switch to Player Mode' : 'Switch to Coach Mode'}
-              aria-label={isCoachMode ? 'Switch to Player Mode' : 'Switch to Coach Mode'}
+              onClick={() => setStaffMenuOpen((o) => !o)}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
+                kioskTheme === 'light' || kioskTheme === 'sand'
+                  ? 'border-slate-200/80 bg-white/60 text-slate-600 hover:bg-white'
+                  : 'border-white/10 bg-black/20 text-white/55 hover:bg-white/10 hover:text-white/85'
+              } ${isCoachMode ? 'ring-2 ring-teal-400/50' : ''}`}
+              aria-label="Staff menu"
+              aria-haspopup="menu"
+              aria-expanded={staffMenuOpen}
+              title="Staff"
             >
-              {isCoachMode ? <Users className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
-              <span className="hidden sm:inline">{isCoachMode ? 'Players' : 'Coach'}</span>
+              <MoreVertical className="h-5 w-5" />
             </button>
-            <button
-              type="button"
-              onClick={handleHomeClick}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors sm:h-11 sm:w-auto sm:gap-1.5 sm:px-3.5 ${text.textSoft} hover:bg-white/10`}
-              title="Home (Admin Access Required)"
-              aria-label="Admin"
-            >
-              <Home className="h-4 w-4" />
-              <span className="hidden text-xs font-semibold sm:inline sm:text-sm">Admin</span>
-            </button>
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors sm:h-11 sm:w-auto sm:gap-1.5 sm:px-3.5 ${text.textSoft} hover:bg-white/10`}
-              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-              aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-            >
-              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-              <span className="hidden text-xs font-semibold sm:inline sm:text-sm">
-                {isFullscreen ? 'Exit' : 'Full'}
-              </span>
-            </button>
+
+            {staffMenuOpen ? (
+              <div
+                role="menu"
+                className={`absolute right-0 top-full z-40 mt-2 w-52 overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl ${
+                  kioskTheme === 'light' || kioskTheme === 'sand'
+                    ? 'border-slate-200 bg-white/95 text-slate-800'
+                    : 'border-white/10 bg-slate-950/95 text-white'
+                }`}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setStaffMenuOpen(false)
+                    handleCoachToggle()
+                  }}
+                  className={`flex w-full items-center gap-2.5 px-3.5 py-3 text-left text-sm font-medium transition-colors ${
+                    kioskTheme === 'light' || kioskTheme === 'sand'
+                      ? 'hover:bg-slate-100'
+                      : 'hover:bg-white/8'
+                  }`}
+                >
+                  {isCoachMode ? <Users className="h-4 w-4 opacity-70" /> : <ClipboardList className="h-4 w-4 opacity-70" />}
+                  {isCoachMode ? 'Player mode' : 'Coach mode'}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setStaffMenuOpen(false)
+                    handleHomeClick()
+                  }}
+                  className={`flex w-full items-center gap-2.5 px-3.5 py-3 text-left text-sm font-medium transition-colors ${
+                    kioskTheme === 'light' || kioskTheme === 'sand'
+                      ? 'hover:bg-slate-100'
+                      : 'hover:bg-white/8'
+                  }`}
+                >
+                  <Home className="h-4 w-4 opacity-70" />
+                  Admin
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setStaffMenuOpen(false)
+                    void toggleFullscreen()
+                  }}
+                  className={`flex w-full items-center gap-2.5 px-3.5 py-3 text-left text-sm font-medium transition-colors ${
+                    kioskTheme === 'light' || kioskTheme === 'sand'
+                      ? 'hover:bg-slate-100'
+                      : 'hover:bg-white/8'
+                  }`}
+                >
+                  {isFullscreen ? <Minimize className="h-4 w-4 opacity-70" /> : <Maximize className="h-4 w-4 opacity-70" />}
+                  {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </header>

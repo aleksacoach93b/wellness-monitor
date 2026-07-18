@@ -152,7 +152,7 @@ export default function AdminChrome({
           </div>
         )}
 
-        <div className="admin-main min-w-0 flex-1 px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-8">
+        <div className="admin-main min-w-0 flex-1 px-3 pb-10 pt-20 sm:px-4 lg:px-5 lg:pt-8">
           {children}
         </div>
       </div>

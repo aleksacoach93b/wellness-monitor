@@ -17,26 +17,19 @@ function timeShort(iso: string | null) {
   }
 }
 
-function LoadCell({
-  value,
-  color,
-  higherIsWorse,
-}: {
-  value: number | null
-  color: string
-  higherIsWorse?: boolean
-}) {
+/** 1 = worst (red), 10 = best (green) — all wellness 1–10 scales. */
+function scaleColor(value: number) {
+  if (value < 3) return '#ef4444'
+  if (value < 5) return '#f97316'
+  if (value < 7) return '#facc15'
+  if (value < 9) return '#84cc16'
+  return '#22c55e'
+}
+
+function LoadCell({ value }: { value: number | null }) {
   if (value == null) return <span className="ops-t-muted">—</span>
-  // Reference app shows fuller bar as "better" green for high wellness scores;
-  // for fatigue/soreness higher is worse — still show fill by raw value/10 for scan speed.
   const pct = Math.round(Math.min(100, Math.max(8, value * 10)))
-  const barColor = higherIsWorse
-    ? value >= 7
-      ? '#ef4444'
-      : value >= 4
-        ? '#f97316'
-        : '#22c55e'
-    : color
+  const barColor = scaleColor(value)
   return (
     <div className="ops-load-cell">
       <div className="ops-load-bar">
@@ -163,28 +156,18 @@ export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[]
                   <td className="ops-mono">{w?.sleepBedtime ?? '—'}</td>
                   <td className="ops-mono">{w?.sleepWake ?? '—'}</td>
                   <td>
-                    <span style={{ color: durationColor, fontWeight: 750 }}>
+                    <span style={{ color: durationColor, fontWeight: 650 }}>
                       {w?.sleepDuration ?? '—'}
                     </span>
                   </td>
                   <td>
-                    <LoadCell
-                      value={w?.sleepQuality.value ?? null}
-                      color={w?.sleepQuality.color ?? '#64748b'}
-                    />
+                    <LoadCell value={w?.sleepQuality.value ?? null} />
                   </td>
                   <td>
-                    <LoadCell
-                      value={w?.fatigue.value ?? null}
-                      color={w?.fatigue.color ?? '#64748b'}
-                      higherIsWorse
-                    />
+                    <LoadCell value={w?.fatigue.value ?? null} />
                   </td>
                   <td>
-                    <LoadCell
-                      value={w?.mood.value ?? null}
-                      color={w?.mood.color ?? '#64748b'}
-                    />
+                    <LoadCell value={w?.mood.value ?? null} />
                   </td>
                   <td>
                     {w ? (
@@ -198,11 +181,7 @@ export default function OpsWellnessTable({ players }: { players: OpsPlayerCard[]
                     )}
                   </td>
                   <td>
-                    <LoadCell
-                      value={w?.soreness.value ?? null}
-                      color={w?.soreness.color ?? '#64748b'}
-                      higherIsWorse
-                    />
+                    <LoadCell value={w?.soreness.value ?? null} />
                   </td>
                   <td>
                     {w?.readiness != null ? (

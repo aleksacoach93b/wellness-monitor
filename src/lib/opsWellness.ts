@@ -217,13 +217,13 @@ export function parseDayMetrics(answers: AnswerLike[]): DayMetrics {
     }
   }
 
-  // Derive readiness if missing: higher sleep/mood + lower fatigue/soreness
+  // Derive readiness if missing: all 1–10 scales are higher-better
   if (out.readiness == null) {
     const parts: number[] = []
     if (out.sleepQuality != null) parts.push(out.sleepQuality)
     if (out.mood != null) parts.push(out.mood)
-    if (out.fatigue != null) parts.push(10 - out.fatigue)
-    if (out.soreness != null) parts.push(10 - out.soreness)
+    if (out.fatigue != null) parts.push(out.fatigue)
+    if (out.soreness != null) parts.push(out.soreness)
     if (parts.length >= 2) {
       out.readiness = parts.reduce((a, b) => a + b, 0) / parts.length
     }
@@ -260,19 +260,13 @@ function readinessHint(readiness: number | null) {
   return 'Ready to train'
 }
 
-function higherWorseColor(v: number | null) {
-  if (v == null) return '#64748b'
-  if (v <= 3) return '#22c55e'
-  if (v <= 6) return '#facc15'
-  if (v <= 8) return '#f97316'
-  return '#ef4444'
-}
-
-function higherBetterColor(v: number | null) {
+/** Wellness 1–10 scales: 1 = worst (red), 10 = best (green). */
+function scaleColor(v: number | null) {
   if (v == null) return '#64748b'
   if (v < 3) return '#ef4444'
-  if (v < 6) return '#f97316'
-  if (v < 8) return '#facc15'
+  if (v < 5) return '#f97316'
+  if (v < 7) return '#facc15'
+  if (v < 9) return '#84cc16'
   return '#22c55e'
 }
 
@@ -362,28 +356,19 @@ function metricRow(
   value: number | null,
   avg3: number | null,
   z: number | null,
-  higherIsWorse: boolean,
 ): MetricRow {
-  const scoreForBar = value == null ? 0 : higherIsWorse ? Math.max(0, 10 - value) : Math.max(0, value)
+  const scoreForBar = value == null ? 0 : Math.max(0, value)
   const pct = Math.round(clamp(scoreForBar * 10, 0, 100))
   const markerPct =
-    avg3 == null
-      ? null
-      : Math.round(clamp((higherIsWorse ? Math.max(0, 10 - avg3) : Math.max(0, avg3)) * 10, 0, 100))
+    avg3 == null ? null : Math.round(clamp(Math.max(0, avg3) * 10, 0, 100))
   const delta3 = value != null && avg3 != null ? value - avg3 : null
   let delta3Color = '#94a3b8'
   if (delta3 != null) {
-    if (higherIsWorse) {
-      if (delta3 <= -0.5) delta3Color = '#22c55e'
-      else if (delta3 < 0.5) delta3Color = '#cbd5e1'
-      else if (delta3 < 1.5) delta3Color = '#f97316'
-      else delta3Color = '#ef4444'
-    } else {
-      if (delta3 >= 0.5) delta3Color = '#22c55e'
-      else if (delta3 > -0.5) delta3Color = '#cbd5e1'
-      else if (delta3 > -1.5) delta3Color = '#f97316'
-      else delta3Color = '#ef4444'
-    }
+    // Higher score is better → rising delta is good
+    if (delta3 >= 0.5) delta3Color = '#22c55e'
+    else if (delta3 > -0.5) delta3Color = '#cbd5e1'
+    else if (delta3 > -1.5) delta3Color = '#f97316'
+    else delta3Color = '#ef4444'
   }
   return {
     value,
@@ -391,7 +376,7 @@ function metricRow(
     avg3,
     delta3,
     pct,
-    color: higherIsWorse ? higherWorseColor(value) : higherBetterColor(value),
+    color: scaleColor(value),
     markerPct,
     delta3Color,
   }
@@ -423,8 +408,9 @@ export function buildPlayerWellness(args: {
   const sleepZ = zScore(today.sleepQuality, teamToday.sleepQuality)
   const moodZ = zScore(today.mood, teamToday.mood)
 
-  const fatigueRiskZ = Math.max(0, fatigueZ ?? 0)
-  const sorenessRiskZ = Math.max(0, sorenessZ ?? 0)
+  // Low scores are risky on 1–10 higher-better scales
+  const fatigueRiskZ = Math.max(0, -(fatigueZ ?? 0))
+  const sorenessRiskZ = Math.max(0, -(sorenessZ ?? 0))
   const sleepRiskZ = Math.max(0, -(sleepZ ?? 0))
   const moodRiskZ = Math.max(0, -(moodZ ?? 0))
   const riskLoad = fatigueRiskZ + sorenessRiskZ + sleepRiskZ + moodRiskZ
@@ -452,14 +438,15 @@ export function buildPlayerWellness(args: {
     today.fatigue != null && prevFatigue != null ? today.fatigue - prevFatigue : null
   let fatigueDeltaColor = '#94a3b8'
   if (fatigueDelta != null) {
-    if (fatigueDelta <= -0.5) fatigueDeltaColor = '#22c55e'
-    else if (fatigueDelta < 0.5) fatigueDeltaColor = '#facc15'
-    else if (fatigueDelta < 1.5) fatigueDeltaColor = '#f97316'
+    // Rising score = better recovery feel
+    if (fatigueDelta >= 0.5) fatigueDeltaColor = '#22c55e'
+    else if (fatigueDelta > -0.5) fatigueDeltaColor = '#facc15'
+    else if (fatigueDelta > -1.5) fatigueDeltaColor = '#f97316'
     else fatigueDeltaColor = '#ef4444'
   }
 
-  const fatigueRisk = (today.fatigue != null && today.fatigue >= 7) || (fatigueZ ?? 0) >= 1
-  const sorenessRisk = (today.soreness != null && today.soreness >= 7) || (sorenessZ ?? 0) >= 1
+  const fatigueRisk = (today.fatigue != null && today.fatigue < 6) || (fatigueZ ?? 0) <= -1
+  const sorenessRisk = (today.soreness != null && today.soreness < 6) || (sorenessZ ?? 0) <= -1
   const sleepRisk = (today.sleepQuality != null && today.sleepQuality < 6) || (sleepZ ?? 0) <= -1
   const painRisk = pain.hasData
   const sourceCount =
@@ -485,10 +472,10 @@ export function buildPlayerWellness(args: {
     sleepBedtime: today.sleepBedtime,
     sleepWake: today.sleepWake,
     sleepDuration: today.sleepDuration,
-    fatigue: metricRow(today.fatigue, avg3.fatigue, fatigueZ, true),
-    soreness: metricRow(today.soreness, avg3.soreness, sorenessZ, true),
-    sleepQuality: metricRow(today.sleepQuality, avg3.sleepQuality, sleepZ, false),
-    mood: metricRow(today.mood, avg3.mood, moodZ, false),
+    fatigue: metricRow(today.fatigue, avg3.fatigue, fatigueZ),
+    soreness: metricRow(today.soreness, avg3.soreness, sorenessZ),
+    sleepQuality: metricRow(today.sleepQuality, avg3.sleepQuality, sleepZ),
+    mood: metricRow(today.mood, avg3.mood, moodZ),
     prevFatigue,
     fatigueDelta,
     fatigueDeltaColor,
@@ -534,7 +521,8 @@ export function buildTeamWellnessSummary(
     } else if (w.statusText === 'READY' || (w.readiness != null && w.readiness >= 8)) {
       readyCount += 1
     }
-    if (w.fatigueDelta != null && w.fatigueDelta >= 0.5) fatigueUpCount += 1
+    // Count worsening (score drop) — 1–10 higher-better
+    if (w.fatigueDelta != null && w.fatigueDelta <= -0.5) fatigueUpCount += 1
     if (w.fatigueDelta != null) deltas.push(w.fatigueDelta)
   }
 
@@ -546,9 +534,9 @@ export function buildTeamWellnessSummary(
   const teamFatigueDelta = mean(deltas)
   let teamFatigueDeltaColor = '#94a3b8'
   if (teamFatigueDelta != null) {
-    if (teamFatigueDelta <= -0.4) teamFatigueDeltaColor = '#22c55e'
-    else if (teamFatigueDelta < 0.4) teamFatigueDeltaColor = '#facc15'
-    else if (teamFatigueDelta < 1.0) teamFatigueDeltaColor = '#f97316'
+    if (teamFatigueDelta >= 0.4) teamFatigueDeltaColor = '#22c55e'
+    else if (teamFatigueDelta > -0.4) teamFatigueDeltaColor = '#facc15'
+    else if (teamFatigueDelta > -1.0) teamFatigueDeltaColor = '#f97316'
     else teamFatigueDeltaColor = '#ef4444'
   }
 

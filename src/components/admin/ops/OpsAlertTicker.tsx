@@ -15,8 +15,8 @@ function buildTickerItems(players: OpsPlayerCard[]): TickerItem[] {
   const items: TickerItem[] = []
 
   const byFatigue = [...done]
-    .filter((p) => (p.wellness?.fatigue.value ?? 0) >= 6)
-    .sort((a, b) => (b.wellness!.fatigue.value ?? 0) - (a.wellness!.fatigue.value ?? 0))
+    .filter((p) => (p.wellness?.fatigue.value ?? 10) < 6)
+    .sort((a, b) => (a.wellness!.fatigue.value ?? 10) - (b.wellness!.fatigue.value ?? 10))
     .slice(0, 6)
   for (const p of byFatigue) {
     const v = p.wellness!.fatigue.value!
@@ -45,11 +45,16 @@ function buildTickerItems(players: OpsPlayerCard[]): TickerItem[] {
   }
 
   const bySore = [...done]
-    .filter((p) => p.wellness!.sorenessMap.hasData || (p.wellness!.soreness.value ?? 0) >= 6)
+    .filter(
+      (p) =>
+        p.wellness!.sorenessMap.hasData || (p.wellness!.soreness.value ?? 10) < 6,
+    )
     .sort((a, b) => {
-      const as = b.wellness!.sorenessMap.max ?? b.wellness!.soreness.value ?? 0
-      const bs = a.wellness!.sorenessMap.max ?? a.wellness!.soreness.value ?? 0
-      return as - bs
+      // Prefer body-map intensity (higher worse), else low wellness soreness score
+      const aMap = a.wellness!.sorenessMap.max ?? 0
+      const bMap = b.wellness!.sorenessMap.max ?? 0
+      if (aMap || bMap) return bMap - aMap
+      return (a.wellness!.soreness.value ?? 10) - (b.wellness!.soreness.value ?? 10)
     })
     .slice(0, 5)
   for (const p of bySore) {
@@ -91,11 +96,11 @@ function buildTickerItems(players: OpsPlayerCard[]): TickerItem[] {
     })
   }
 
-  const fatigueUp = done
-    .filter((p) => (p.wellness!.fatigueDelta ?? 0) >= 0.5)
-    .sort((a, b) => (b.wellness!.fatigueDelta ?? 0) - (a.wellness!.fatigueDelta ?? 0))
+  const fatigueDrop = done
+    .filter((p) => (p.wellness!.fatigueDelta ?? 0) <= -0.5)
+    .sort((a, b) => (a.wellness!.fatigueDelta ?? 0) - (b.wellness!.fatigueDelta ?? 0))
     .slice(0, 4)
-  for (const p of fatigueUp) {
+  for (const p of fatigueDrop) {
     items.push({
       id: `delta-${p.id}`,
       kind: 'delta',
@@ -109,12 +114,12 @@ function buildTickerItems(players: OpsPlayerCard[]): TickerItem[] {
 }
 
 const KIND_LABEL: Record<TickerItem['kind'], string> = {
-  fatigue: 'HIGH FATIGUE',
+  fatigue: 'LOW FATIGUE SCORE',
   pain: 'PAIN',
   soreness: 'SORENESS',
   alert: 'ALERT',
   sleep: 'SLEEP RISK',
-  delta: 'FATIGUE ↑',
+  delta: 'FATIGUE ↓',
 }
 
 export default function OpsAlertTicker({ players }: { players: OpsPlayerCard[] }) {

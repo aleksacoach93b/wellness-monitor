@@ -4,8 +4,10 @@
   width: 100%;
   padding: 4px 0 12px;
   box-sizing: border-box;
-  font-family: 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-outfit), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   color: #e5edf7;
+  font-feature-settings: 'ss01' 1, 'cv11' 1;
+  letter-spacing: 0.005em;
 }
 
 .sg7-page * {
@@ -48,18 +50,21 @@
 .sg7-summary small {
   display: block;
   font-size: 9px;
-  font-weight: 650;
+  font-weight: 600;
   color: #8fa2c0;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 .sg7-summary strong {
   display: inline-block;
   margin-top: 4px;
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 1;
-  font-weight: 650;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   color: #f8fafc;
 }
 
@@ -68,7 +73,7 @@
   margin-left: 6px;
   font-size: 11px;
   color: #8fa2c0;
-  font-weight: 450;
+  font-weight: 500;
 }
 
 .sg7-readiness-row {
@@ -284,10 +289,11 @@
 .sg7-name {
   margin-top: 8px;
   max-width: 180px;
-  font-size: 17px;
-  line-height: 1.1;
+  font-size: 16px;
+  line-height: 1.15;
   color: #f8fafc;
-  font-weight: 760;
+  font-weight: 700;
+  letter-spacing: -0.015em;
   word-break: break-word;
 }
 
@@ -369,9 +375,11 @@
 }
 
 .sg7-gauge-core b {
-  font-size: 16px;
+  font-size: 15px;
   color: #f8fafc;
-  font-weight: 760;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .sg7-gauge-label {
@@ -1303,6 +1311,7 @@
   border-collapse: separate;
   border-spacing: 0;
   min-width: 1100px;
+  font-family: var(--font-outfit), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 .ops-classic thead th {
@@ -1312,13 +1321,14 @@
   padding: 14px 12px;
   text-align: left;
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.11em;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #8fa2c0;
   background: rgba(3, 12, 28, 0.97);
   border-bottom: 1px solid rgba(34, 211, 238, 0.16);
   backdrop-filter: blur(8px);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 .ops-classic tbody td {
@@ -1326,6 +1336,7 @@
   border-bottom: 1px solid rgba(71, 85, 105, 0.25);
   vertical-align: middle;
   font-size: 13px;
+  font-weight: 500;
   color: #e2e8f0;
 }
 
@@ -1384,7 +1395,9 @@
 }
 
 .ops-cell-name {
-  font-weight: 750;
+  font-weight: 650;
+  font-size: 13.5px;
+  letter-spacing: -0.01em;
   color: #f8fafc;
   white-space: nowrap;
 }
@@ -1393,7 +1406,9 @@
   margin-top: 2px;
   font-size: 11px;
   color: #64748b;
-  font-weight: 650;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .ops-pill {
@@ -1548,9 +1563,11 @@
 
 .ops-cal-title {
   margin: 0;
-  font-size: 1.45rem;
-  font-weight: 780;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: #f8fafc;
+  font-family: var(--font-outfit), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 .ops-cal-copy {
@@ -1692,10 +1709,12 @@
 .ops-group-row th {
   padding: 10px 12px 6px !important;
   font-size: 10px !important;
-  letter-spacing: 0.12em;
+  font-weight: 700 !important;
+  letter-spacing: 0.16em;
   color: #7eb1f7 !important;
   border-bottom: none !important;
   background: rgba(3, 12, 28, 0.98) !important;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 .ops-col-row th {
@@ -1738,8 +1757,11 @@
 }
 
 .ops-mono {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-weight: 650;
+  font-weight: 500;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
   color: #e2e8f0;
 }
 
@@ -1752,13 +1774,15 @@
 
 .ops-load-cell b {
   min-width: 16px;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 .ops-load-bar {
   flex: 1;
-  height: 8px;
+  height: 7px;
   border-radius: 999px;
   background: rgba(30, 54, 82, 0.9);
   overflow: hidden;
@@ -1772,9 +1796,11 @@
 }
 
 .ops-ready-score {
-  font-size: 1.35rem;
-  font-weight: 820;
-  letter-spacing: 0.02em;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-outfit), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ===== Body maps section ===== */
@@ -1786,9 +1812,11 @@
 .ops-section-title {
   margin: 0;
   text-align: center;
-  font-size: 1.5rem;
-  font-weight: 780;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: #f8fafc;
+  font-family: var(--font-outfit), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 .ops-bm-grid {

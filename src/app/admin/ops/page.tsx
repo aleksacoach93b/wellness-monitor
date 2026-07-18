@@ -280,7 +280,7 @@ export default function LiveOpsPage() {
             <span>good to go</span>
           </div>
           <div>
-            <small>Fatigue ↑</small>
+            <small>Fatigue ↓</small>
             <strong style={{ color: ws.teamFatigueDeltaColor }}>{ws.fatigueUpCount}</strong>
             <span>team Δ {ws.teamFatigueDeltaText}</span>
           </div>

@@ -19,6 +19,8 @@ import WellnessFlipCard, {
 } from '@/components/admin/ops/WellnessFlipCard'
 import OpsAlertTicker from '@/components/admin/ops/OpsAlertTicker'
 import OpsWellnessTable from '@/components/admin/ops/OpsWellnessTable'
+import OpsCalendar from '@/components/admin/ops/OpsCalendar'
+import OpsBodyMapsSection from '@/components/admin/ops/OpsBodyMapsSection'
 import type { PlayerWellness, TeamWellnessSummary } from '@/lib/opsWellness'
 import './ops-wellness.css'
 
@@ -242,6 +244,12 @@ export default function LiveOpsPage() {
         </div>
       ) : null}
 
+      <OpsCalendar
+        selectedDate={selectedDate}
+        surveyId={surveyId}
+        onSelect={onDateChange}
+      />
+
       {data?.players?.length ? (
         <OpsAlertTicker players={data.players as OpsPlayerCard[]} />
       ) : null}
@@ -283,7 +291,7 @@ export default function LiveOpsPage() {
         <div className="flex items-center gap-2 text-slate-200">
           <Activity className="h-4 w-4 text-cyan-300" />
           <h2 className="text-base font-bold tracking-wide">
-            {viewMode === 'table' ? 'Squad results table' : 'Daily Wellness cards'}
+            {viewMode === 'table' ? 'Daily monitoring' : 'Daily Wellness cards'}
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -345,7 +353,10 @@ export default function LiveOpsPage() {
               : 'No players found.'}
         </div>
       ) : viewMode === 'table' ? (
-        <OpsWellnessTable players={sortedCards} />
+        <div className="ops-table-stack">
+          <OpsWellnessTable players={sortedCards} />
+          <OpsBodyMapsSection players={sortedCards} />
+        </div>
       ) : (
         <div className="sg7-grid">
           {sortedCards.map((p) => (
@@ -418,18 +429,7 @@ export default function LiveOpsPage() {
       ) : (
         <>
           <section className="admin-panel flex flex-wrap items-end gap-4 p-4 sm:p-5">
-            <div className="min-w-[180px]">
-              <label htmlFor="ops-date">Date</label>
-              <input
-                id="ops-date"
-                type="date"
-                value={selectedDate}
-                max={localToday()}
-                onChange={(e) => onDateChange(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div className="min-w-[200px] flex-1">
+            <div className="min-w-[220px] flex-1">
               <label htmlFor="ops-survey">Survey</label>
               <select
                 id="ops-survey"
@@ -444,6 +444,9 @@ export default function LiveOpsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="text-sm text-[var(--ad-muted)]">
+              Selected day: <strong className="text-[var(--ad-ink)]">{formatDateLabel(selectedDate)}</strong>
             </div>
             {data.survey ? (
               <div className="flex flex-wrap gap-2">

@@ -163,24 +163,24 @@ export default function NewSurveyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="space-y-6">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-white">Create New Survey</h1>
-              <p className="mt-2 text-gray-300">Build a wellness survey for your players</p>
+              <h1 className="admin-title">Create New Survey</h1>
+              <p className="mt-2 text-slate-600">Build a wellness survey for your players</p>
             </div>
             <HomeButton />
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="bg-gray-800 shadow rounded-lg p-6 border border-gray-700">
-            <h2 className="text-lg font-medium text-white mb-4">Survey Details</h2>
+          <div className="bg-white shadow rounded-lg p-6 border border-slate-200">
+            <h2 className="text-lg font-medium text-slate-900 mb-4">Survey Details</h2>
             <div className="space-y-4">
               <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="title" className="block text-sm font-medium text-slate-600">
                   Survey Title *
                 </label>
                 <input
@@ -188,13 +188,13 @@ export default function NewSurveyPage() {
                   id="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                   placeholder="e.g., Weekly Wellness Check"
                   required
                 />
               </div>
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="description" className="block text-sm font-medium text-slate-600">
                   Description
                 </label>
                 <textarea
@@ -202,22 +202,22 @@ export default function NewSurveyPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                   placeholder="Brief description of the survey purpose..."
                 />
               </div>
               
               {/* Recurring Survey Options */}
-              <div className="border-t border-gray-600 pt-4">
+              <div className="border-t border-slate-200 pt-4">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
                     id="isRecurring"
                     checked={isRecurring}
                     onChange={(e) => setIsRecurring(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-500 rounded bg-gray-600"
+                    className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-slate-300 rounded bg-slate-50"
                   />
-                  <label htmlFor="isRecurring" className="ml-2 block text-sm font-medium text-gray-300">
+                  <label htmlFor="isRecurring" className="ml-2 block text-sm font-medium text-slate-600">
                     Recurring Survey (Daily Reset)
                   </label>
                 </div>
@@ -228,7 +228,7 @@ export default function NewSurveyPage() {
                 {isRecurring && (
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="startDate" className="block text-sm font-medium text-gray-300">
+                      <label htmlFor="startDate" className="block text-sm font-medium text-slate-600">
                         Start Date *
                       </label>
                       <input
@@ -236,12 +236,12 @@ export default function NewSurveyPage() {
                         id="startDate"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                         required={isRecurring}
                       />
                     </div>
                     <div>
-                      <label htmlFor="endDate" className="block text-sm font-medium text-gray-300">
+                      <label htmlFor="endDate" className="block text-sm font-medium text-slate-600">
                         End Date *
                       </label>
                       <input
@@ -249,12 +249,12 @@ export default function NewSurveyPage() {
                         id="endDate"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                         required={isRecurring}
                       />
                     </div>
                     <div>
-                      <label htmlFor="dailyStartTime" className="block text-sm font-medium text-gray-300">
+                      <label htmlFor="dailyStartTime" className="block text-sm font-medium text-slate-600">
                         Daily Start Time *
                       </label>
                       <input
@@ -262,12 +262,12 @@ export default function NewSurveyPage() {
                         id="dailyStartTime"
                         value={dailyStartTime}
                         onChange={(e) => setDailyStartTime(e.target.value)}
-                        className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                         required={isRecurring}
                       />
                     </div>
                     <div>
-                      <label htmlFor="dailyEndTime" className="block text-sm font-medium text-gray-300">
+                      <label htmlFor="dailyEndTime" className="block text-sm font-medium text-slate-600">
                         Daily End Time *
                       </label>
                       <input
@@ -275,7 +275,7 @@ export default function NewSurveyPage() {
                         id="dailyEndTime"
                         value={dailyEndTime}
                         onChange={(e) => setDailyEndTime(e.target.value)}
-                        className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                         required={isRecurring}
                       />
                     </div>
@@ -285,13 +285,13 @@ export default function NewSurveyPage() {
             </div>
           </div>
 
-          <div className="bg-gray-800 shadow rounded-lg p-6 border border-gray-700">
+          <div className="bg-white shadow rounded-lg p-6 border border-slate-200">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium text-white">Questions</h2>
+              <h2 className="text-lg font-medium text-slate-900">Questions</h2>
               <button
                 type="button"
                 onClick={addQuestion}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-300 bg-blue-900 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-300 bg-blue-900 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add Question
@@ -305,9 +305,9 @@ export default function NewSurveyPage() {
             ) : (
               <div className="space-y-6">
                 {questions.map((question, index) => (
-                  <div key={question.id} className="border border-gray-600 rounded-lg p-4 bg-gray-700">
+                  <div key={question.id} className="border border-slate-200 rounded-lg p-4 bg-white">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-medium text-white">Question {index + 1}</h3>
+                      <h3 className="text-sm font-medium text-slate-900">Question {index + 1}</h3>
                       <button
                         type="button"
                         onClick={() => removeQuestion(question.id)}
@@ -319,27 +319,27 @@ export default function NewSurveyPage() {
 
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300">
+                        <label className="block text-sm font-medium text-slate-600">
                           Question Text *
                         </label>
                         <input
                           type="text"
                           value={question.text}
                           onChange={(e) => updateQuestion(question.id, { text: e.target.value })}
-                          className="mt-1 block w-full bg-gray-600 border-gray-500 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full bg-slate-50 border-slate-300 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                           placeholder="Enter your question..."
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-300">
+                        <label className="block text-sm font-medium text-slate-600">
                           Question Type
                         </label>
                         <select
                           value={question.type}
                           onChange={(e) => updateQuestion(question.id, { type: e.target.value as QuestionType })}
-                          className="mt-1 block w-full bg-gray-600 border-gray-500 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full bg-slate-50 border-slate-300 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                         >
                           <option value="TEXT">Text Input</option>
                           <option value="NUMBER">Number Input</option>
@@ -359,7 +359,7 @@ export default function NewSurveyPage() {
 
                       {(question.type === 'SELECT' || question.type === 'MULTIPLE_SELECT') && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-300">
+                          <label className="block text-sm font-medium text-slate-600">
                             Options
                           </label>
                           <div className="mt-2 space-y-2">
@@ -369,7 +369,7 @@ export default function NewSurveyPage() {
                                   type="text"
                                   value={option}
                                   onChange={(e) => updateOption(question.id, optionIndex, e.target.value)}
-                                  className="flex-1 bg-gray-600 border-gray-500 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                  className="flex-1 bg-slate-50 border-slate-300 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                                   placeholder={`Option ${optionIndex + 1}`}
                                 />
                                 <button
@@ -394,7 +394,7 @@ export default function NewSurveyPage() {
 
                       {question.type === 'SLIDER' && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-300">
+                          <label className="block text-sm font-medium text-slate-600">
                             Slider Labels (Optional)
                           </label>
                           <div className="mt-2 grid grid-cols-3 gap-3">
@@ -404,7 +404,7 @@ export default function NewSurveyPage() {
                                 type="text"
                                 value={question.options[0] || ''}
                                 onChange={(e) => updateOption(question.id, 0, e.target.value)}
-                                className="w-full bg-gray-600 border-gray-500 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                className="w-full bg-slate-50 border-slate-300 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                                 placeholder="Very Bad"
                               />
                             </div>
@@ -414,7 +414,7 @@ export default function NewSurveyPage() {
                                 type="text"
                                 value={question.options[1] || ''}
                                 onChange={(e) => updateOption(question.id, 1, e.target.value)}
-                                className="w-full bg-gray-600 border-gray-500 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                className="w-full bg-slate-50 border-slate-300 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                                 placeholder="Ok"
                               />
                             </div>
@@ -424,7 +424,7 @@ export default function NewSurveyPage() {
                                 type="text"
                                 value={question.options[2] || ''}
                                 onChange={(e) => updateOption(question.id, 2, e.target.value)}
-                                className="w-full bg-gray-600 border-gray-500 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                className="w-full bg-slate-50 border-slate-300 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                                 placeholder="Excellent"
                               />
                             </div>
@@ -432,8 +432,8 @@ export default function NewSurveyPage() {
                           <p className="mt-1 text-xs text-gray-400">
                             Leave empty to use default color legend (Low, Fair, Good, High)
                           </p>
-                          <div className="mt-4 pt-4 border-t border-gray-600">
-                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                          <div className="mt-4 pt-4 border-t border-slate-200">
+                            <label className="block text-sm font-medium text-slate-600 mb-1">
                               Text for each value (optional)
                             </label>
                             <p className="text-xs text-gray-400 mb-2">
@@ -447,7 +447,7 @@ export default function NewSurveyPage() {
                                     type="text"
                                     value={question.sliderSteps?.[String(n)] ?? ''}
                                     onChange={(e) => updateSliderStep(question.id, n, e.target.value)}
-                                    className="w-full bg-gray-600 border-gray-500 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
+                                    className="w-full bg-slate-50 border-slate-300 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 text-xs sm:text-sm"
                                     placeholder={`${n}`}
                                   />
                                 </div>
@@ -463,9 +463,9 @@ export default function NewSurveyPage() {
                           id={`required-${question.id}`}
                           checked={question.required}
                           onChange={(e) => updateQuestion(question.id, { required: e.target.checked })}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-500 rounded bg-gray-600"
+                          className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-slate-300 rounded bg-slate-50"
                         />
-                        <label htmlFor={`required-${question.id}`} className="ml-2 block text-sm text-gray-300">
+                        <label htmlFor={`required-${question.id}`} className="ml-2 block text-sm text-slate-600">
                           Required question
                         </label>
                       </div>
@@ -480,7 +480,7 @@ export default function NewSurveyPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-4 py-2 border border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-slate-200 rounded-md shadow-sm text-sm font-medium text-slate-600 bg-white hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
             >
               Cancel
             </button>
@@ -488,7 +488,7 @@ export default function NewSurveyPage() {
               <button
                 type="submit"
                 disabled={isSubmitting || !title.trim() || questions.length === 0}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-slate-900 bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="h-4 w-4 mr-2" />
                 {isSubmitting ? 'Creating...' : 'Create Survey'}

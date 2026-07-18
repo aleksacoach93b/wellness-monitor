@@ -150,7 +150,7 @@ export default function EditPlayerPage({ params }: { params: Promise<{ id: strin
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="space-y-6 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading player...</p>
@@ -161,7 +161,7 @@ export default function EditPlayerPage({ params }: { params: Promise<{ id: strin
 
   if (!player) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="space-y-6 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Player Not Found</h1>
           <p className="text-gray-600">The requested player could not be found.</p>
@@ -171,7 +171,7 @@ export default function EditPlayerPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="space-y-6">
       <div className="max-w-2xl mx-auto py-8 px-4">
         <div className="mb-6">
           <div className="flex justify-between items-start">

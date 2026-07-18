@@ -102,26 +102,26 @@ export default function NewPlayerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="space-y-6">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-white">Add New Player</h1>
-              <p className="mt-2 text-gray-300">Add a new athlete to your team</p>
+              <h1 className="admin-title">Add New Player</h1>
+              <p className="mt-2 text-slate-600">Add a new athlete to your team</p>
             </div>
             <HomeButton />
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-gray-800 shadow rounded-lg p-6 border border-gray-700">
-            <h2 className="text-lg font-medium text-white mb-4">Player Information</h2>
+          <div className="bg-white shadow rounded-lg p-6 border border-slate-200">
+            <h2 className="text-lg font-medium text-slate-900 mb-4">Player Information</h2>
             
             <div className="space-y-4">
               <div className="flex items-center space-x-6">
                 <div className="flex-shrink-0">
-                  <div className="h-24 w-24 rounded-full bg-gray-600 flex items-center justify-center">
+                  <div className="h-24 w-24 rounded-full bg-slate-50 flex items-center justify-center">
                     {formData.image ? (
                       <Image
                         src={formData.image}
@@ -131,12 +131,12 @@ export default function NewPlayerPage() {
                         className="h-24 w-24 rounded-full object-cover"
                       />
                     ) : (
-                      <User className="h-12 w-12 text-gray-300" />
+                      <User className="h-12 w-12 text-slate-600" />
                     )}
                   </div>
                 </div>
                 <div className="flex-1">
-                  <label htmlFor="image" className="block text-sm font-medium text-gray-300">
+                  <label htmlFor="image" className="block text-sm font-medium text-slate-600">
                     Player Photo
                   </label>
                   
@@ -148,7 +148,7 @@ export default function NewPlayerPage() {
                         alt="Player preview"
                         width={96}
                         height={96}
-                        className="w-24 h-24 object-cover rounded-lg border border-gray-600"
+                        className="w-24 h-24 object-cover rounded-lg border border-slate-200"
                       />
                     </div>
                   )}
@@ -156,9 +156,9 @@ export default function NewPlayerPage() {
                   {/* File Upload */}
                   <div className="mt-1">
                     <label htmlFor="image-upload" className="cursor-pointer">
-                      <div className="flex items-center justify-center w-full h-10 border-2 border-dashed border-gray-600 rounded-md hover:border-gray-500 transition-colors bg-gray-700">
-                        <Upload className="h-4 w-4 mr-2 text-gray-300" />
-                        <span className="text-sm text-gray-300">Upload Photo</span>
+                      <div className="flex items-center justify-center w-full h-10 border-2 border-dashed border-slate-200 rounded-md hover:border-slate-300 transition-colors bg-white">
+                        <Upload className="h-4 w-4 mr-2 text-slate-600" />
+                        <span className="text-sm text-slate-600">Upload Photo</span>
                       </div>
                       <input
                         id="image-upload"
@@ -177,7 +177,7 @@ export default function NewPlayerPage() {
                       name="image"
                       value={formData.image.startsWith('data:') ? '' : formData.image}
                       onChange={handleInputChange}
-                      className="block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                       placeholder="Or enter image URL"
                     />
                   </div>
@@ -186,7 +186,7 @@ export default function NewPlayerPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-300">
+                  <label htmlFor="firstName" className="block text-sm font-medium text-slate-600">
                     First Name *
                   </label>
                   <input
@@ -195,13 +195,13 @@ export default function NewPlayerPage() {
                     id="firstName"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                     placeholder="Enter first name"
                     required
                   />
                 </div>
                 <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-300">
+                  <label htmlFor="lastName" className="block text-sm font-medium text-slate-600">
                     Last Name *
                   </label>
                   <input
@@ -210,7 +210,7 @@ export default function NewPlayerPage() {
                     id="lastName"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                     placeholder="Enter last name"
                     required
                   />
@@ -218,7 +218,7 @@ export default function NewPlayerPage() {
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="email" className="block text-sm font-medium text-slate-600">
                   Email
                 </label>
                 <input
@@ -227,13 +227,13 @@ export default function NewPlayerPage() {
                   id="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                   placeholder="Enter email address"
                 />
               </div>
 
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="phone" className="block text-sm font-medium text-slate-600">
                   Phone Number
                 </label>
                 <input
@@ -242,13 +242,13 @@ export default function NewPlayerPage() {
                   id="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                   placeholder="Enter phone number"
                 />
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="password" className="block text-sm font-medium text-slate-600">
                   Player Password
                 </label>
                 <div className="mt-1 space-y-2">
@@ -259,14 +259,14 @@ export default function NewPlayerPage() {
                         id="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value.toUpperCase())}
-                        className="block w-full pr-10 bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-mono tracking-widest text-center"
+                        className="block w-full pr-10 bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm font-mono tracking-widest text-center"
                         placeholder="AB"
                         maxLength={10}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-slate-600"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -274,7 +274,7 @@ export default function NewPlayerPage() {
                     <button
                       type="button"
                       onClick={handleResetPassword}
-                      className="flex items-center px-3 py-2 border border-gray-600 rounded-md text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600"
+                      className="flex items-center px-3 py-2 border border-slate-200 rounded-md text-sm font-medium text-slate-600 bg-white hover:bg-slate-50"
                       title="Reset to initials"
                     >
                       <RefreshCw className="w-4 h-4" />
@@ -287,7 +287,7 @@ export default function NewPlayerPage() {
               </div>
 
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-slate-600">
                   Date of Birth
                 </label>
                 <input
@@ -296,7 +296,7 @@ export default function NewPlayerPage() {
                   id="dateOfBirth"
                   value={formData.dateOfBirth}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="mt-1 block w-full bg-white border-slate-200 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                 />
               </div>
             </div>
@@ -313,14 +313,14 @@ export default function NewPlayerPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-4 py-2 border border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-slate-200 rounded-md shadow-sm text-sm font-medium text-slate-600 bg-white hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting || !formData.firstName.trim() || !formData.lastName.trim()}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-slate-900 bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4 mr-2" />
               {isSubmitting ? 'Creating...' : 'Create Player'}

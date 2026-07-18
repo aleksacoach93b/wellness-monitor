@@ -1,0 +1,436 @@
+/* Shared admin visual language — all /admin accounts */
+.admin-shell {
+  --ad-ink: #0b1220;
+  --ad-ink-soft: #1a2740;
+  --ad-muted: #5b6b82;
+  --ad-line: rgba(15, 23, 42, 0.08);
+  --ad-surface: rgba(255, 255, 255, 0.78);
+  --ad-surface-solid: #ffffff;
+  --ad-accent: #0d9488;
+  --ad-accent-2: #0891b2;
+  --ad-accent-soft: rgba(13, 148, 136, 0.12);
+  --ad-danger: #dc2626;
+  --ad-warn: #d97706;
+  --ad-ok: #059669;
+  --ad-radius: 1.25rem;
+  --ad-radius-sm: 0.85rem;
+  --font-admin-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
+  --font-admin-body: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+
+  min-height: 100vh;
+  color: var(--ad-ink);
+  font-family: var(--font-admin-body);
+  background:
+    radial-gradient(1200px 600px at 0% -10%, rgba(8, 145, 178, 0.14), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(13, 148, 136, 0.12), transparent 50%),
+    radial-gradient(700px 400px at 80% 100%, rgba(15, 23, 42, 0.06), transparent 45%),
+    linear-gradient(180deg, #eef3f7 0%, #e7edf3 40%, #eef2f6 100%);
+  background-attachment: fixed;
+}
+
+.admin-shell * {
+  box-sizing: border-box;
+}
+
+.admin-shell h1,
+.admin-shell h2,
+.admin-shell h3,
+.admin-display {
+  font-family: var(--font-admin-display);
+  letter-spacing: -0.03em;
+}
+
+.admin-bg-mesh {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.45;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+}
+
+.admin-main {
+  position: relative;
+  z-index: 1;
+  animation: admin-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes admin-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes admin-nav-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.admin-panel {
+  background: var(--ad-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-radius);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 18px 40px -28px rgba(15, 23, 42, 0.35);
+}
+
+.admin-panel-solid {
+  background: var(--ad-surface-solid);
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-radius);
+  box-shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.28);
+}
+
+.admin-kicker {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ad-accent);
+}
+
+.admin-title {
+  font-family: var(--font-admin-display);
+  font-size: clamp(1.75rem, 2.5vw, 2.35rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--ad-ink);
+  letter-spacing: -0.03em;
+}
+
+.admin-sub {
+  margin-top: 0.4rem;
+  font-size: 0.95rem;
+  color: var(--ad-muted);
+  max-width: 40rem;
+  line-height: 1.5;
+}
+
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.9rem;
+  padding: 0.65rem 1.05rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.admin-btn:active {
+  transform: translateY(1px);
+}
+
+.admin-btn-primary {
+  background: linear-gradient(135deg, var(--ad-accent) 0%, var(--ad-accent-2) 100%);
+  color: white;
+  border: 1px solid transparent;
+  box-shadow: 0 10px 24px -14px rgba(8, 145, 178, 0.9);
+}
+
+.admin-btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.admin-btn-ghost {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--ad-line);
+  color: var(--ad-ink-soft);
+}
+
+.admin-btn-ghost:hover {
+  background: white;
+  border-color: rgba(13, 148, 136, 0.35);
+}
+
+.admin-btn-danger {
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  color: #991b1b;
+}
+
+.admin-btn-danger:hover {
+  background: rgba(220, 38, 38, 0.14);
+}
+
+.admin-btn-warn {
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  color: #92400e;
+}
+
+.admin-input,
+.admin-shell input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='color']),
+.admin-shell select,
+.admin-shell textarea {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.65rem 0.85rem;
+  font-size: 0.9rem;
+  color: var(--ad-ink);
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.admin-shell form input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']),
+.admin-shell form select,
+.admin-shell form textarea,
+.admin-input {
+  width: 100%;
+}
+
+.admin-shell input:not([type='checkbox']):not([type='radio']):not([type='file']):focus,
+.admin-shell select:focus,
+.admin-shell textarea:focus {
+  border-color: rgba(13, 148, 136, 0.55);
+  box-shadow: 0 0 0 3px var(--ad-accent-soft);
+}
+
+.admin-shell label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ad-ink-soft);
+}
+
+.admin-stat {
+  position: relative;
+  overflow: hidden;
+  padding: 1.35rem 1.4rem;
+}
+
+.admin-stat::after {
+  content: '';
+  position: absolute;
+  right: -20%;
+  top: -40%;
+  width: 55%;
+  height: 120%;
+  background: radial-gradient(circle, var(--ad-accent-soft), transparent 70%);
+  pointer-events: none;
+}
+
+.admin-stat-value {
+  font-family: var(--font-admin-display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin-top: 0.55rem;
+}
+
+.admin-stat-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ad-muted);
+}
+
+.admin-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.15rem 1.2rem;
+  border-radius: var(--ad-radius-sm);
+  border: 1px solid var(--ad-line);
+  background: rgba(255, 255, 255, 0.65);
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.admin-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(13, 148, 136, 0.35);
+  background: white;
+  box-shadow: 0 16px 32px -24px rgba(15, 23, 42, 0.4);
+}
+
+.admin-tile-icon {
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: var(--ad-accent-soft);
+  color: var(--ad-accent);
+}
+
+.admin-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid transparent;
+  background: rgba(248, 250, 252, 0.9);
+  color: var(--ad-ink-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.admin-link-row:hover {
+  background: white;
+  border-color: rgba(13, 148, 136, 0.28);
+  transform: translateX(2px);
+}
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-badge-ok {
+  background: rgba(5, 150, 105, 0.12);
+  color: #047857;
+}
+
+.admin-badge-warn {
+  background: rgba(217, 119, 6, 0.14);
+  color: #92400e;
+}
+
+.admin-badge-soft {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--ad-muted);
+}
+
+.admin-badge-accent {
+  background: var(--ad-accent-soft);
+  color: #0f766e;
+}
+
+/* Soften legacy utility-heavy pages inside the shell */
+.admin-shell .min-h-screen.bg-gray-50,
+.admin-shell .min-h-screen.bg-slate-50,
+.admin-shell .min-h-screen.bg-gray-100 {
+  min-height: unset !important;
+  background: transparent !important;
+}
+
+.admin-shell .bg-white.shadow,
+.admin-shell .bg-white.shadow-sm,
+.admin-shell .bg-white.rounded-lg.shadow,
+.admin-shell .rounded-xl.border.border-slate-200.bg-white,
+.admin-shell .rounded-xl.border.border-gray-200.bg-white {
+  background: var(--ad-surface) !important;
+  backdrop-filter: blur(14px);
+  border-color: var(--ad-line) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.65) inset,
+    0 18px 40px -28px rgba(15, 23, 42, 0.3) !important;
+}
+
+.admin-shell h1.text-3xl,
+.admin-shell h1.text-2xl {
+  font-family: var(--font-admin-display);
+  letter-spacing: -0.03em;
+}
+
+.admin-shell .bg-blue-600,
+.admin-shell .bg-green-600,
+.admin-shell .bg-purple-600,
+.admin-shell .bg-orange-600,
+.admin-shell .bg-teal-600,
+.admin-shell .bg-indigo-600,
+.admin-shell .bg-violet-600,
+.admin-shell .bg-sky-600,
+.admin-shell .bg-slate-900 {
+  background: linear-gradient(135deg, var(--ad-accent) 0%, var(--ad-accent-2) 100%) !important;
+}
+
+.admin-shell .hover\:bg-blue-700:hover,
+.admin-shell .hover\:bg-green-700:hover,
+.admin-shell .hover\:bg-purple-700:hover,
+.admin-shell .hover\:bg-orange-700:hover,
+.admin-shell .hover\:bg-teal-700:hover,
+.admin-shell .hover\:bg-indigo-700:hover,
+.admin-shell .hover\:bg-violet-700:hover,
+.admin-shell .hover\:bg-sky-700:hover,
+.admin-shell .hover\:bg-slate-800:hover {
+  filter: brightness(1.05);
+}
+
+.admin-auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  font-family: var(--font-admin-body);
+  background:
+    radial-gradient(900px 500px at 10% 0%, rgba(8, 145, 178, 0.22), transparent 55%),
+    radial-gradient(700px 420px at 90% 20%, rgba(13, 148, 136, 0.18), transparent 50%),
+    linear-gradient(160deg, #0b1220 0%, #122033 45%, #0f1a2b 100%);
+  color: white;
+}
+
+.admin-auth-card {
+  width: 100%;
+  max-width: 26rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px);
+  padding: 2rem;
+  box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.7);
+  animation: admin-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.admin-auth-card h1 {
+  font-family: var(--font-admin-display);
+  letter-spacing: -0.03em;
+}
+
+.admin-auth-card input {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: white !important;
+}
+
+.admin-auth-card input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.admin-auth-card label {
+  color: rgba(255, 255, 255, 0.72) !important;
+}

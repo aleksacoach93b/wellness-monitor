@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import '../../admin.css'
 
 export default function AcceptInvitePage() {
   const params = useParams<{ token: string }>()
@@ -64,7 +65,7 @@ export default function AcceptInvitePage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error || 'Could not create account')
+        setError(data.error || 'Failed to accept invite')
         return
       }
       router.replace('/admin')
@@ -78,77 +79,70 @@ export default function AcceptInvitePage() {
 
   if (booting) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-600">
-        Loading invite…
+      <div className="admin-auth">
+        <p className="text-white/70">Loading invite…</p>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900">Create your admin account</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          You were invited to create your own team, players, and surveys. Set your own password —
-          it is not shared with anyone else.
+    <div className="admin-auth">
+      <div className="admin-auth-card">
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-teal-300/90">
+          Wellness Monitor
+        </p>
+        <h1 className="mt-2 text-3xl font-bold text-white">Create your admin account</h1>
+        <p className="mt-2 text-sm text-white/60">
+          Set your own password and team. Your data stays isolated from other clubs.
         </p>
 
         {error && !email ? (
-          <p className="mt-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          <p className="mt-6 rounded-xl bg-red-500/15 px-3 py-2 text-sm text-red-200">{error}</p>
         ) : (
-          <form onSubmit={onSubmit} className="mt-6 space-y-4">
+          <form onSubmit={onSubmit} className="mt-7 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700">Email</label>
-              <input
-                value={email}
-                readOnly
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700"
-              />
+              <label>Email</label>
+              <input value={email} readOnly className="mt-1 opacity-80" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700">Your name</label>
-              <input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
+              <label>Your name</label>
+              <input required value={name} onChange={(e) => setName(e.target.value)} className="mt-1" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700">Team name</label>
+              <label>Team name</label>
               <input
                 required
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 placeholder={suggestedTeamName || 'e.g. U19 Academy'}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="mt-1"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700">Password</label>
+              <label>Password</label>
               <input
                 type="password"
                 required
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="mt-1"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700">Confirm password</label>
+              <label>Confirm password</label>
               <input
                 type="password"
                 required
                 minLength={8}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="mt-1"
               />
             </div>
 
             {error && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+              <p className="rounded-xl bg-red-500/15 px-3 py-2 text-sm text-red-200" role="alert">
                 {error}
               </p>
             )}
@@ -156,7 +150,7 @@ export default function AcceptInvitePage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+              className="admin-btn admin-btn-primary !w-full !py-3 disabled:opacity-60"
             >
               {loading ? 'Creating…' : 'Create account & team'}
             </button>

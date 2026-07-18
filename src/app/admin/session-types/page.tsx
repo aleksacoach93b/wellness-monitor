@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Check, X, Pencil } from 'lucide-react'
-import HomeButton from '@/components/HomeButton'
 
 interface Tag {
   id: string
@@ -122,15 +121,15 @@ export default function SessionTypesPage() {
   if (isLoading) return <div className="p-6">Loading...</div>
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-2">
-        <h1 className="text-2xl font-bold text-gray-900">Session Tags</h1>
-        <HomeButton />
-      </div>
-      <p className="text-sm text-gray-500 mb-6">
-        Manage the tags coaches and players can pick from. Enable them per survey from the
-        survey&apos;s edit page (Track Session Type / Track Match Day).
-      </p>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <header>
+        <p className="admin-kicker">Training</p>
+        <h1 className="admin-title mt-1">Session tags</h1>
+        <p className="admin-sub">
+          Manage the tags coaches and players can pick from. Enable them per survey from the
+          survey&apos;s edit page (Track Session Type / Track Match Day).
+        </p>
+      </header>
 
       <div className="space-y-6">
         {CATEGORIES.map((cat) => {
@@ -138,9 +137,9 @@ export default function SessionTypesPage() {
             .filter((t) => t.category === cat.key)
             .sort((a, b) => a.order - b.order)
           return (
-            <div key={cat.key} className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900">{cat.title}</h2>
-              <p className="text-sm text-gray-500 mb-4">{cat.blurb}</p>
+            <div key={cat.key} className="admin-panel p-5 sm:p-6">
+              <h2 className="admin-display text-lg font-bold text-[var(--ad-ink)]">{cat.title}</h2>
+              <p className="mb-4 text-sm text-[var(--ad-muted)]">{cat.blurb}</p>
 
               <div className="space-y-2 mb-4">
                 {items.length === 0 && (

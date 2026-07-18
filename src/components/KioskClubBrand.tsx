@@ -35,10 +35,10 @@ export default function KioskClubBrand({
   // Tall crest logos need height room; width is flexible with contain
   const box =
     size === 'lg'
-      ? { w: 96, h: 112 }
+      ? { w: 88, h: 100 }
       : size === 'sm'
-        ? { w: 44, h: 52 }
-        : { w: 64, h: 76 }
+        ? { w: 36, h: 40 }
+        : { w: 52, h: 60 }
   const nameClass =
     size === 'lg'
       ? 'text-2xl sm:text-4xl'
@@ -53,7 +53,7 @@ export default function KioskClubBrand({
     <div className={`flex items-center gap-3 sm:gap-4 ${justify} ${className}`}>
       {logo ? (
         <div
-          className="relative shrink-0 rounded-xl bg-white/95 p-1 shadow-lg ring-1 ring-black/5"
+          className="relative shrink-0 overflow-hidden rounded-xl bg-white/90 p-0.5 shadow-md ring-1 ring-white/25"
           style={{ width: box.w, height: box.h }}
           title={name || 'Club logo'}
         >

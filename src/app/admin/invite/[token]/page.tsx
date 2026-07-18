@@ -2,7 +2,20 @@
 
 import { FormEvent, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { Syne, DM_Sans } from 'next/font/google'
 import '../../admin.css'
+
+const syne = Syne({
+  subsets: ['latin'],
+  variable: '--font-syne',
+  weight: ['600', '700', '800'],
+})
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-dm-sans',
+  weight: ['400', '500', '600', '700'],
+})
 
 export default function AcceptInvitePage() {
   const params = useParams<{ token: string }>()
@@ -79,83 +92,80 @@ export default function AcceptInvitePage() {
 
   if (booting) {
     return (
-      <div className="admin-auth">
-        <p className="text-white/70">Loading invite…</p>
+      <div className={`${syne.variable} ${dmSans.variable} admin-auth`}>
+        <p className="admin-auth-foot">Loading invite…</p>
       </div>
     )
   }
 
   return (
-    <div className="admin-auth">
-      <div className="admin-auth-card">
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-teal-300/90">
-          Wellness Monitor
-        </p>
-        <h1 className="mt-2 text-3xl font-bold text-white">Create your admin account</h1>
-        <p className="mt-2 text-sm text-white/60">
-          Set your own password and team. Your data stays isolated from other clubs.
-        </p>
+    <div className={`${syne.variable} ${dmSans.variable} admin-auth`}>
+      <div className="admin-auth-inner">
+        <div className="admin-auth-brand">
+          <span className="admin-auth-mark" aria-hidden />
+          <p className="admin-auth-product">Wellness Monitor</p>
+        </div>
 
-        {error && !email ? (
-          <p className="mt-6 rounded-xl bg-red-500/15 px-3 py-2 text-sm text-red-200">{error}</p>
-        ) : (
-          <form onSubmit={onSubmit} className="mt-7 space-y-4">
-            <div>
-              <label>Email</label>
-              <input value={email} readOnly className="mt-1 opacity-80" />
-            </div>
-            <div>
-              <label>Your name</label>
-              <input required value={name} onChange={(e) => setName(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <label>Team name</label>
-              <input
-                required
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                placeholder={suggestedTeamName || 'e.g. U19 Academy'}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label>Password</label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label>Confirm password</label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                className="mt-1"
-              />
-            </div>
+        <div className="admin-auth-card">
+          <h1>Create your account</h1>
+          <p className="admin-auth-lead">
+            Set your password and team. Your data stays isolated from other clubs.
+          </p>
 
-            {error && (
-              <p className="rounded-xl bg-red-500/15 px-3 py-2 text-sm text-red-200" role="alert">
-                {error}
-              </p>
-            )}
+          {error && !email ? (
+            <p className="admin-auth-error mt-6">{error}</p>
+          ) : (
+            <form onSubmit={onSubmit} className="admin-auth-form">
+              <div className="admin-auth-field">
+                <label>Email</label>
+                <input value={email} readOnly className="opacity-80" />
+              </div>
+              <div className="admin-auth-field">
+                <label>Your name</label>
+                <input required value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="admin-auth-field">
+                <label>Team name</label>
+                <input
+                  required
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  placeholder={suggestedTeamName || 'e.g. U19 Academy'}
+                />
+              </div>
+              <div className="admin-auth-field">
+                <label>Password</label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <div className="admin-auth-field">
+                <label>Confirm password</label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="admin-btn admin-btn-primary !w-full !py-3 disabled:opacity-60"
-            >
-              {loading ? 'Creating…' : 'Create account & team'}
-            </button>
-          </form>
-        )}
+              {error && (
+                <p className="admin-auth-error" role="alert">
+                  {error}
+                </p>
+              )}
+
+              <button type="submit" disabled={loading} className="admin-auth-submit">
+                {loading ? 'Creating…' : 'Create account & team'}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   )

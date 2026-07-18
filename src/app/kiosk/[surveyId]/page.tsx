@@ -657,122 +657,82 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       <div className={`absolute inset-0 ${activeTheme.overlayOne}`}></div>
       <div className={`absolute top-0 left-0 w-full h-full ${activeTheme.overlayTwo}`}></div>
       
-      {/* Kiosk Header */}
-      <div className={`relative ${activeTheme.headerBackground}`}>
-        <div className={`absolute inset-0 ${activeTheme.headerOverlay}`}></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-6">
-          {/* Mobile Layout */}
-          <div className="block sm:hidden">
-            {showClubBranding && (clubName || clubLogo) ? (
-              <div className="mb-3">
-                <KioskClubBrand
-                  clubName={clubName}
-                  clubLogo={clubLogo}
-                  showBranding={showClubBranding}
-                  kioskTheme={kioskTheme}
-                  size="sm"
-                  logoOnly
-                />
-              </div>
-            ) : null}
-            <div className="flex items-center justify-between mb-3">
-              <div className="min-w-0 flex-1 mr-2">
-                <h1 className={`text-lg font-light ${text.textStrong} tracking-wide drop-shadow-lg truncate`}>
-                  {survey.title}
-                </h1>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleCoachToggle}
-                  className={`${isCoachMode ? activeTheme.primaryButton : activeTheme.secondaryButton} text-white px-3 py-2 rounded-lg shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all duration-300 backdrop-blur-sm`}
-                  title={isCoachMode ? 'Switch to Player Mode' : 'Switch to Coach Mode'}
-                >
-                  {isCoachMode ? <Users className="h-3 w-3" /> : <ClipboardList className="h-3 w-3" />}
-                  <span>{isCoachMode ? 'Players' : 'Coach'}</span>
-                </button>
-                <button
-                  onClick={handleHomeClick}
-                  className={`${activeTheme.secondaryButton} text-white px-3 py-2 rounded-lg shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all duration-300 backdrop-blur-sm`}
-                  title="Home (Admin Access Required)"
-                >
-                  <Home className="h-3 w-3" />
-                  <span>Admin</span>
-                </button>
-                <button
-                  onClick={toggleFullscreen}
-                  className={`${activeTheme.primaryButton} text-white px-3 py-2 rounded-lg shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all duration-300 backdrop-blur-sm`}
-                  title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-                >
-                  {isFullscreen ? <Minimize className="h-3 w-3" /> : <Maximize className="h-3 w-3" />}
-                  <span>{isFullscreen ? "Exit" : "Full"}</span>
-                </button>
-              </div>
-            </div>
-            <p className={`${text.textSoft} text-sm tracking-wide`}>
+      {/* Kiosk Header — compact, design-first */}
+      <header className={`sticky top-0 z-30 ${activeTheme.headerBackground}`}>
+        <div className={`absolute inset-0 ${activeTheme.headerOverlay}`} aria-hidden />
+        <div className="relative mx-auto flex max-w-7xl items-center gap-3 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-3.5">
+          {showClubBranding && (clubName || clubLogo) ? (
+            <KioskClubBrand
+              clubName={clubName}
+              clubLogo={clubLogo}
+              showBranding={showClubBranding}
+              kioskTheme={kioskTheme}
+              size="sm"
+              logoOnly
+              className="shrink-0"
+            />
+          ) : null}
+
+          <div className="min-w-0 flex-1">
+            <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${text.textFaint}`}>
+              {isCoachMode ? 'Coach mode' : 'Player check-in'}
+            </p>
+            <h1
+              className={`truncate text-[1.05rem] font-semibold tracking-tight sm:text-xl lg:text-2xl ${text.textStrong}`}
+            >
+              {survey.title}
+            </h1>
+            <p className={`mt-0.5 truncate text-xs sm:text-sm ${text.textSoft}`}>
               {isCoachMode ? 'Fill in data for each player' : 'Search or tap your name to start'}
             </p>
           </div>
-          
-          {/* Desktop Layout */}
-          <div className="hidden sm:block">
-            <div className="flex items-start justify-between gap-6">
-              <div className="relative min-w-0 flex-1">
-                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-cyan-600/20 blur-lg"></div>
-                <div className="relative space-y-4">
-                  {showClubBranding && (clubName || clubLogo) ? (
-                    <KioskClubBrand
-                      clubName={clubName}
-                      clubLogo={clubLogo}
-                      showBranding={showClubBranding}
-                      kioskTheme={kioskTheme}
-                      size="md"
-                      logoOnly
-                    />
-                  ) : null}
-                  <div>
-                    <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${text.textFaint}`}>
-                      Today&apos;s survey
-                    </p>
-                    <h1 className={`mt-1 text-3xl lg:text-4xl font-light ${text.textStrong} tracking-wider drop-shadow-lg`}>
-                      {survey.title}
-                    </h1>
-                    <div className={`mt-2 w-32 h-0.5 ${activeTheme.accentLine} rounded-full`}></div>
-                    <p className={`mt-3 ${text.textSoft} text-base tracking-wide`}>
-                      {isCoachMode ? 'Fill in data for each player' : 'Search or tap your name to start'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 shrink-0 pt-1">
-                <button
-                  onClick={handleCoachToggle}
-                  className={`relative ${isCoachMode ? activeTheme.primaryButton : activeTheme.secondaryButton} text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm`}
-                  title={isCoachMode ? 'Switch to Player Mode' : 'Switch to Coach Mode'}
-                >
-                  {isCoachMode ? <Users className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
-                  <span className="tracking-wide">{isCoachMode ? 'Player Mode' : 'Coach Mode'}</span>
-                </button>
-                <button
-                  onClick={toggleFullscreen}
-                  className={`relative ${activeTheme.primaryButton} text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm`}
-                  title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-                >
-                  {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-                  <span className="tracking-wide">{isFullscreen ? "Exit" : "Full"}</span>
-                </button>
-                <button
-                  onClick={handleHomeClick}
-                  className={`relative ${activeTheme.adminButton} text-white px-6 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-base font-semibold transition-all duration-300 transform hover:scale-105 backdrop-blur-sm`}
-                  title="Home (Admin Access Required)"
-                >
-                  <Home className="h-5 w-5" />
-                  <span className="tracking-wide">Admin</span>
-                </button>
-              </div>
-            </div>
+
+          <div
+            className={`flex shrink-0 items-center gap-1 rounded-2xl border p-1 backdrop-blur-md sm:gap-1.5 sm:p-1.5 ${
+              kioskTheme === 'light' || kioskTheme === 'sand'
+                ? 'border-slate-200/80 bg-white/70'
+                : 'border-white/10 bg-black/25'
+            }`}
+          >
+            <button
+              type="button"
+              onClick={handleCoachToggle}
+              className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold transition-colors sm:h-11 sm:px-3.5 sm:text-sm ${
+                isCoachMode
+                  ? `${activeTheme.primaryButton} text-white`
+                  : `${text.textSoft} hover:bg-white/10`
+              }`}
+              title={isCoachMode ? 'Switch to Player Mode' : 'Switch to Coach Mode'}
+              aria-label={isCoachMode ? 'Switch to Player Mode' : 'Switch to Coach Mode'}
+            >
+              {isCoachMode ? <Users className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
+              <span className="hidden sm:inline">{isCoachMode ? 'Players' : 'Coach'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleHomeClick}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors sm:h-11 sm:w-auto sm:gap-1.5 sm:px-3.5 ${text.textSoft} hover:bg-white/10`}
+              title="Home (Admin Access Required)"
+              aria-label="Admin"
+            >
+              <Home className="h-4 w-4" />
+              <span className="hidden text-xs font-semibold sm:inline sm:text-sm">Admin</span>
+            </button>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors sm:h-11 sm:w-auto sm:gap-1.5 sm:px-3.5 ${text.textSoft} hover:bg-white/10`}
+              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+              aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            >
+              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+              <span className="hidden text-xs font-semibold sm:inline sm:text-sm">
+                {isFullscreen ? 'Exit' : 'Full'}
+              </span>
+            </button>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Futuristic Password Modal */}
       {showPasswordModal && (

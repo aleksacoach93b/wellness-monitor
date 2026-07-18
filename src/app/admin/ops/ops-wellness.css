@@ -2224,3 +2224,70 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+.ops-col-builder-panel-wide {
+  width: min(560px, 94vw);
+}
+
+.ops-col-builder-count.is-map {
+  background: rgba(250, 204, 21, 0.14);
+  color: #fde68a;
+}
+
+.ops-col-builder-item {
+  grid-template-columns: 18px 1fr auto;
+  align-items: start;
+}
+
+.ops-col-builder-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ops-col-builder-fields {
+  display: grid;
+  gap: 8px;
+  padding-left: 26px;
+}
+
+.ops-col-builder-field {
+  display: grid;
+  gap: 4px;
+}
+
+.ops-col-builder-field > span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7f93b0;
+}
+
+.ops-col-builder-field input,
+.ops-col-builder-field select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(71, 85, 105, 0.55);
+  background: rgba(2, 8, 20, 0.85);
+  color: #e2e8f0;
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.ops-col-builder-field select {
+  max-width: 100%;
+}
+
+.ops-col-builder-field option {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.ops-col-builder-note {
+  margin: 0;
+  padding-left: 0;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.35;
+}

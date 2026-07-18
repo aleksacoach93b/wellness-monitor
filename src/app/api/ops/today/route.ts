@@ -9,6 +9,7 @@ import {
   pickDefaultSurvey,
   sortSurveysForOps,
 } from '@/lib/opsDayBuild'
+import { loadOpsQuestionMappings } from '@/lib/opsTablePrefs'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -82,6 +83,14 @@ export async function GET(request: NextRequest) {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     })
 
+    const questionMappings = survey
+      ? await loadOpsQuestionMappings({
+          teamId,
+          adminUserId: session.sub,
+          surveyId: survey.id,
+        })
+      : {}
+
     const [history, todayBodyMaps] = survey
       ? await Promise.all([
           prisma.response.findMany({
@@ -98,7 +107,8 @@ export async function GET(request: NextRequest) {
                 where: { question: { type: { not: 'BODY_MAP' } } },
                 select: {
                   value: true,
-                  question: { select: { text: true, type: true } },
+                  questionId: true,
+                  question: { select: { id: true, text: true, type: true } },
                 },
               },
             },
@@ -118,7 +128,8 @@ export async function GET(request: NextRequest) {
                 where: { question: { type: 'BODY_MAP' } },
                 select: {
                   value: true,
-                  question: { select: { text: true, type: true } },
+                  questionId: true,
+                  question: { select: { id: true, text: true, type: true } },
                 },
               },
             },
@@ -127,7 +138,9 @@ export async function GET(request: NextRequest) {
         ])
       : [[], []]
 
-    const { byPlayerDay, latestByPlayerDay } = indexResponsesByPlayerDay(history)
+    const { byPlayerDay, latestByPlayerDay } = indexResponsesByPlayerDay(history, {
+      questionMappings,
+    })
 
     // Attach body maps onto selected-day metrics before building cards.
     const latestToday = new Map<

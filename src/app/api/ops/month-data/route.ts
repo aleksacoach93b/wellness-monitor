@@ -8,6 +8,7 @@ import {
   pickDefaultSurvey,
   sortSurveysForOps,
 } from '@/lib/opsDayBuild'
+import { loadOpsQuestionMappings } from '@/lib/opsTablePrefs'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -69,6 +70,14 @@ export async function GET(request: NextRequest) {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     })
 
+    const questionMappings = survey
+      ? await loadOpsQuestionMappings({
+          teamId,
+          adminUserId: session.sub,
+          surveyId: survey.id,
+        })
+      : {}
+
     const history = survey
       ? await prisma.response.findMany({
           where: {
@@ -84,7 +93,8 @@ export async function GET(request: NextRequest) {
               where: { question: { type: { not: 'BODY_MAP' } } },
               select: {
                 value: true,
-                question: { select: { text: true, type: true } },
+                questionId: true,
+                question: { select: { id: true, text: true, type: true } },
               },
             },
           },
@@ -92,7 +102,9 @@ export async function GET(request: NextRequest) {
         })
       : []
 
-    const { byPlayerDay, latestByPlayerDay } = indexResponsesByPlayerDay(history)
+    const { byPlayerDay, latestByPlayerDay } = indexResponsesByPlayerDay(history, {
+      questionMappings,
+    })
 
     const days: Record<
       string,

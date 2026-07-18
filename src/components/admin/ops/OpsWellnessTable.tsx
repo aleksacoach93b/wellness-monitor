@@ -6,7 +6,7 @@ import {
   DEFAULT_OPS_COLUMNS,
   enabledColumns,
   groupSpans,
-  metaFor,
+  headerLabel,
   type OpsColumnConfig,
   type OpsColumnId,
 } from '@/lib/opsTableColumns'
@@ -257,8 +257,9 @@ export default function OpsWellnessTable({
                 <th
                   key={col.id}
                   className={col.id === 'athlete' ? 'ops-sticky-col' : undefined}
+                  title={headerLabel(col)}
                 >
-                  {metaFor(col.id).label}
+                  {headerLabel(col)}
                 </th>
               ))}
             </tr>

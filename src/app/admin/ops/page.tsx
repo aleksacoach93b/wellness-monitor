@@ -27,6 +27,7 @@ import {
   DEFAULT_OPS_COLUMNS,
   normalizeOpsColumns,
   type OpsColumnConfig,
+  type OpsSurveyQuestion,
 } from '@/lib/opsTableColumns'
 import './ops-wellness.css'
 
@@ -130,6 +131,7 @@ export default function LiveOpsPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [tableColumns, setTableColumns] = useState<OpsColumnConfig[]>(DEFAULT_OPS_COLUMNS)
+  const [surveyQuestions, setSurveyQuestions] = useState<OpsSurveyQuestion[]>([])
   const [savingColumns, setSavingColumns] = useState(false)
 
   const surveyIdRef = useRef(surveyId)
@@ -313,39 +315,64 @@ export default function LiveOpsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    void fetch('/api/ops/table-preferences', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((payload) => {
-        if (cancelled || !payload?.columns) return
-        setTableColumns(normalizeOpsColumns(payload.columns))
-      })
-      .catch(() => {
-        /* keep defaults */
-      })
-    return () => {
-      cancelled = true
+  const loadColumnPrefs = useCallback(async (sid: string) => {
+    if (!sid) {
+      setTableColumns(DEFAULT_OPS_COLUMNS)
+      setSurveyQuestions([])
+      return
+    }
+    try {
+      const res = await fetch(
+        `/api/ops/table-preferences?surveyId=${encodeURIComponent(sid)}`,
+        { cache: 'no-store' },
+      )
+      if (!res.ok) return
+      const payload = await res.json()
+      if (payload?.columns) setTableColumns(normalizeOpsColumns(payload.columns))
+      if (Array.isArray(payload?.questions)) setSurveyQuestions(payload.questions)
+    } catch {
+      /* keep current */
     }
   }, [])
 
-  const persistColumns = useCallback((next: OpsColumnConfig[]) => {
-    const normalized = normalizeOpsColumns(next)
-    setTableColumns(normalized)
-    if (saveColumnsTimerRef.current) clearTimeout(saveColumnsTimerRef.current)
-    saveColumnsTimerRef.current = setTimeout(() => {
-      setSavingColumns(true)
-      void fetch('/api/ops/table-preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ columns: normalized }),
-      })
-        .catch(() => {
-          /* keep local layout even if save fails */
+  useEffect(() => {
+    if (!surveyId) return
+    void loadColumnPrefs(surveyId)
+  }, [surveyId, loadColumnPrefs])
+
+  const persistColumns = useCallback(
+    (next: OpsColumnConfig[]) => {
+      const sid = surveyIdRef.current
+      const normalized = normalizeOpsColumns(next)
+      setTableColumns(normalized)
+      if (!sid) return
+      if (saveColumnsTimerRef.current) clearTimeout(saveColumnsTimerRef.current)
+      saveColumnsTimerRef.current = setTimeout(() => {
+        setSavingColumns(true)
+        void fetch('/api/ops/table-preferences', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ surveyId: sid, columns: normalized }),
         })
-        .finally(() => setSavingColumns(false))
-    }, 350)
-  }, [])
+          .then((res) => {
+            if (!res.ok) return
+            // Mappings affect parsed values — drop cache and reload visible day.
+            cacheRef.current.clear()
+            hydratedMonthsRef.current.clear()
+            void loadDay({
+              date: selectedDateRef.current,
+              surveyIdOverride: sid,
+              silent: true,
+            })
+          })
+          .catch(() => {
+            /* keep local layout even if save fails */
+          })
+          .finally(() => setSavingColumns(false))
+      }, 400)
+    },
+    [loadDay],
+  )
 
   useEffect(() => {
     const tick = () => {
@@ -538,8 +565,10 @@ export default function LiveOpsPage() {
           {viewMode === 'table' ? (
             <OpsColumnBuilder
               columns={tableColumns}
+              questions={surveyQuestions}
               onChange={persistColumns}
               saving={savingColumns}
+              surveyTitle={data?.survey?.title}
             />
           ) : null}
           <div className="ops-view-switch" role="group" aria-label="View mode">

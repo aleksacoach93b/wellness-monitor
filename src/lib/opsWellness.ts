@@ -12,6 +12,7 @@ import {
   type BodyMapAreaStored,
 } from '@/lib/bodyMapPainLocation'
 import { getMuscleName } from '@/lib/muscleNames'
+import type { OpsMappableColumnId } from '@/lib/opsTableColumns'
 
 export type WellnessMetricKey =
   | 'fatigue'
@@ -101,7 +102,13 @@ export type TeamWellnessSummary = {
 
 type AnswerLike = {
   value: string
-  question: { text: string; type: string }
+  questionId?: string
+  question: { id?: string; text: string; type: string }
+}
+
+export type ParseDayMetricsOptions = {
+  /** Admin-configured column → survey questionId (wins over text heuristics). */
+  questionMappings?: Partial<Record<OpsMappableColumnId, string>>
 }
 
 type DayMetrics = {
@@ -218,7 +225,61 @@ function isFrontArea(areaId: string) {
   return areaId.startsWith('path-')
 }
 
-export function parseDayMetrics(answers: AnswerLike[]): DayMetrics {
+function applyMappedAnswer(
+  out: DayMetrics,
+  columnId: OpsMappableColumnId,
+  answer: AnswerLike,
+) {
+  const value = answer.value
+  const type = answer.question.type
+
+  if (
+    columnId === 'quality' ||
+    columnId === 'fatigue' ||
+    columnId === 'soreness' ||
+    columnId === 'mood' ||
+    columnId === 'stress' ||
+    columnId === 'readiness'
+  ) {
+    if (
+      type === 'SLIDER' ||
+      type === 'RATING_SCALE' ||
+      type === 'SCALE' ||
+      type === 'NUMBER' ||
+      type === 'RPE' ||
+      type === 'TEXT'
+    ) {
+      const n = parseNumber(value)
+      if (n == null) return
+      if (columnId === 'quality') out.sleepQuality = n
+      else out[columnId] = n
+    }
+    return
+  }
+
+  if (columnId === 'bed') {
+    out.sleepBedtime = value || null
+    return
+  }
+  if (columnId === 'wake') {
+    out.sleepWake = value || null
+    return
+  }
+  if (columnId === 'duration') {
+    const raw = String(value || '').trim()
+    if (!raw) out.sleepDuration = null
+    else if (/h/i.test(raw)) out.sleepDuration = raw
+    else if (/^\d{1,2}:\d{2}/.test(raw)) {
+      // unlikely as duration; keep raw
+      out.sleepDuration = raw
+    } else out.sleepDuration = `${raw} h`
+  }
+}
+
+export function parseDayMetrics(
+  answers: AnswerLike[],
+  opts?: ParseDayMetricsOptions,
+): DayMetrics {
   const out: DayMetrics = {
     readiness: null,
     fatigue: null,
@@ -231,6 +292,12 @@ export function parseDayMetrics(answers: AnswerLike[]): DayMetrics {
     sleepDuration: null,
     painAreas: {},
     sorenessAreas: {},
+  }
+
+  const byQuestionId = new Map<string, AnswerLike>()
+  for (const answer of answers) {
+    const qid = answer.question.id ?? answer.questionId
+    if (qid) byQuestionId.set(qid, answer)
   }
 
   for (const answer of answers) {
@@ -271,7 +338,19 @@ export function parseDayMetrics(answers: AnswerLike[]): DayMetrics {
     }
   }
 
-  // Prefer duration computed from bed + wake (handles overnight sleep).
+  // Admin mappings override heuristics (supports custom question titles).
+  const mappings = opts?.questionMappings ?? {}
+  for (const [columnId, questionId] of Object.entries(mappings) as Array<
+    [OpsMappableColumnId, string]
+  >) {
+    if (!questionId) continue
+    const hit = byQuestionId.get(questionId)
+    if (!hit) continue
+    applyMappedAnswer(out, columnId, hit)
+  }
+
+  // Prefer duration computed from bed + wake unless an explicit duration mapping set it
+  // and bed/wake are missing. If bed+wake exist, computed wins for consistency.
   const computedDuration = sleepDurationFromTimes(out.sleepBedtime, out.sleepWake)
   if (computedDuration) out.sleepDuration = computedDuration
 

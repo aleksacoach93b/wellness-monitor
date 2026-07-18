@@ -7,12 +7,14 @@ import {
   buildPlayerWellness,
   buildTeamWellnessSummary,
   parseDayMetrics,
+  type ParseDayMetricsOptions,
   type PlayerWellness,
 } from '@/lib/opsWellness'
 
 export type OpsAnswer = {
   value: string
-  question: { text: string; type: string }
+  questionId?: string
+  question: { id?: string; text: string; type: string }
 }
 
 export type OpsResponseRow = {
@@ -76,7 +78,10 @@ export function sortSurveysForOps<T extends { title: string }>(surveys: T[]): T[
 }
 
 /** playerId -> dayKey -> latest metrics that day */
-export function indexResponsesByPlayerDay(rows: OpsResponseRow[]) {
+export function indexResponsesByPlayerDay(
+  rows: OpsResponseRow[],
+  parseOpts?: ParseDayMetricsOptions,
+) {
   const byPlayerDay = new Map<string, Map<string, ReturnType<typeof parseDayMetrics>>>()
   const latestByPlayerDay = new Map<
     string,
@@ -102,7 +107,7 @@ export function indexResponsesByPlayerDay(rows: OpsResponseRow[]) {
       latestByPlayerDay.set(r.playerId, latestMap)
     }
     if (!dayMap.has(key)) {
-      const metrics = parseDayMetrics(r.answers)
+      const metrics = parseDayMetrics(r.answers, parseOpts)
       dayMap.set(key, metrics)
       latestMap.set(key, { submittedAt: r.submittedAt, metrics })
     }

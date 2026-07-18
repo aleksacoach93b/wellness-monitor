@@ -83,13 +83,19 @@ export async function GET(request: NextRequest) {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     })
 
-    const questionMappings = survey
-      ? await loadOpsQuestionMappings({
+    // Prefs are optional — never let a missing/migrating prefs table kill Live Ops.
+    let questionMappings: Awaited<ReturnType<typeof loadOpsQuestionMappings>> = {}
+    if (survey) {
+      try {
+        questionMappings = await loadOpsQuestionMappings({
           teamId,
           adminUserId: session.sub,
           surveyId: survey.id,
         })
-      : {}
+      } catch (prefsError) {
+        console.error('Ops today prefs load skipped:', prefsError)
+      }
+    }
 
     const [history, todayBodyMaps] = survey
       ? await Promise.all([

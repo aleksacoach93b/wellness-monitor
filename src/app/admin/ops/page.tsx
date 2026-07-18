@@ -687,12 +687,20 @@ export default function LiveOpsPage() {
       </header>
 
       {error ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
+          <p>{error}</p>
+          <button
+            type="button"
+            className="admin-btn admin-btn-ghost mt-3"
+            onClick={() => void refreshVisible()}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Try again
+          </button>
+        </div>
       ) : null}
 
-      {!data?.surveys.length ? (
+      {error && !data ? null : !data?.surveys.length ? (
         <div className="admin-panel p-6">
           <p className="font-semibold text-[var(--ad-ink)]">No surveys yet</p>
           <p className="mt-1 text-sm text-[var(--ad-muted)]">

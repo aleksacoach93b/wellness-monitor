@@ -6,13 +6,17 @@ import {
   normalizeOpsColumns,
   type OpsColumnConfig,
 } from '@/lib/opsTableColumns'
-import { loadSurveyQuestionsForOps } from '@/lib/opsTablePrefs'
+import {
+  loadOpsTableColumns,
+  loadSurveyQuestionsForOps,
+  saveOpsTableColumns,
+} from '@/lib/opsTablePrefs'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 /**
- * Per-team + per-admin + per-survey Live Ops column layout + question maps.
+ * Per-team + per-admin Live Ops column layout + per-survey question maps.
  * GET  /api/ops/table-preferences?surveyId=
  * PUT  /api/ops/table-preferences  { surveyId, columns }
  */
@@ -36,18 +40,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
     }
 
-    const row = await prisma.opsTablePreference.findUnique({
-      where: {
-        teamId_adminUserId_surveyId: {
-          teamId: session.teamId,
-          adminUserId: session.sub,
-          surveyId,
-        },
-      },
-      select: { columns: true, updatedAt: true },
+    const columns = await loadOpsTableColumns({
+      teamId: session.teamId,
+      adminUserId: session.sub,
+      surveyId,
     })
-
-    const columns = normalizeOpsColumns(row?.columns ?? DEFAULT_OPS_COLUMNS)
     const questions = await loadSurveyQuestionsForOps({
       teamId: session.teamId,
       surveyId,
@@ -60,14 +57,24 @@ export async function GET(request: NextRequest) {
         surveyId,
         columns,
         questions,
-        updatedAt: row?.updatedAt?.toISOString() ?? null,
-        isDefault: !row,
       },
       { headers: { 'Cache-Control': 'private, no-store' } },
     )
   } catch (error) {
     console.error('Ops table-preferences GET error:', error)
-    return NextResponse.json({ error: 'Failed to load preferences' }, { status: 500 })
+    // Never hard-fail the UI builder — return defaults.
+    return NextResponse.json(
+      {
+        teamId: session.teamId,
+        adminUserId: session.sub,
+        surveyId,
+        columns: normalizeOpsColumns(DEFAULT_OPS_COLUMNS),
+        questions: [],
+        isDefault: true,
+        warning: 'Preferences unavailable; using defaults',
+      },
+      { headers: { 'Cache-Control': 'private, no-store' } },
+    )
   }
 }
 
@@ -96,24 +103,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
     }
 
-    const columns = normalizeOpsColumns(body?.columns)
-
-    const row = await prisma.opsTablePreference.upsert({
-      where: {
-        teamId_adminUserId_surveyId: {
-          teamId: session.teamId,
-          adminUserId: session.sub,
-          surveyId,
-        },
-      },
-      create: {
-        teamId: session.teamId,
-        adminUserId: session.sub,
-        surveyId,
-        columns,
-      },
-      update: { columns },
-      select: { columns: true, updatedAt: true },
+    const columns = await saveOpsTableColumns({
+      teamId: session.teamId,
+      adminUserId: session.sub,
+      surveyId,
+      columns: normalizeOpsColumns(body?.columns),
     })
 
     return NextResponse.json(
@@ -121,14 +115,19 @@ export async function PUT(request: NextRequest) {
         teamId: session.teamId,
         adminUserId: session.sub,
         surveyId,
-        columns: normalizeOpsColumns(row.columns),
-        updatedAt: row.updatedAt.toISOString(),
+        columns,
         isDefault: false,
       },
       { headers: { 'Cache-Control': 'private, no-store' } },
     )
   } catch (error) {
     console.error('Ops table-preferences PUT error:', error)
-    return NextResponse.json({ error: 'Failed to save preferences' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error:
+          'Failed to save preferences. Redeploy so database schema is up to date, then try again.',
+      },
+      { status: 500 },
+    )
   }
 }

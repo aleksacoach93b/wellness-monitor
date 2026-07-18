@@ -70,13 +70,18 @@ export async function GET(request: NextRequest) {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     })
 
-    const questionMappings = survey
-      ? await loadOpsQuestionMappings({
+    let questionMappings: Awaited<ReturnType<typeof loadOpsQuestionMappings>> = {}
+    if (survey) {
+      try {
+        questionMappings = await loadOpsQuestionMappings({
           teamId,
           adminUserId: session.sub,
           surveyId: survey.id,
         })
-      : {}
+      } catch (prefsError) {
+        console.error('Ops month-data prefs load skipped:', prefsError)
+      }
+    }
 
     const history = survey
       ? await prisma.response.findMany({

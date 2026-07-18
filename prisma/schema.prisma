@@ -61,24 +61,21 @@ model AdminUser {
   @@map("admin_users")
 }
 
-/// Per-team + per-admin + per-survey Live Ops table layout + question maps.
+/// Per-team + per-admin Live Ops table layout + per-survey question maps.
 model OpsTablePreference {
   id          String   @id @default(cuid())
   teamId      String
   adminUserId String
-  surveyId    String
-  /// JSON: [{ id, enabled, label?, questionId? }, ...]
+  /// JSON: { bySurvey: { [surveyId]: OpsColumnConfig[] }, columns?: OpsColumnConfig[] }
   columns     Json
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
-  survey    Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
 
-  @@unique([teamId, adminUserId, surveyId])
+  @@unique([teamId, adminUserId])
   @@index([adminUserId])
-  @@index([surveyId])
   @@map("ops_table_preferences")
 }
 
@@ -163,10 +160,9 @@ model Survey {
   trackSessionType Boolean @default(false)
   trackMatchDay    Boolean @default(false)
 
-  team                Team?                @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  questions           Question[]
-  responses           Response[]
-  opsTablePreferences OpsTablePreference[]
+  team      Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  questions Question[]
+  responses Response[]
 
   @@index([teamId])
   @@map("surveys")

@@ -22,7 +22,10 @@ import OpsWellnessTable from '@/components/admin/ops/OpsWellnessTable'
 import OpsColumnBuilder from '@/components/admin/ops/OpsColumnBuilder'
 import OpsCalendar from '@/components/admin/ops/OpsCalendar'
 import OpsBodyMapsSection from '@/components/admin/ops/OpsBodyMapsSection'
+import OpsRulesPanel from '@/components/admin/ops/OpsRulesPanel'
+import OpsInterventionsPanel from '@/components/admin/ops/OpsInterventionsPanel'
 import type { PlayerWellness, TeamWellnessSummary } from '@/lib/opsWellness'
+import type { OpsInterventionDTO, OpsRuleDTO } from '@/lib/opsRules'
 import {
   DEFAULT_OPS_COLUMNS,
   normalizeOpsColumns,
@@ -49,6 +52,8 @@ type OpsPayload = {
     rank: number | null
     wellness: PlayerWellness | null
   }>
+  rules?: OpsRuleDTO[]
+  interventions?: OpsInterventionDTO[]
 }
 
 type StatusFilter = 'pending' | 'done' | 'all'
@@ -133,6 +138,10 @@ export default function LiveOpsPage() {
   const [tableColumns, setTableColumns] = useState<OpsColumnConfig[]>(DEFAULT_OPS_COLUMNS)
   const [surveyQuestions, setSurveyQuestions] = useState<OpsSurveyQuestion[]>([])
   const [savingColumns, setSavingColumns] = useState(false)
+  const [rules, setRules] = useState<OpsRuleDTO[]>([])
+  const [interventions, setInterventions] = useState<OpsInterventionDTO[]>([])
+  const [rulesBusy, setRulesBusy] = useState(false)
+  const [interveneBusyId, setInterveneBusyId] = useState<string | null>(null)
 
   const surveyIdRef = useRef(surveyId)
   const selectedDateRef = useRef(selectedDate)
@@ -154,6 +163,8 @@ export default function LiveOpsPage() {
     const cached = cacheRef.current.get(cacheKey(sid, date))
     if (!cached) return false
     setData(cached)
+    if (Array.isArray(cached.rules)) setRules(cached.rules)
+    if (Array.isArray(cached.interventions)) setInterventions(cached.interventions)
     return true
   }, [])
 
@@ -238,6 +249,8 @@ export default function LiveOpsPage() {
           cacheRef.current.set(cacheKey(nextSid, payload.selectedDate || date), payload)
         }
         setData(payload)
+        if (Array.isArray(payload.rules)) setRules(payload.rules)
+        if (Array.isArray(payload.interventions)) setInterventions(payload.interventions)
         if (payload.selectedDate) {
           selectedDateRef.current = payload.selectedDate
           setSelectedDate(payload.selectedDate)
@@ -461,6 +474,103 @@ export default function LiveOpsPage() {
     void loadDay({ date, surveyIdOverride: sid || undefined, silent: true })
   }, [loadDay])
 
+  const reloadAfterRulesChange = useCallback(async () => {
+    cacheRef.current.clear()
+    hydratedMonthsRef.current.clear()
+    await loadDay({
+      date: selectedDateRef.current,
+      surveyIdOverride: surveyIdRef.current || undefined,
+      silent: true,
+    })
+  }, [loadDay])
+
+  const createRule = useCallback(
+    async (input: {
+      name: string
+      metric: OpsRuleDTO['metric']
+      operator: OpsRuleDTO['operator']
+      threshold: number
+      severity: OpsRuleDTO['severity']
+      enabled: boolean
+      surveyId: string | null
+    }) => {
+      setRulesBusy(true)
+      try {
+        const res = await fetch('/api/ops/rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        })
+        if (!res.ok) return
+        await reloadAfterRulesChange()
+      } finally {
+        setRulesBusy(false)
+      }
+    },
+    [reloadAfterRulesChange],
+  )
+
+  const patchRule = useCallback(
+    async (id: string, patch: Partial<OpsRuleDTO>) => {
+      setRulesBusy(true)
+      try {
+        const res = await fetch(`/api/ops/rules/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        })
+        if (!res.ok) return
+        const body = await res.json()
+        if (body?.rule) {
+          setRules((prev) => prev.map((r) => (r.id === id ? body.rule : r)))
+        }
+        await reloadAfterRulesChange()
+      } finally {
+        setRulesBusy(false)
+      }
+    },
+    [reloadAfterRulesChange],
+  )
+
+  const deleteRule = useCallback(
+    async (id: string) => {
+      setRulesBusy(true)
+      try {
+        const res = await fetch(`/api/ops/rules/${id}`, { method: 'DELETE' })
+        if (!res.ok) return
+        setRules((prev) => prev.filter((r) => r.id !== id))
+        await reloadAfterRulesChange()
+      } finally {
+        setRulesBusy(false)
+      }
+    },
+    [reloadAfterRulesChange],
+  )
+
+  const changeInterventionStatus = useCallback(
+    async (id: string, status: 'ACKNOWLEDGED' | 'RESOLVED' | 'OPEN') => {
+      setInterveneBusyId(id)
+      try {
+        const res = await fetch(`/api/ops/interventions/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        })
+        if (!res.ok) return
+        const body = await res.json()
+        if (body?.intervention) {
+          setInterventions((prev) => {
+            if (status === 'RESOLVED') return prev.filter((i) => i.id !== id)
+            return prev.map((i) => (i.id === id ? body.intervention : i))
+          })
+        }
+      } finally {
+        setInterveneBusyId(null)
+      }
+    },
+    [],
+  )
+
   if (loading && !data) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -520,6 +630,21 @@ export default function LiveOpsPage() {
       {data?.players?.length ? (
         <OpsAlertTicker players={data.players as OpsPlayerCard[]} />
       ) : null}
+
+      <OpsRulesPanel
+        rules={rules}
+        surveys={data?.surveys ?? []}
+        onCreate={createRule}
+        onPatch={patchRule}
+        onDelete={deleteRule}
+        busy={rulesBusy}
+      />
+
+      <OpsInterventionsPanel
+        interventions={interventions}
+        onStatusChange={changeInterventionStatus}
+        busyId={interveneBusyId}
+      />
 
       {ws ? (
         <div className="sg7-summary">

@@ -40,6 +40,8 @@ model Team {
   invites             Invite[]
   adminAccess         AdminAccessSettings?
   opsTablePreferences OpsTablePreference[]
+  opsRules            OpsRule[]
+  opsInterventions    OpsIntervention[]
 
   @@map("teams")
 }
@@ -77,6 +79,63 @@ model OpsTablePreference {
   @@unique([teamId, adminUserId])
   @@index([adminUserId])
   @@map("ops_table_preferences")
+}
+
+/// Admin-configurable Live Ops intervention rule (per team).
+model OpsRule {
+  id        String   @id @default(cuid())
+  teamId    String
+  /// Optional: limit rule to one survey; null = any survey on the team
+  surveyId  String?
+  name      String
+  /// readiness | fatigue | soreness | sleepQuality | mood | stress | sleepRisk | painMax | pending
+  metric    String
+  /// LT | LTE | GT | GTE | EQ
+  operator  String
+  threshold Float
+  /// WATCH | ALERT | CRITICAL
+  severity  String   @default("WATCH")
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team          Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  interventions OpsIntervention[]
+
+  @@index([teamId])
+  @@index([teamId, enabled])
+  @@map("ops_rules")
+}
+
+/// Fired rule instance for a player on a calendar day.
+model OpsIntervention {
+  id             String    @id @default(cuid())
+  teamId         String
+  surveyId       String?
+  ruleId         String
+  playerId       String
+  /// YYYY-MM-DD
+  date           String
+  severity       String
+  metric         String
+  value          Float?
+  message        String
+  /// OPEN | ACKNOWLEDGED | RESOLVED
+  status         String    @default("OPEN")
+  note           String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+
+  team Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  rule OpsRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, playerId, date])
+  @@index([teamId, date])
+  @@index([teamId, status])
+  @@map("ops_interventions")
 }
 
 model TeamMembership {

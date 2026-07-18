@@ -10,6 +10,7 @@ import {
   sortSurveysForOps,
 } from '@/lib/opsDayBuild'
 import { loadOpsQuestionMappings } from '@/lib/opsTablePrefs'
+import { ensureDefaultOpsRules, syncOpsInterventions } from '@/lib/opsRulesService'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -166,6 +167,16 @@ export async function GET(request: NextRequest) {
       selectedDate,
     })
 
+    const [rules, interventions] = await Promise.all([
+      ensureDefaultOpsRules(teamId),
+      syncOpsInterventions({
+        teamId,
+        surveyId: survey?.id ?? null,
+        date: selectedDate,
+        players: day.players,
+      }),
+    ])
+
     return NextResponse.json(
       {
         team,
@@ -180,6 +191,8 @@ export async function GET(request: NextRequest) {
         stats: day.stats,
         wellnessSummary: day.wellnessSummary,
         players: day.players,
+        rules,
+        interventions,
       },
       {
         headers: { 'Cache-Control': 'private, no-store' },

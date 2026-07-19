@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { ensureOpsSchema } from '@/lib/opsSchemaEnsure'
 import {
   DEFAULT_OPS_RULES,
   evaluateOpsRules,
@@ -12,6 +13,7 @@ import {
   type OpsRuleOperator,
   type OpsRuleSeverity,
 } from '@/lib/opsRules'
+import { parseCustomRuleMetric } from '@/lib/opsMetrics'
 
 function mapRule(row: {
   id: string
@@ -25,7 +27,9 @@ function mapRule(row: {
   enabled: boolean
   sortOrder: number
 }): OpsRuleDTO | null {
-  if (!isOpsRuleMetric(row.metric)) return null
+  const customKey = parseCustomRuleMetric(row.metric)
+  const metricOk = isOpsRuleMetric(row.metric) || !!customKey
+  if (!metricOk) return null
   if (!isOpsRuleOperator(row.operator)) return null
   if (!isOpsRuleSeverity(row.severity)) return null
   return {
@@ -33,7 +37,7 @@ function mapRule(row: {
     teamId: row.teamId,
     surveyId: row.surveyId,
     name: row.name,
-    metric: row.metric,
+    metric: row.metric as OpsRuleMetric,
     operator: row.operator,
     threshold: row.threshold,
     severity: row.severity,
@@ -45,6 +49,7 @@ function mapRule(row: {
 /** Ensure team has at least the default starter rules (editable afterwards). */
 export async function ensureDefaultOpsRules(teamId: string): Promise<OpsRuleDTO[]> {
   try {
+    await ensureOpsSchema()
     const existing = await prisma.opsRule.count({ where: { teamId } })
     if (existing === 0) {
       await prisma.opsRule.createMany({
@@ -64,12 +69,19 @@ export async function ensureDefaultOpsRules(teamId: string): Promise<OpsRuleDTO[
     return listOpsRules(teamId)
   } catch (error) {
     console.error('ensureDefaultOpsRules failed:', error)
-    return []
+    try {
+      await ensureOpsSchema()
+      return listOpsRules(teamId)
+    } catch (retryError) {
+      console.error('ensureDefaultOpsRules retry failed:', retryError)
+      return []
+    }
   }
 }
 
 export async function listOpsRules(teamId: string): Promise<OpsRuleDTO[]> {
   try {
+    await ensureOpsSchema()
     const rows = await prisma.opsRule.findMany({
       where: { teamId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -84,13 +96,14 @@ export async function listOpsRules(teamId: string): Promise<OpsRuleDTO[]> {
 export async function createOpsRule(args: {
   teamId: string
   name: string
-  metric: OpsRuleMetric
+  metric: OpsRuleMetric | string
   operator: OpsRuleOperator
   threshold: number
   severity: OpsRuleSeverity
   enabled?: boolean
   surveyId?: string | null
 }): Promise<OpsRuleDTO> {
+  await ensureOpsSchema()
   const count = await prisma.opsRule.count({ where: { teamId: args.teamId } })
   const row = await prisma.opsRule.create({
     data: {
@@ -115,7 +128,7 @@ export async function updateOpsRule(args: {
   id: string
   patch: Partial<{
     name: string
-    metric: OpsRuleMetric
+    metric: OpsRuleMetric | string
     operator: OpsRuleOperator
     threshold: number
     severity: OpsRuleSeverity
@@ -123,6 +136,7 @@ export async function updateOpsRule(args: {
     surveyId: string | null
   }>
 }): Promise<OpsRuleDTO | null> {
+  await ensureOpsSchema()
   const owned = await prisma.opsRule.findFirst({
     where: { id: args.id, teamId: args.teamId },
     select: { id: true },
@@ -144,6 +158,7 @@ export async function updateOpsRule(args: {
 }
 
 export async function deleteOpsRule(teamId: string, id: string): Promise<boolean> {
+  await ensureOpsSchema()
   const owned = await prisma.opsRule.findFirst({
     where: { id, teamId },
     select: { id: true },
@@ -168,6 +183,7 @@ type PlayerRow = {
     risk: { sleep: boolean }
     pain: { max: number | null; hasData: boolean }
   } | null
+  derived?: Array<{ key: string; value: number | null }>
 }
 
 /**
@@ -181,6 +197,7 @@ export async function syncOpsInterventions(args: {
   players: PlayerRow[]
 }): Promise<OpsInterventionDTO[]> {
   try {
+    await ensureOpsSchema()
     const rules = await ensureDefaultOpsRules(args.teamId)
     const hits = evaluateOpsRules({
       players: args.players,

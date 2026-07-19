@@ -12,6 +12,8 @@ export type OpsRuleMetric =
   | 'sleepRisk'
   | 'painMax'
   | 'pending'
+  /** Derived metric key: custom:<slug> */
+  | `custom:${string}`
 
 export type OpsRuleOperator = 'LT' | 'LTE' | 'GT' | 'GTE' | 'EQ'
 export type OpsRuleSeverity = 'WATCH' | 'ALERT' | 'CRITICAL'
@@ -179,7 +181,10 @@ const OP_IDS = new Set(OPS_RULE_OPERATORS.map((o) => o.id))
 const SEV_IDS = new Set(OPS_RULE_SEVERITIES.map((s) => s.id))
 
 export function isOpsRuleMetric(v: unknown): v is OpsRuleMetric {
-  return typeof v === 'string' && METRIC_IDS.has(v as OpsRuleMetric)
+  if (typeof v !== 'string') return false
+  if (METRIC_IDS.has(v as OpsRuleMetric)) return true
+  // Allow derived metrics created in the calculator: custom:<slug>
+  return /^custom:[a-z0-9_]{1,64}$/.test(v)
 }
 
 export function isOpsRuleOperator(v: unknown): v is OpsRuleOperator {
@@ -216,6 +221,9 @@ export function operatorSymbol(op: OpsRuleOperator): string {
 }
 
 export function metricLabel(metric: OpsRuleMetric): string {
+  if (typeof metric === 'string' && metric.startsWith('custom:')) {
+    return metric.slice('custom:'.length).replace(/_/g, ' ')
+  }
   return OPS_RULE_METRICS.find((m) => m.id === metric)?.label ?? metric
 }
 
@@ -234,6 +242,7 @@ type PlayerForEval = {
     risk: { sleep: boolean }
     pain: { max: number | null; hasData: boolean }
   } | null
+  derived?: Array<{ key: string; value: number | null }>
 }
 
 export function metricValueForPlayer(
@@ -241,6 +250,12 @@ export function metricValueForPlayer(
   metric: OpsRuleMetric,
 ): number | null {
   if (metric === 'pending') return player.status === 'pending' ? 1 : 0
+
+  if (typeof metric === 'string' && metric.startsWith('custom:')) {
+    const key = metric.slice('custom:'.length)
+    const hit = player.derived?.find((d) => d.key === key)
+    return hit?.value ?? null
+  }
 
   const w = player.wellness
   if (!w) return null
@@ -262,6 +277,8 @@ export function metricValueForPlayer(
       return w.risk.sleep ? 1 : 0
     case 'painMax':
       return w.pain.hasData ? (w.pain.max ?? null) : null
+    default:
+      return null
   }
 }
 

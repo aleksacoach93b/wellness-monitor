@@ -13,9 +13,16 @@ import {
   type OpsRuleSeverity,
 } from '@/lib/opsRules'
 
+type CustomMetricOption = {
+  id: OpsRuleMetric
+  label: string
+}
+
 type Props = {
   rules: OpsRuleDTO[]
   surveys: Array<{ id: string; title: string }>
+  /** Derived metrics available as rule targets (custom:<key>) */
+  customMetrics?: CustomMetricOption[]
   onCreate: (input: {
     name: string
     metric: OpsRuleMetric
@@ -28,15 +35,19 @@ type Props = {
   onPatch: (id: string, patch: Partial<OpsRuleDTO>) => Promise<void>
   onDelete: (id: string) => Promise<void>
   busy?: boolean
+  /** Prefill create form (e.g. from Metrics calculator “Use in rule”) */
+  seedMetric?: OpsRuleMetric | null
 }
 
 export default function OpsRulesPanel({
   rules,
   surveys,
+  customMetrics = [],
   onCreate,
   onPatch,
   onDelete,
   busy,
+  seedMetric = null,
 }: Props) {
   // Open by default so saved rules are visible immediately.
   const [open, setOpen] = useState(true)
@@ -49,6 +60,22 @@ export default function OpsRulesPanel({
   const [formError, setFormError] = useState<string | null>(null)
   const [flashId, setFlashId] = useState<string | null>(null)
   const listRef = useRef<HTMLUListElement | null>(null)
+
+  useEffect(() => {
+    if (!seedMetric) return
+    setOpen(true)
+    setMetric(seedMetric)
+    const label =
+      customMetrics.find((m) => m.id === seedMetric)?.label ||
+      OPS_RULE_METRICS.find((m) => m.id === seedMetric)?.label ||
+      'Custom metric'
+    setName(`${label} rule`)
+  }, [seedMetric, customMetrics])
+
+  const metricOptions = useMemo(() => {
+    const base = OPS_RULE_METRICS.map((m) => ({ id: m.id as OpsRuleMetric, label: m.label }))
+    return [...base, ...customMetrics]
+  }, [customMetrics])
 
   const metricMeta = useMemo(
     () => OPS_RULE_METRICS.find((m) => m.id === metric),
@@ -148,19 +175,22 @@ export default function OpsRulesPanel({
                       }}
                     />
                     <div className="ops-rules-row">
-                      <select
-                        value={rule.metric}
-                        disabled={busy}
-                        onChange={(e) =>
-                          onPatch(rule.id, { metric: e.target.value as OpsRuleMetric })
-                        }
-                      >
-                        {OPS_RULE_METRICS.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.label}
-                          </option>
-                        ))}
-                      </select>
+                    <select
+                      value={rule.metric}
+                      disabled={busy}
+                      onChange={(e) =>
+                        onPatch(rule.id, { metric: e.target.value as OpsRuleMetric })
+                      }
+                    >
+                      {metricOptions.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.label}
+                        </option>
+                      ))}
+                      {!metricOptions.some((m) => m.id === rule.metric) ? (
+                        <option value={rule.metric}>{rule.metric}</option>
+                      ) : null}
+                    </select>
                       <select
                         value={rule.operator}
                         disabled={busy}
@@ -229,7 +259,7 @@ export default function OpsRulesPanel({
                 value={metric}
                 onChange={(e) => setMetric(e.target.value as OpsRuleMetric)}
               >
-                {OPS_RULE_METRICS.map((m) => (
+                {metricOptions.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.label}
                   </option>

@@ -7,6 +7,7 @@ import {
   isOpsRuleSeverity,
 } from '@/lib/opsRules'
 import { deleteOpsRule, updateOpsRule } from '@/lib/opsRulesService'
+import { ensureOpsSchema } from '@/lib/opsSchemaEnsure'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -23,6 +24,7 @@ export async function PATCH(
   const { id } = await context.params
 
   try {
+    await ensureOpsSchema()
     const body = (await request.json().catch(() => null)) as {
       name?: string
       metric?: string
@@ -101,6 +103,7 @@ export async function DELETE(
 
   const { id } = await context.params
   try {
+    await ensureOpsSchema()
     const ok = await deleteOpsRule(session.teamId, id)
     if (!ok) {
       return NextResponse.json({ error: 'Rule not found' }, { status: 404 })

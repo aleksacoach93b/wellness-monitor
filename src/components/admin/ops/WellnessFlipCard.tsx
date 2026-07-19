@@ -4,6 +4,14 @@ import Image from 'next/image'
 import type { PlayerWellness } from '@/lib/opsWellness'
 import OpsBodyMapFace from '@/components/admin/ops/OpsBodyMapFace'
 
+export type OpsDerivedCell = {
+  key: string
+  metricId: string
+  name: string
+  value: number | null
+  color: string | null
+}
+
 export type OpsPlayerCard = {
   id: string
   firstName: string
@@ -13,6 +21,7 @@ export type OpsPlayerCard = {
   submittedAt: string | null
   rank: number | null
   wellness: PlayerWellness | null
+  derived?: OpsDerivedCell[]
 }
 
 function fmt(n: number | null | undefined, digits = 1) {

@@ -42,6 +42,7 @@ model Team {
   opsTablePreferences OpsTablePreference[]
   opsRules            OpsRule[]
   opsInterventions    OpsIntervention[]
+  opsMetrics          OpsMetric[]
 
   @@map("teams")
 }
@@ -106,6 +107,35 @@ model OpsRule {
   @@index([teamId])
   @@index([teamId, enabled])
   @@map("ops_rules")
+}
+
+/// Admin-defined derived metrics (formulas, ACWR, EWMA, rolling stats, etc.).
+model OpsMetric {
+  id          String   @id @default(cuid())
+  teamId      String
+  /// Optional: limit to one survey; null = any survey on the team
+  surveyId    String?
+  name        String
+  /// Stable slug used as derived key (unique per team)
+  key         String
+  /// FORMULA | ACWR | EWMA | ROLLING_MEAN | ROLLING_SUM | PCT_CHANGE | ZSCORE | MIN | MAX | RANGE | SD | CV | SPIKE | COMPOSITE
+  kind        String
+  /// Kind-specific JSON config (expression, source, windows, weights…)
+  config      Json
+  /// Ordered conditional format rules: [{ operator, threshold, color }]
+  formatting  Json?
+  showInTable Boolean  @default(true)
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, key])
+  @@index([teamId])
+  @@index([teamId, enabled])
+  @@map("ops_metrics")
 }
 
 /// Fired rule instance for a player on a calendar day.

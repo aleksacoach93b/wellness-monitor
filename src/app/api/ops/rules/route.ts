@@ -10,6 +10,7 @@ import {
   OPS_RULE_SEVERITIES,
 } from '@/lib/opsRules'
 import { createOpsRule, ensureDefaultOpsRules } from '@/lib/opsRulesService'
+import { ensureOpsSchema } from '@/lib/opsSchemaEnsure'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await ensureOpsSchema()
     const rules = await ensureDefaultOpsRules(session.teamId)
     return NextResponse.json(
       {
@@ -46,6 +48,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    await ensureOpsSchema()
     const body = (await request.json().catch(() => null)) as {
       name?: string
       metric?: string
@@ -99,6 +102,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ rule }, { status: 201 })
   } catch (error) {
     console.error('Ops rules POST error:', error)
-    return NextResponse.json({ error: 'Failed to create rule' }, { status: 500 })
+    const detail = error instanceof Error ? error.message : 'Failed to create rule'
+    return NextResponse.json(
+      {
+        error: detail.includes('does not exist') || detail.includes('ops_rules')
+          ? 'Database tables missing — retry once (self-heal). If it persists, redeploy.'
+          : 'Failed to create rule',
+        detail,
+      },
+      { status: 500 },
+    )
   }
 }

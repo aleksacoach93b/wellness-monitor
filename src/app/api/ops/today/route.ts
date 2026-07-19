@@ -11,6 +11,8 @@ import {
 } from '@/lib/opsDayBuild'
 import { loadOpsQuestionMappings } from '@/lib/opsTablePrefs'
 import { ensureDefaultOpsRules, syncOpsInterventions } from '@/lib/opsRulesService'
+import { listOpsMetrics, attachDerivedMetrics } from '@/lib/opsMetricsService'
+import { ensureOpsSchema } from '@/lib/opsSchemaEnsure'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -70,8 +72,15 @@ export async function GET(request: NextRequest) {
     }
 
     const { dayStart, dayEnd, selectedDate } = selectedDayWindow(dateParam)
+    // 28d history for ACWR / EWMA / rolling stats on derived metrics.
     const historyStart = new Date(dayStart)
-    historyStart.setDate(historyStart.getDate() - 7)
+    historyStart.setDate(historyStart.getDate() - 28)
+
+    try {
+      await ensureOpsSchema()
+    } catch (schemaError) {
+      console.error('Ops schema ensure skipped:', schemaError)
+    }
 
     const players = await prisma.player.findMany({
       where: { teamId, isActive: true },
@@ -167,13 +176,22 @@ export async function GET(request: NextRequest) {
       selectedDate,
     })
 
+    const metrics = await listOpsMetrics(teamId)
+    const playersWithDerived = attachDerivedMetrics({
+      metrics,
+      surveyId: survey?.id ?? null,
+      selectedDate,
+      players: day.players,
+      byPlayerDay,
+    })
+
     const [rules, interventions] = await Promise.all([
       ensureDefaultOpsRules(teamId),
       syncOpsInterventions({
         teamId,
         surveyId: survey?.id ?? null,
         date: selectedDate,
-        players: day.players,
+        players: playersWithDerived,
       }),
     ])
 
@@ -190,9 +208,10 @@ export async function GET(request: NextRequest) {
         selectedDate: day.selectedDate,
         stats: day.stats,
         wellnessSummary: day.wellnessSummary,
-        players: day.players,
+        players: playersWithDerived,
         rules,
         interventions,
+        metrics,
       },
       {
         headers: { 'Cache-Control': 'private, no-store' },

@@ -2294,7 +2294,8 @@
 
 /* ===== Intervention rules + list ===== */
 .ops-rules,
-.ops-intervene {
+.ops-intervene,
+.ops-metrics {
   margin-bottom: 16px;
   padding: 16px 18px;
   border-radius: 18px;
@@ -2302,6 +2303,160 @@
   background:
     radial-gradient(circle at 100% 0%, rgba(251, 191, 36, 0.08), transparent 40%),
     linear-gradient(165deg, rgba(10, 14, 22, 0.98), rgba(8, 12, 20, 0.96));
+}
+
+.ops-metrics {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.1), transparent 42%),
+    linear-gradient(165deg, rgba(10, 14, 22, 0.98), rgba(8, 12, 20, 0.96));
+}
+
+.ops-metrics-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ops-metrics-kind {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.14);
+  color: #67e8f9;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ops-metrics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.ops-metrics-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ops-metrics-rule-btn {
+  border: 1px solid rgba(126, 177, 247, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+  color: #dbeafe;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ops-metrics-formula {
+  display: grid;
+  gap: 8px;
+}
+
+.ops-metrics-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ops-metrics-chips button {
+  border: 1px solid rgba(71, 85, 105, 0.55);
+  background: rgba(2, 8, 20, 0.85);
+  color: #e2e8f0;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ops-metrics-chips button:hover {
+  border-color: rgba(34, 211, 238, 0.5);
+  color: #67e8f9;
+}
+
+.ops-metrics-weights {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.ops-metrics-weights label {
+  display: grid;
+  gap: 4px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.ops-metrics-format {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ops-metrics-format > strong {
+  color: #f8fafc;
+  font-size: 12px;
+}
+
+.ops-metrics-color-picks {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ops-metrics-color-picks button {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.ops-metrics-color-picks button.is-on {
+  border-color: #f8fafc;
+}
+
+.ops-metrics-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ops-metrics-swatches span,
+.ops-metrics-swatches button {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #0f172a;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ops-metrics-hint {
+  color: #7f93b0 !important;
+}
+
+.ops-metrics-hint code {
+  color: #67e8f9;
+}
+
+.ops-derived-val {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
 }
 
 .ops-rules-head,

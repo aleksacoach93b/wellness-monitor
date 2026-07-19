@@ -24,8 +24,13 @@ import OpsCalendar from '@/components/admin/ops/OpsCalendar'
 import OpsBodyMapsSection from '@/components/admin/ops/OpsBodyMapsSection'
 import OpsRulesPanel from '@/components/admin/ops/OpsRulesPanel'
 import OpsInterventionsPanel from '@/components/admin/ops/OpsInterventionsPanel'
+import OpsMetricsPanel from '@/components/admin/ops/OpsMetricsPanel'
 import type { PlayerWellness, TeamWellnessSummary } from '@/lib/opsWellness'
-import type { OpsInterventionDTO, OpsRuleDTO } from '@/lib/opsRules'
+import type { OpsInterventionDTO, OpsRuleDTO, OpsRuleMetric } from '@/lib/opsRules'
+import {
+  customRuleMetricId,
+  type OpsMetricDTO,
+} from '@/lib/opsMetrics'
 import {
   DEFAULT_OPS_COLUMNS,
   normalizeOpsColumns,
@@ -51,9 +56,11 @@ type OpsPayload = {
     submittedAt: string | null
     rank: number | null
     wellness: PlayerWellness | null
+    derived?: OpsPlayerCard['derived']
   }>
   rules?: OpsRuleDTO[]
   interventions?: OpsInterventionDTO[]
+  metrics?: OpsMetricDTO[]
 }
 
 type StatusFilter = 'pending' | 'done' | 'all'
@@ -140,8 +147,11 @@ export default function LiveOpsPage() {
   const [savingColumns, setSavingColumns] = useState(false)
   const [rules, setRules] = useState<OpsRuleDTO[]>([])
   const [interventions, setInterventions] = useState<OpsInterventionDTO[]>([])
+  const [metrics, setMetrics] = useState<OpsMetricDTO[]>([])
   const [rulesBusy, setRulesBusy] = useState(false)
+  const [metricsBusy, setMetricsBusy] = useState(false)
   const [interveneBusyId, setInterveneBusyId] = useState<string | null>(null)
+  const [seedRuleMetric, setSeedRuleMetric] = useState<OpsRuleMetric | null>(null)
 
   const surveyIdRef = useRef(surveyId)
   const selectedDateRef = useRef(selectedDate)
@@ -165,6 +175,7 @@ export default function LiveOpsPage() {
     setData(cached)
     if (Array.isArray(cached.rules)) setRules(cached.rules)
     if (Array.isArray(cached.interventions)) setInterventions(cached.interventions)
+    if (Array.isArray(cached.metrics)) setMetrics(cached.metrics)
     return true
   }, [])
 
@@ -251,6 +262,7 @@ export default function LiveOpsPage() {
         setData(payload)
         if (Array.isArray(payload.rules)) setRules(payload.rules)
         if (Array.isArray(payload.interventions)) setInterventions(payload.interventions)
+        if (Array.isArray(payload.metrics)) setMetrics(payload.metrics)
         if (payload.selectedDate) {
           selectedDateRef.current = payload.selectedDate
           setSelectedDate(payload.selectedDate)
@@ -600,6 +612,103 @@ export default function LiveOpsPage() {
     [],
   )
 
+  const createMetric = useCallback(
+    async (input: {
+      name: string
+      kind: OpsMetricDTO['kind']
+      config: OpsMetricDTO['config']
+      formatting: OpsMetricDTO['formatting']
+      showInTable: boolean
+      enabled: boolean
+      surveyId: string | null
+    }): Promise<{ ok: boolean; error?: string; metric?: OpsMetricDTO }> => {
+      setMetricsBusy(true)
+      try {
+        const res = await fetch('/api/ops/metrics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        })
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          return {
+            ok: false,
+            error: typeof body?.error === 'string' ? body.error : 'Failed to create metric',
+          }
+        }
+        const metric = body?.metric as OpsMetricDTO | undefined
+        if (metric?.id) {
+          setMetrics((prev) =>
+            prev.some((m) => m.id === metric.id) ? prev : [...prev, metric],
+          )
+        }
+        await reloadAfterRulesChange()
+        return { ok: true, metric }
+      } catch {
+        return { ok: false, error: 'Network error creating metric' }
+      } finally {
+        setMetricsBusy(false)
+      }
+    },
+    [reloadAfterRulesChange],
+  )
+
+  const patchMetric = useCallback(
+    async (id: string, patch: Partial<OpsMetricDTO>) => {
+      setMetricsBusy(true)
+      try {
+        const res = await fetch(`/api/ops/metrics/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        })
+        if (!res.ok) return
+        const body = await res.json()
+        if (body?.metric) {
+          setMetrics((prev) => prev.map((m) => (m.id === id ? body.metric : m)))
+        }
+        await reloadAfterRulesChange()
+      } finally {
+        setMetricsBusy(false)
+      }
+    },
+    [reloadAfterRulesChange],
+  )
+
+  const deleteMetric = useCallback(
+    async (id: string) => {
+      setMetricsBusy(true)
+      try {
+        const res = await fetch(`/api/ops/metrics/${id}`, { method: 'DELETE' })
+        if (!res.ok) return
+        setMetrics((prev) => prev.filter((m) => m.id !== id))
+        await reloadAfterRulesChange()
+      } finally {
+        setMetricsBusy(false)
+      }
+    },
+    [reloadAfterRulesChange],
+  )
+
+  const customRuleMetricOptions = useMemo(
+    () =>
+      metrics
+        .filter((m) => m.enabled)
+        .map((m) => ({
+          id: customRuleMetricId(m.key) as OpsRuleMetric,
+          label: `⚡ ${m.name}`,
+        })),
+    [metrics],
+  )
+
+  const tableMetricColumns = useMemo(
+    () =>
+      metrics
+        .filter((m) => m.enabled && m.showInTable)
+        .map((m) => ({ key: m.key, name: m.name })),
+    [metrics],
+  )
+
   if (loading && !data) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -660,9 +769,23 @@ export default function LiveOpsPage() {
         <OpsAlertTicker players={data.players as OpsPlayerCard[]} />
       ) : null}
 
+      <OpsMetricsPanel
+        metrics={metrics}
+        surveys={data?.surveys ?? []}
+        onCreate={createMetric}
+        onPatch={patchMetric}
+        onDelete={deleteMetric}
+        onCreateRuleFromMetric={(metric) => {
+          setSeedRuleMetric(customRuleMetricId(metric.key) as OpsRuleMetric)
+        }}
+        busy={metricsBusy}
+      />
+
       <OpsRulesPanel
         rules={rules}
         surveys={data?.surveys ?? []}
+        customMetrics={customRuleMetricOptions}
+        seedMetric={seedRuleMetric}
         onCreate={createRule}
         onPatch={patchRule}
         onDelete={deleteRule}
@@ -784,7 +907,11 @@ export default function LiveOpsPage() {
         </div>
       ) : viewMode === 'table' ? (
         <div className="ops-table-stack">
-          <OpsWellnessTable players={sortedCards} columns={tableColumns} />
+          <OpsWellnessTable
+            players={sortedCards}
+            columns={tableColumns}
+            metricColumns={tableMetricColumns}
+          />
           <OpsBodyMapsSection players={sortedCards} />
         </div>
       ) : (

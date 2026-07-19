@@ -222,15 +222,44 @@ function renderCell(id: OpsColumnId, p: OpsPlayerCard) {
   }
 }
 
+export type OpsMetricColumn = {
+  key: string
+  name: string
+}
+
+function DerivedCell({
+  value,
+  color,
+}: {
+  value: number | null
+  color: string | null
+}) {
+  if (value == null || !Number.isFinite(value)) {
+    return <span className="ops-t-muted">—</span>
+  }
+  const display = Number.isInteger(value) ? String(value) : value.toFixed(2)
+  return (
+    <span className="ops-derived-val" style={{ color: color || '#e2e8f0' }}>
+      {display}
+    </span>
+  )
+}
+
 export default function OpsWellnessTable({
   players,
   columns = DEFAULT_OPS_COLUMNS,
+  metricColumns = [],
 }: {
   players: OpsPlayerCard[]
   columns?: OpsColumnConfig[]
+  /** Custom derived metrics with showInTable */
+  metricColumns?: OpsMetricColumn[]
 }) {
   const visible = enabledColumns(columns)
   const spans = groupSpans(visible)
+  if (metricColumns.length) {
+    spans.push({ group: 'Custom metrics', span: metricColumns.length })
+  }
 
   const rows = [...players].sort((a, b) => {
     if (a.status !== b.status) return a.status === 'done' ? -1 : 1
@@ -262,12 +291,18 @@ export default function OpsWellnessTable({
                   {headerLabel(col)}
                 </th>
               ))}
+              {metricColumns.map((col) => (
+                <th key={`m-${col.key}`} title={col.name}>
+                  {col.name}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((p) => {
               const w = p.wellness
               const pending = p.status === 'pending' || !w
+              const derivedByKey = new Map((p.derived ?? []).map((d) => [d.key, d]))
               return (
                 <tr
                   key={p.id}
@@ -276,6 +311,17 @@ export default function OpsWellnessTable({
                   }`}
                 >
                   {visible.map((col) => renderCell(col.id, p))}
+                  {metricColumns.map((col) => {
+                    const cell = derivedByKey.get(col.key)
+                    return (
+                      <td key={`m-${col.key}`}>
+                        <DerivedCell
+                          value={cell?.value ?? null}
+                          color={cell?.color ?? null}
+                        />
+                      </td>
+                    )
+                  })}
                 </tr>
               )
             })}

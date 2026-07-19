@@ -15,6 +15,7 @@ import {
   UserCog,
   MailPlus,
   ClipboardList,
+  Activity,
   Menu,
   X,
 } from 'lucide-react'
@@ -29,6 +30,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/ops', label: 'Live Ops', icon: Activity },
   { href: '/', label: 'Surveys', icon: ClipboardList },
   { href: '/admin/players', label: 'Players', icon: Users },
   { href: '/admin/surveys/new', label: 'New survey', icon: FilePlus2 },
@@ -96,7 +98,7 @@ export default function AdminChrome({
   return (
     <div className="admin-shell">
       <div className="admin-bg-mesh" aria-hidden />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-[1400px]">
+      <div className="relative z-10 flex min-h-screen w-full">
         {/* Desktop sidebar */}
         <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col border-r border-white/5 bg-[#0b1220] text-white lg:flex">
           <div className="px-5 pb-4 pt-6">
@@ -150,7 +152,7 @@ export default function AdminChrome({
           </div>
         )}
 
-        <div className="admin-main min-w-0 flex-1 px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-8">
+        <div className="admin-main min-w-0 flex-1 px-3 pb-10 pt-20 sm:px-4 lg:px-5 lg:pt-8">
           {children}
         </div>
       </div>

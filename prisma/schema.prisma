@@ -32,13 +32,17 @@ model Team {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  players        Player[]
-  surveys        Survey[]
-  tags           Tag[]
-  kioskSettings  KioskSettings[]
-  memberships    TeamMembership[]
-  invites        Invite[]
-  adminAccess    AdminAccessSettings?
+  players             Player[]
+  surveys             Survey[]
+  tags                Tag[]
+  kioskSettings       KioskSettings[]
+  memberships         TeamMembership[]
+  invites             Invite[]
+  adminAccess         AdminAccessSettings?
+  opsTablePreferences OpsTablePreference[]
+  opsRules            OpsRule[]
+  opsInterventions    OpsIntervention[]
+  opsMetrics          OpsMetric[]
 
   @@map("teams")
 }
@@ -53,10 +57,115 @@ model AdminUser {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  memberships  TeamMembership[]
-  invitesSent  Invite[]         @relation("InvitesSent")
+  memberships         TeamMembership[]
+  invitesSent         Invite[]              @relation("InvitesSent")
+  opsTablePreferences OpsTablePreference[]
 
   @@map("admin_users")
+}
+
+/// Per-team + per-admin Live Ops table layout + per-survey question maps.
+model OpsTablePreference {
+  id          String   @id @default(cuid())
+  teamId      String
+  adminUserId String
+  /// JSON: { bySurvey: { [surveyId]: OpsColumnConfig[] }, columns?: OpsColumnConfig[] }
+  columns     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, adminUserId])
+  @@index([adminUserId])
+  @@map("ops_table_preferences")
+}
+
+/// Admin-configurable Live Ops intervention rule (per team).
+model OpsRule {
+  id        String   @id @default(cuid())
+  teamId    String
+  /// Optional: limit rule to one survey; null = any survey on the team
+  surveyId  String?
+  name      String
+  /// readiness | fatigue | soreness | sleepQuality | mood | stress | sleepRisk | painMax | pending
+  metric    String
+  /// LT | LTE | GT | GTE | EQ
+  operator  String
+  threshold Float
+  /// WATCH | ALERT | CRITICAL
+  severity  String   @default("WATCH")
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team          Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  interventions OpsIntervention[]
+
+  @@index([teamId])
+  @@index([teamId, enabled])
+  @@map("ops_rules")
+}
+
+/// Admin-defined derived metrics (formulas, ACWR, EWMA, rolling stats, etc.).
+model OpsMetric {
+  id          String   @id @default(cuid())
+  teamId      String
+  /// Optional: limit to one survey; null = any survey on the team
+  surveyId    String?
+  name        String
+  /// Stable slug used as derived key (unique per team)
+  key         String
+  /// FORMULA | ACWR | EWMA | ROLLING_MEAN | ROLLING_SUM | PCT_CHANGE | ZSCORE | MIN | MAX | RANGE | SD | CV | SPIKE | COMPOSITE
+  kind        String
+  /// Kind-specific JSON config (expression, source, windows, weights…)
+  config      Json
+  /// Ordered conditional format rules: [{ operator, threshold, color }]
+  formatting  Json?
+  showInTable Boolean  @default(true)
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, key])
+  @@index([teamId])
+  @@index([teamId, enabled])
+  @@map("ops_metrics")
+}
+
+/// Fired rule instance for a player on a calendar day.
+model OpsIntervention {
+  id             String    @id @default(cuid())
+  teamId         String
+  surveyId       String?
+  ruleId         String
+  playerId       String
+  /// YYYY-MM-DD
+  date           String
+  severity       String
+  metric         String
+  value          Float?
+  message        String
+  /// OPEN | ACKNOWLEDGED | RESOLVED
+  status         String    @default("OPEN")
+  note           String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+
+  team Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  rule OpsRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, playerId, date])
+  @@index([teamId, date])
+  @@index([teamId, status])
+  @@map("ops_interventions")
 }
 
 model TeamMembership {
@@ -180,6 +289,8 @@ model Response {
   player  Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
   answers Answer[]
 
+  @@index([surveyId, submittedAt])
+  @@index([surveyId, playerId, submittedAt])
   @@map("responses")
 }
 

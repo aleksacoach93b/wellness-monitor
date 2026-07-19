@@ -39,6 +39,7 @@ export default async function AdminPage() {
   }
 
   const primary = [
+    { href: '/admin/ops', label: 'Live Ops', desc: 'Who still needs to check in today', icon: Activity },
     { href: '/admin/surveys/new', label: 'New survey', desc: 'Build a wellness form', icon: FilePlus2 },
     { href: '/admin/players', label: 'Players', desc: 'Roster & access codes', icon: Users },
     { href: '/', label: 'All surveys', desc: 'Results, edit, kiosk links', icon: ClipboardList },
@@ -62,10 +63,16 @@ export default async function AdminPage() {
             Run surveys, players, kiosk, and exports for your team — clean and fast.
           </p>
         </div>
-        <Link href="/" className="admin-btn admin-btn-ghost">
-          View surveys
-          <ArrowUpRight className="h-4 w-4" />
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/ops" className="admin-btn admin-btn-primary">
+            Live Ops
+            <Activity className="h-4 w-4" />
+          </Link>
+          <Link href="/" className="admin-btn admin-btn-ghost">
+            View surveys
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </div>
       </header>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -90,7 +97,7 @@ export default async function AdminPage() {
         <div className="mb-3 flex items-center justify-between">
           <h2 className="admin-display text-lg font-bold text-[var(--ad-ink)]">Core</h2>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {primary.map((item) => {
             const Icon = item.icon
             return (

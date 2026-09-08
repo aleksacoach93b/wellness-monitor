@@ -26,6 +26,7 @@ interface KioskSettings {
   theme: KioskTheme
   clubName?: string
   clubLogo?: string | null
+  clubColor?: string | null
   showClubBranding?: boolean
   createdAt: string
   updatedAt: string
@@ -97,6 +98,8 @@ export default function KioskSettingsPage() {
   const [theme, setTheme] = useState<KioskTheme>('dark')
   const [clubName, setClubName] = useState('')
   const [clubLogo, setClubLogo] = useState<string | null>(null)
+  const [clubColor, setClubColor] = useState('#C8102E')
+  const [useClubColor, setUseClubColor] = useState(false)
   const [showClubBranding, setShowClubBranding] = useState(true)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
@@ -119,6 +122,8 @@ export default function KioskSettingsPage() {
     setClubName(data.clubName ?? '')
     setClubLogo(data.clubLogo ?? null)
     setLogoPreview(data.clubLogo ?? null)
+    setClubColor(data.clubColor || '#C8102E')
+    setUseClubColor(Boolean(data.clubColor))
     setShowClubBranding(data.showClubBranding ?? true)
   }
 
@@ -142,6 +147,7 @@ export default function KioskSettingsPage() {
     theme,
     clubName: clubName.trim(),
     clubLogo,
+    clubColor: useClubColor ? clubColor : null,
     showClubBranding,
   })
 
@@ -345,6 +351,41 @@ export default function KioskSettingsPage() {
                   <p className="mt-2 text-sm text-gray-500">
                     Full crest logos are shown with fit (not cropped). Image is compressed automatically for fast loading.
                   </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Club color</label>
+                  <p className="text-sm text-gray-500 mb-3">
+                    Used as the kiosk accent (progress, filters, Start). Existing themes stay as they are.
+                  </p>
+                  <label className="mb-3 flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useClubColor}
+                      onChange={(e) => setUseClubColor(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-800">Use club color on kiosk</span>
+                  </label>
+                  {useClubColor ? (
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={clubColor}
+                        onChange={(e) => setClubColor(e.target.value.toUpperCase())}
+                        className="h-11 w-14 cursor-pointer rounded-lg border border-gray-300 bg-white p-1"
+                        aria-label="Club color"
+                      />
+                      <input
+                        type="text"
+                        value={clubColor}
+                        onChange={(e) => setClubColor(e.target.value.toUpperCase())}
+                        maxLength={7}
+                        className="w-32 px-3 py-2.5 border border-gray-300 rounded-lg font-mono text-sm uppercase"
+                        placeholder="#C8102E"
+                      />
+                    </div>
+                  ) : null}
                 </div>
 
                 <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 cursor-pointer">

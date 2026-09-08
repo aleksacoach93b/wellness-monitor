@@ -316,6 +316,7 @@ model KioskSettings {
   theme            String   @default("dark")
   clubName         String   @default("")
   clubLogo         String? // data URL or image URL
+  clubColor        String? // optional hex accent, e.g. #C8102E
   showClubBranding Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

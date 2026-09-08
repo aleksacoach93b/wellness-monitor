@@ -4,6 +4,16 @@ import { prisma } from '@/lib/prisma'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+let clubColorColumnReady = false
+async function ensureClubColorColumn() {
+  if (clubColorColumnReady) return
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "kiosk_settings"
+    ADD COLUMN IF NOT EXISTS "clubColor" TEXT;
+  `)
+  clubColorColumnReady = true
+}
+
 /**
  * Fast kiosk open payload — NO player images / NO questions.
  * Images hydrate via /avatars; questions load when coach mode opens.
@@ -42,6 +52,7 @@ export async function GET(
     }
 
     const teamId = survey.teamId
+    await ensureClubColorColumn()
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const tomorrow = new Date(today)
@@ -57,6 +68,7 @@ export async function GET(
               theme: true,
               clubName: true,
               clubLogo: true,
+              clubColor: true,
               showClubBranding: true,
               isEnabled: true,
             },

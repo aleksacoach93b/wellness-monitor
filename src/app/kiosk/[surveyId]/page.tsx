@@ -4,7 +4,7 @@ import { useState, useEffect, use, useMemo, useCallback, useRef, type Dispatch, 
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Survey, Question } from '@prisma/client'
-import { CheckCircle, Play, User, Home, Maximize, Minimize, ClipboardList, Users, Search, Clock3, MoreVertical } from 'lucide-react'
+import { CheckCircle, Play, User, Home, Maximize, Minimize, ClipboardList, Users, Search, Clock3, MoreVertical, ALargeSmall } from 'lucide-react'
 import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
@@ -14,6 +14,7 @@ import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
 import KioskClubBrand from '@/components/KioskClubBrand'
 import { kioskThemes, kioskTextTokens, KioskTheme } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
+import { clubOnColor, normalizeClubColor } from '@/lib/clubAccent'
 
 const CoachModeView = dynamic(() => import('@/components/CoachModeView'), {
   ssr: false,
@@ -59,6 +60,7 @@ type KioskBootstrap = {
     theme?: KioskTheme
     clubName?: string
     clubLogo?: string | null
+    clubColor?: string | null
     showClubBranding?: boolean
   } | null
   adminAccessPassword?: string
@@ -90,15 +92,6 @@ function kioskPlayerInitial(player: Pick<PlayerWithStatus, 'firstName' | 'lastNa
   return s.slice(0, 1).toLocaleUpperCase()
 }
 
-/** Title-case each word: "DOBROSAVLEVICI" / "DE KAMPS" → "Dobrosavlevici" / "De Kamps" */
-function formatKioskSurname(lastName: string): string {
-  return lastName
-    .trim()
-    .split(/\s+/)
-    .map((w) => (w ? w.charAt(0).toLocaleUpperCase() + w.slice(1).toLocaleLowerCase() : ''))
-    .join(' ')
-}
-
 export default function KioskModePage({ params }: { params: Promise<{ surveyId: string }> }) {
   const router = useRouter()
   const { surveyId } = use(params)
@@ -127,7 +120,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [kioskTheme, setKioskTheme] = useState<KioskTheme>('dark')
   const [clubName, setClubName] = useState('')
   const [clubLogo, setClubLogo] = useState<string | null>(null)
+  const [clubColor, setClubColor] = useState<string | null>(null)
   const [showClubBranding, setShowClubBranding] = useState(true)
+  const [showLetters, setShowLetters] = useState(false)
   const [isCoachMode, setIsCoachMode] = useState(false)
   const [surveyQuestions, setSurveyQuestions] = useState<Question[]>([])
   const [sessionTags, setSessionTags] = useState<string[]>([])
@@ -166,6 +161,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     setKioskGatePassword(ks?.password ?? '')
     setClubName(ks?.clubName ?? '')
     setClubLogo(ks?.clubLogo ?? null)
+    setClubColor(normalizeClubColor(ks?.clubColor ?? null))
     setShowClubBranding(ks?.showClubBranding ?? true)
     if (data.adminAccessPassword) {
       setAdminAccessPassword(data.adminAccessPassword)
@@ -470,6 +466,15 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
   const pendingCount = useMemo(() => players.filter((p) => !p.hasResponded).length, [players])
   const doneCount = useMemo(() => players.filter((p) => p.hasResponded).length, [players])
+  const totalCount = players.length
+  const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
+  const accent = showClubBranding ? clubColor : null
+  const accentOn = accent ? clubOnColor(accent) : '#FFFFFF'
+  const todayLabel = new Date().toLocaleDateString(undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
 
   const filteredPlayers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -518,16 +523,30 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       type="button"
       onClick={() => handlePlayerClick(player)}
       className={`group relative m-0 min-w-0 w-full appearance-none text-left backdrop-blur-xl rounded-2xl sm:rounded-3xl border-solid shadow-2xl hover:shadow-3xl cursor-pointer transition-[transform,box-shadow] duration-300 ease-out transform hover:scale-[1.02] hover:-translate-y-px focus-visible:z-10 focus-visible:scale-[1.02] focus-visible:-translate-y-px p-3 sm:p-6 lg:p-8 ${activeTheme.playerCardFocus} ${
-        player.hasResponded ? activeTheme.playerCardResponded : activeTheme.playerCardIdle
+        player.hasResponded ? `${activeTheme.playerCardResponded} opacity-75` : activeTheme.playerCardIdle
       }`}
     >
-      {player.hasResponded && (
-        <div className="absolute -top-3 -right-3 w-10 h-10 bg-gradient-to-r from-green-500/90 to-emerald-500/90 rounded-full flex items-center justify-center shadow-2xl border-2 border-green-400/50 backdrop-blur-sm">
-          <CheckCircle className="w-6 h-6 text-white drop-shadow-lg" />
-        </div>
-      )}
+      <div
+        className={`absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full sm:right-3 sm:top-3 sm:h-9 sm:w-9 ${
+          player.hasResponded
+            ? 'bg-gradient-to-r from-green-500/90 to-emerald-500/90 border border-green-400/50'
+            : accent
+              ? ''
+              : 'border border-white/20 bg-black/35 text-white'
+        }`}
+        style={!player.hasResponded && accent ? { backgroundColor: accent, color: accentOn } : undefined}
+      >
+        {player.hasResponded ? (
+          <CheckCircle className="h-4 w-4 text-white sm:h-5 sm:w-5" aria-hidden />
+        ) : (
+          <Play
+            className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${accent ? '' : 'text-white'}`}
+            aria-hidden
+          />
+        )}
+      </div>
 
-      <div className="flex justify-center mb-4 sm:mb-6">
+      <div className="flex justify-center mb-3 sm:mb-5">
         <div className="relative">
           {player.image ? (
             <Image
@@ -566,25 +585,29 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       </div>
 
       <div className="w-full min-w-0 px-1 text-center sm:px-1.5">
-        <h3 className={`text-[11px] sm:text-sm lg:text-base font-medium leading-tight ${text.textFaint} tracking-wide transition-colors duration-300`}>
+        <p className={`w-full max-w-full break-words text-[13px] font-extrabold uppercase leading-tight tracking-wide ${text.textStrong} sm:text-sm md:text-base lg:text-lg`}>
+          {player.lastName}
+        </p>
+        <h3 className={`mt-0.5 text-[11px] font-medium leading-tight tracking-wide ${text.textFaint} sm:text-sm`}>
           {player.firstName}
         </h3>
-        <p className={`mt-0.5 w-full max-w-full break-words text-[10px] font-bold normal-case leading-tight tracking-tight ${text.textStrong} transition-colors duration-300 sm:text-[11px] md:text-xs lg:text-sm`}>
-          {formatKioskSurname(player.lastName)}
-        </p>
 
         {player.hasResponded ? (
           <div className="mt-3 flex w-full justify-center">
             <div className="inline-flex items-center gap-1 rounded-full border border-green-400/30 bg-green-900/40 px-2 py-1 text-xs font-semibold text-green-300 backdrop-blur-sm shadow-lg sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-sm">
               <CheckCircle className="h-3 w-3 shrink-0 sm:h-4 sm:w-4" aria-hidden />
-              <span>Done</span>
+              <span>Completed</span>
             </div>
           </div>
         ) : (
           <div className="mt-3 flex w-full justify-center">
-            <div className={`${activeTheme.playerStatusIdlePill}`}>
+            <div
+              className={accent ? 'inline-flex min-h-8 items-center justify-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold shadow-md sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs' : activeTheme.playerStatusIdlePill}
+              style={accent ? { backgroundColor: accent, color: accentOn } : undefined}
+            >
               <Play className="h-3 w-3 shrink-0 opacity-90 sm:h-3.5 sm:w-3.5" aria-hidden />
-              <span>Start</span>
+              <span className="hidden sm:inline">Start check-in</span>
+              <span className="sm:hidden">Start</span>
             </div>
           </div>
         )}
@@ -698,19 +721,37 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               kioskTheme={kioskTheme}
               size="sm"
               logoOnly
-              className="shrink-0"
+              className="shrink-0 hidden min-[400px]:flex"
             />
           ) : null}
 
           <div className="min-w-0 flex-1">
+            {showClubBranding && clubName ? (
+              <p className={`truncate text-[10px] font-semibold uppercase tracking-[0.18em] ${text.textFaint} sm:text-xs`}>
+                {clubName}
+              </p>
+            ) : null}
             <h1
               className={`truncate text-[1.15rem] font-semibold tracking-tight sm:text-xl lg:text-2xl ${text.textStrong}`}
             >
               {survey.title}
             </h1>
             <p className={`mt-0.5 truncate text-xs sm:text-sm ${text.textSoft}`}>
-              {isCoachMode ? 'Coach mode · fill in for each player' : 'Tap your name to start'}
+              {isCoachMode ? 'Coach mode · fill in for each player' : todayLabel}
             </p>
+            {!isCoachMode ? (
+              <div className="mt-2 flex max-w-xs items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/15">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${accent ? '' : activeTheme.accentLine}`}
+                    style={{ width: `${progressPct}%`, ...(accent ? { backgroundColor: accent } : {}) }}
+                  />
+                </div>
+                <span className={`shrink-0 text-[11px] font-semibold tabular-nums ${text.textSoft}`}>
+                  {doneCount}/{totalCount}
+                </span>
+              </div>
+            ) : null}
           </div>
 
           <div className="relative shrink-0" ref={staffMenuRef}>
@@ -1008,93 +1049,146 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         )
       ) : (
       <>
-      <div className={`relative ${activeTheme.panelBackground} backdrop-blur-xl py-4 sm:py-8`}>
+      <div className={`relative ${activeTheme.panelBackground} backdrop-blur-xl py-3 sm:py-4`}>
         <div className={`absolute inset-0 ${activeTheme.panelOverlay}`}></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 space-y-5 sm:space-y-6">
-          <div className="text-center">
-            <h2 id="kiosk-filter-heading" className={`text-lg sm:text-2xl font-light ${text.textStrong} mb-2 sm:mb-3 tracking-wide`}>
-              Find your name
-            </h2>
-            <div className={`w-16 sm:w-20 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-2 sm:mb-3`}></div>
-            <p className={`text-sm sm:text-base ${text.textSoft} tracking-wide`}>
-              Pending first — search or filter to start faster
-            </p>
-          </div>
+        <div className="relative max-w-7xl mx-auto px-3 sm:px-6 space-y-2.5">
+          <h2 id="kiosk-filter-heading" className="sr-only">Find your name</h2>
 
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {(
-              [
-                { id: 'pending', label: `Pending (${pendingCount})` },
-                { id: 'done', label: `Done (${doneCount})` },
-                { id: 'all', label: `All (${players.length})` },
-              ] as const
-            ).map((tab) => (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex flex-1 rounded-xl border border-white/10 p-0.5 backdrop-blur-sm">
+              {(
+                [
+                  { id: 'pending', label: `Pending ${pendingCount}` },
+                  { id: 'done', label: `Done ${doneCount}` },
+                  { id: 'all', label: `All ${players.length}` },
+                ] as const
+              ).map((tab) => {
+                const active = statusFilter === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setStatusFilter(tab.id)}
+                    className={`flex-1 rounded-lg px-2 py-2 text-xs font-semibold transition-all sm:px-3 sm:text-sm ${
+                      active && !accent ? activeTheme.letterActive : !active ? `${text.textSoft} hover:bg-white/5` : ''
+                    }`}
+                    style={active && accent ? { backgroundColor: accent, color: accentOn } : undefined}
+                  >
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+                <Search className={`pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 ${text.textFaint}`} aria-hidden />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search…"
+                  className={`w-full rounded-full py-2 pl-9 pr-3 text-sm backdrop-blur-sm focus:outline-none ${activeTheme.inputField}`}
+                  autoComplete="off"
+                  enterKeyHint="search"
+                />
+              </div>
               <button
-                key={tab.id}
                 type="button"
-                onClick={() => setStatusFilter(tab.id)}
-                className={`px-4 py-2.5 rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 shadow-lg backdrop-blur-sm ${
-                  statusFilter === tab.id ? activeTheme.letterActive : activeTheme.letterInactive
+                onClick={() => setShowLetters((v) => !v)}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold sm:text-sm ${
+                  showLetters || selectedLetter ? (accent ? '' : activeTheme.letterActive) : activeTheme.letterInactive
                 }`}
+                style={(showLetters || selectedLetter) && accent ? { backgroundColor: accent, color: accentOn } : undefined}
+                aria-expanded={showLetters}
+                aria-controls="kiosk-letter-filter"
               >
-                {tab.label}
+                <ALargeSmall className="h-3.5 w-3.5" aria-hidden />
+                Letters
               </button>
-            ))}
+            </div>
           </div>
 
-          <div className="relative max-w-xl mx-auto">
-            <Search className={`pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${text.textFaint}`} aria-hidden />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search name…"
-              className={`w-full rounded-xl py-3 pl-11 pr-4 text-base backdrop-blur-sm focus:outline-none ${activeTheme.inputField}`}
-              autoComplete="off"
-              enterKeyHint="search"
-            />
-          </div>
-
-          <nav aria-labelledby="kiosk-filter-heading" className="flex flex-wrap gap-2 sm:gap-3 justify-center">
-            <button
-              onClick={() => setSelectedLetter('')}
-              className={`px-3 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg backdrop-blur-sm ${
-                !selectedLetter ? activeTheme.letterActive : activeTheme.letterInactive
-              }`}
+          {showLetters || selectedLetter ? (
+            <nav
+              id="kiosk-letter-filter"
+              aria-labelledby="kiosk-filter-heading"
+              className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-              A–Z
-            </button>
-            {getAlphabet().map((letter) => {
-              const hasPlayers = players.some((p) => p.lastName.toUpperCase().startsWith(letter))
-              return (
-                <button
-                  key={letter}
-                  onClick={() => setSelectedLetter(letter)}
-                  disabled={!hasPlayers}
-                  className={`px-3 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg backdrop-blur-sm ${
-                    selectedLetter === letter
-                      ? activeTheme.letterActive
-                      : hasPlayers
-                        ? activeTheme.letterInactive
-                        : activeTheme.letterDisabled
-                  }`}
-                >
-                  {letter}
-                </button>
-              )
-            })}
-          </nav>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedLetter('')
+                  setShowLetters(false)
+                }}
+                className={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
+                  !selectedLetter ? (accent ? '' : activeTheme.letterActive) : activeTheme.letterInactive
+                }`}
+                style={!selectedLetter && accent ? { backgroundColor: accent, color: accentOn } : undefined}
+              >
+                All
+              </button>
+              {getAlphabet().map((letter) => {
+                const hasPlayers = players.some((p) => p.lastName.toUpperCase().startsWith(letter))
+                const active = selectedLetter === letter
+                return (
+                  <button
+                    key={letter}
+                    type="button"
+                    onClick={() => setSelectedLetter(letter)}
+                    disabled={!hasPlayers}
+                    className={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
+                      active
+                        ? accent
+                          ? ''
+                          : activeTheme.letterActive
+                        : hasPlayers
+                          ? activeTheme.letterInactive
+                          : activeTheme.letterDisabled
+                    }`}
+                    style={active && accent ? { backgroundColor: accent, color: accentOn } : undefined}
+                  >
+                    {letter}
+                  </button>
+                )
+              })}
+            </nav>
+          ) : null}
         </div>
       </div>
 
       {recentPlayers.length > 0 && !searchQuery.trim() && !selectedLetter && (
-        <section aria-label="Recent players" className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
-          <div className="mb-3 flex items-center gap-2">
-            <Clock3 className={`h-4 w-4 ${text.textFaint}`} aria-hidden />
-            <h3 className={`text-sm sm:text-base font-semibold tracking-wide ${text.textSoft}`}>Recent</h3>
+        <section aria-label="Recent players" className="relative max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-5">
+          <div className="mb-2 flex items-center gap-2">
+            <Clock3 className={`h-3.5 w-3.5 ${text.textFaint}`} aria-hidden />
+            <h3 className={`text-xs font-semibold tracking-wide ${text.textSoft}`}>Recent</h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-            {recentPlayers.slice(0, 6).map((player) => renderPlayerCard(player))}
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {recentPlayers.slice(0, 8).map((player) => (
+              <button
+                key={`recent-${player.id}`}
+                type="button"
+                onClick={() => handlePlayerClick(player)}
+                className={`flex shrink-0 items-center gap-2 rounded-full border px-2.5 py-1.5 backdrop-blur-sm ${
+                  player.hasResponded ? 'border-green-400/25 opacity-70' : 'border-white/15'
+                }`}
+              >
+                {player.image ? (
+                  <Image
+                    src={player.image}
+                    alt=""
+                    width={28}
+                    height={28}
+                    className="h-7 w-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold ${activeTheme.playerAvatarInitial}`}>
+                    {kioskPlayerInitial(player)}
+                  </span>
+                )}
+                <span className={`text-xs font-bold uppercase ${text.textStrong}`}>{player.lastName}</span>
+              </button>
+            ))}
           </div>
         </section>
       )}
@@ -1102,10 +1196,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       <section
         id="kiosk-player-grid"
         aria-label="Players"
-        className="relative max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10"
+        className="relative max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
       >
         <div className={`absolute inset-0 ${activeTheme.gridOverlay} rounded-3xl`}></div>
-        <div className="relative grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-8">
+        <div className="relative grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-6">
           {filteredPlayers.map((player) => renderPlayerCard(player))}
         </div>
 

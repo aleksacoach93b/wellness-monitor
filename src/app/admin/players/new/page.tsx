@@ -6,6 +6,7 @@ import { Save, User, Upload, RefreshCw, Eye, EyeOff } from 'lucide-react'
 import Image from 'next/image'
 import HomeButton from '@/components/HomeButton'
 import { generatePlayerPassword } from '@/lib/passwordUtils'
+import { compressClubLogo } from '@/lib/compressClubLogo'
 
 export default function NewPlayerPage() {
   const router = useRouter()
@@ -47,23 +48,31 @@ export default function NewPlayerPage() {
     setTimeout(() => setMessage(''), 3000)
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      // Create a preview URL
-      const previewUrl = URL.createObjectURL(file)
-      setImagePreview(previewUrl)
-      
-      // Convert to base64 for storage
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const base64 = e.target?.result as string
-        setFormData(prev => ({
-          ...prev,
-          image: base64
-        }))
-      }
-      reader.readAsDataURL(file)
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setMessage('Please choose an image file')
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setMessage('Image is too large (max 8MB). Choose a smaller photo.')
+      return
+    }
+
+    try {
+      const dataUrl = await compressClubLogo(file)
+      setImagePreview(dataUrl)
+      setFormData(prev => ({
+        ...prev,
+        image: dataUrl
+      }))
+      setMessage('')
+    } catch (error) {
+      console.error('Player photo compress failed:', error)
+      setMessage('Failed to process photo. Try a smaller image.')
+    } finally {
+      event.target.value = ''
     }
   }
 
@@ -89,9 +98,20 @@ export default function NewPlayerPage() {
       if (response.ok) {
         router.push('/admin/players')
       } else {
-        const errorData = await response.json()
-        console.error('API Error:', errorData)
-        alert(`Failed to create player: ${errorData.error || 'Unknown error'}`)
+        const raw = await response.text()
+        let errorMessage = 'Unknown error'
+        try {
+          const errorData = JSON.parse(raw) as { error?: string }
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          if (response.status === 413 || raw.startsWith('Request En')) {
+            errorMessage = 'Photo is too large. Choose a smaller image and try again.'
+          } else {
+            errorMessage = raw.slice(0, 120) || `Server error (${response.status})`
+          }
+        }
+        console.error('API Error:', raw)
+        alert(`Failed to create player: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error creating player:', error)

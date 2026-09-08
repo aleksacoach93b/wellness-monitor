@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { Player } from '@prisma/client'
 import HomeButton from '@/components/HomeButton'
 import { generatePlayerPassword } from '@/lib/passwordUtils'
+import { compressClubLogo } from '@/lib/compressClubLogo'
 
 export default function EditPlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
@@ -78,8 +79,19 @@ export default function EditPlayerPage({ params }: { params: Promise<{ id: strin
       if (response.ok) {
         router.push('/admin/players')
       } else {
-        const errorData = await response.json()
-        alert(`Failed to update player: ${errorData.error || 'Unknown error'}`)
+        const raw = await response.text()
+        let errorMessage = 'Unknown error'
+        try {
+          const errorData = JSON.parse(raw) as { error?: string }
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          if (response.status === 413 || raw.startsWith('Request En')) {
+            errorMessage = 'Photo is too large. Choose a smaller image and try again.'
+          } else {
+            errorMessage = raw.slice(0, 120) || `Server error (${response.status})`
+          }
+        }
+        alert(`Failed to update player: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error updating player:', error)
@@ -103,23 +115,31 @@ export default function EditPlayerPage({ params }: { params: Promise<{ id: strin
     setTimeout(() => setMessage(''), 3000)
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      // Create a preview URL
-      const previewUrl = URL.createObjectURL(file)
-      setImagePreview(previewUrl)
-      
-      // Convert to base64 for storage
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const base64 = e.target?.result as string
-        setFormData(prev => ({
-          ...prev,
-          image: base64
-        }))
-      }
-      reader.readAsDataURL(file)
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setMessage('Please choose an image file')
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setMessage('Image is too large (max 8MB). Choose a smaller photo.')
+      return
+    }
+
+    try {
+      const dataUrl = await compressClubLogo(file)
+      setImagePreview(dataUrl)
+      setFormData(prev => ({
+        ...prev,
+        image: dataUrl
+      }))
+      setMessage('')
+    } catch (error) {
+      console.error('Player photo compress failed:', error)
+      setMessage('Failed to process photo. Try a smaller image.')
+    } finally {
+      event.target.value = ''
     }
   }
 

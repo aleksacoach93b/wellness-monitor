@@ -92,6 +92,14 @@ function kioskPlayerInitial(player: Pick<PlayerWithStatus, 'firstName' | 'lastNa
   return s.slice(0, 1).toLocaleUpperCase()
 }
 
+function formatKioskSurname(lastName: string): string {
+  return lastName
+    .trim()
+    .split(/\s+/)
+    .map((w) => (w ? w.charAt(0).toLocaleUpperCase() + w.slice(1).toLocaleLowerCase() : ''))
+    .join(' ')
+}
+
 export default function KioskModePage({ params }: { params: Promise<{ surveyId: string }> }) {
   const router = useRouter()
   const { surveyId } = use(params)
@@ -585,8 +593,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       </div>
 
       <div className="w-full min-w-0 px-1 text-center sm:px-1.5">
-        <p className={`w-full max-w-full break-words text-[13px] font-extrabold uppercase leading-tight tracking-wide ${text.textStrong} sm:text-sm md:text-base lg:text-lg`}>
-          {player.lastName}
+        <p className={`w-full max-w-full break-words text-[12px] font-semibold leading-tight tracking-tight [font-family:var(--font-outfit),ui-sans-serif,system-ui,sans-serif] ${text.textStrong} sm:text-[13px] md:text-sm`}>
+          {formatKioskSurname(player.lastName)}
         </p>
         <h3 className={`mt-0.5 text-[11px] font-medium leading-tight tracking-wide ${text.textFaint} sm:text-sm`}>
           {player.firstName}
@@ -606,8 +614,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               style={accent ? { backgroundColor: accent, color: accentOn } : undefined}
             >
               <Play className="h-3 w-3 shrink-0 opacity-90 sm:h-3.5 sm:w-3.5" aria-hidden />
-              <span className="hidden sm:inline">Start check-in</span>
-              <span className="sm:hidden">Start</span>
+              <span>Start</span>
             </div>
           </div>
         )}
@@ -1186,7 +1193,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                     {kioskPlayerInitial(player)}
                   </span>
                 )}
-                <span className={`text-xs font-bold uppercase ${text.textStrong}`}>{player.lastName}</span>
+                <span className={`text-xs font-semibold tracking-tight [font-family:var(--font-outfit),ui-sans-serif,system-ui,sans-serif] ${text.textStrong}`}>
+                  {formatKioskSurname(player.lastName)}
+                </span>
               </button>
             ))}
           </div>

@@ -408,6 +408,23 @@ const CONTENT_SR: Record<string, string> = {
   'somewhat fresh — okay to train, though you are not buzzing with spring today.':
     'Donekle svež — može trening, ali nisi eksplozivan danas.',
   'session rpe': 'RPE sesije',
+  'rating of perceived exertion': 'Ocena subjektivnog napora',
+  'how long did this session last (in minutes)?': 'Koliko je trajala ova sesija (u minutama)?',
+  'how long did this session last in minutes?': 'Koliko je trajala ova sesija (u minutama)?',
+  'painful area?': 'Bolna zona?',
+  'painful area': 'Bolna zona',
+  rehabilitation: 'Rehabilitacija',
+  individual: 'Individualni',
+  endurance: 'Izdržljivost',
+  'match day +1': 'Dan meča +1',
+  'match day +2': 'Dan meča +2',
+  'match day +3': 'Dan meča +3',
+  'match day +4': 'Dan meča +4',
+  'match day -1': 'Dan meča -1',
+  'match day -2': 'Dan meča -2',
+  'match day -3': 'Dan meča -3',
+  'match day -4': 'Dan meča -4',
+  'match day -5': 'Dan meča -5',
   'daily wellness': 'Dnevni wellness',
   'daily wellness check': 'Dnevna wellness provera',
   wellness: 'Wellness',
@@ -695,6 +712,11 @@ function applyQuestionPatterns(text: string): string | null {
   if (time) {
     if (/go to sleep|go to bed|fall asleep/.test(time[1])) return 'U koliko sati si legao?'
     if (/wake up|get up/.test(time[1])) return 'U koliko sati si ustao?'
+  }
+  if (/^how long did this session last/.test(key)) {
+    return key.includes('minute')
+      ? 'Koliko je trajala ova sesija (u minutama)?'
+      : 'Koliko je trajala ova sesija?'
   }
   const feeling = key.match(/^are you feeling (.+?)(?:\s*\((.+)\))?\??$/)
   if (feeling) {

@@ -1,4 +1,5 @@
 import { Survey } from '@prisma/client'
+import { t, type KioskLocale } from '@/lib/i18n'
 
 export interface RecurringSurveyStatus {
   isCurrentlyActive: boolean
@@ -11,11 +12,11 @@ export interface RecurringSurveyStatus {
 /**
  * Check if a recurring survey should be active based on current time
  */
-export function isRecurringSurveyActive(survey: Survey): RecurringSurveyStatus {
+export function isRecurringSurveyActive(survey: Survey, locale: KioskLocale = 'en'): RecurringSurveyStatus {
   if (!survey.isRecurring || !survey.dailyStartTime || !survey.dailyEndTime) {
     return {
       isCurrentlyActive: survey.isActive,
-      statusMessage: survey.isActive ? 'Survey je aktivan' : 'Survey je neaktivan'
+      statusMessage: survey.isActive ? t(locale, 'surveyActive') : t(locale, 'surveyInactive')
     }
   }
 
@@ -27,14 +28,14 @@ export function isRecurringSurveyActive(survey: Survey): RecurringSurveyStatus {
     return {
       isCurrentlyActive: false,
       nextActivation: survey.startDate,
-      statusMessage: `Survey počinje ${survey.startDate.toLocaleDateString('sr-RS')}`
+      statusMessage: `${t(locale, 'surveyStarts')} ${survey.startDate.toLocaleDateString(locale === 'sr' ? 'sr-Latn-RS' : 'en-GB')}`
     }
   }
 
   if (survey.endDate && belgradeTime > survey.endDate) {
     return {
       isCurrentlyActive: false,
-      statusMessage: `Survey je završen ${survey.endDate.toLocaleDateString('sr-RS')}`
+      statusMessage: `${t(locale, 'surveyEnded')} ${survey.endDate.toLocaleDateString(locale === 'sr' ? 'sr-Latn-RS' : 'en-GB')}`
     }
   }
 
@@ -56,7 +57,7 @@ export function isRecurringSurveyActive(survey: Survey): RecurringSurveyStatus {
       isCurrentlyActive: true,
       nextDeactivation: endToday,
       timeUntilNext: getTimeUntil(endToday),
-      statusMessage: `Survey aktivan do ${endTime}`
+      statusMessage: `${t(locale, 'surveyActiveUntil')} ${endTime}`
     }
   } else {
     // Calculate next activation
@@ -70,7 +71,7 @@ export function isRecurringSurveyActive(survey: Survey): RecurringSurveyStatus {
       isCurrentlyActive: false,
       nextActivation,
       timeUntilNext: getTimeUntil(nextActivation),
-      statusMessage: `Sledeći survey počinje sutra u ${startTime}`
+      statusMessage: `${t(locale, 'nextSurveyTomorrow')} ${startTime}`
     }
   }
 }

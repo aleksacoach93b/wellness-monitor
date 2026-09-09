@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { getAdminSessionFromRequest } from '@/lib/auth/adminSession'
 import { normalizeClubColor } from '@/lib/clubAccent'
+import { resolveKioskLocale } from '@/lib/i18n'
 
 const kioskThemeSchema = z.enum(['dark', 'light', 'red', 'green', 'sky', 'graphite', 'sand', 'violet'])
 
@@ -11,6 +12,7 @@ const updateKioskSettingsSchema = z.object({
   coachPassword: z.string().optional(),
   isEnabled: z.boolean(),
   theme: kioskThemeSchema.default('dark'),
+  locale: z.enum(['en', 'sr']).optional(),
   clubName: z.string().max(120).optional(),
   clubLogo: z.string().nullable().optional(),
   clubColor: z.string().max(16).nullable().optional(),
@@ -34,6 +36,10 @@ async function ensureClubBrandingColumns() {
   await prisma.$executeRawUnsafe(`
     ALTER TABLE "kiosk_settings"
     ADD COLUMN IF NOT EXISTS "clubColor" TEXT;
+  `)
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "kiosk_settings"
+    ADD COLUMN IF NOT EXISTS "locale" TEXT NOT NULL DEFAULT 'en';
   `)
 }
 
@@ -94,14 +100,16 @@ export async function PUT(request: NextRequest) {
     await ensureClubBrandingColumns()
     const body = await request.json()
     const parsed = updateKioskSettingsSchema.parse(body)
-    const { password, coachPassword, isEnabled, theme, clubName, clubLogo, clubColor, showClubBranding } = parsed
+    const { password, coachPassword, isEnabled, theme, locale, clubName, clubLogo, clubColor, showClubBranding } = parsed
     const normalizedClubColor = clubColor === undefined ? undefined : normalizeClubColor(clubColor)
+    const normalizedLocale = locale === undefined ? undefined : resolveKioskLocale(locale)
 
     let settings = await prisma.kioskSettings.findFirst({
       where: { teamId: session.teamId },
     })
 
     const data: Record<string, unknown> = { password, isEnabled, theme, teamId: session.teamId }
+    if (normalizedLocale !== undefined) data.locale = normalizedLocale
     if (coachPassword !== undefined) data.coachPassword = coachPassword
     if (clubName !== undefined) data.clubName = clubName.trim()
     if (clubLogo !== undefined) data.clubLogo = clubLogo
@@ -120,6 +128,7 @@ export async function PUT(request: NextRequest) {
           password,
           isEnabled,
           theme,
+          locale: normalizedLocale ?? 'en',
           coachPassword: coachPassword ?? '',
           clubName: clubName?.trim() ?? '',
           clubLogo: clubLogo ?? null,
@@ -138,7 +147,7 @@ export async function PUT(request: NextRequest) {
         : 'Failed to update kiosk settings'
     // Common production cause: schema columns missing until prisma db push
     const hint =
-      /clubName|clubLogo|clubColor|showClubBranding|Unknown arg|column/i.test(message)
+      /clubName|clubLogo|clubColor|locale|showClubBranding|Unknown arg|column/i.test(message)
         ? ' Database schema may be out of date — redeploy so prisma db push runs.'
         : ''
     return NextResponse.json(

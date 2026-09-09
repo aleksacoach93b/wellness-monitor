@@ -11,6 +11,10 @@ async function ensureClubColorColumn() {
     ALTER TABLE "kiosk_settings"
     ADD COLUMN IF NOT EXISTS "clubColor" TEXT;
   `)
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "kiosk_settings"
+    ADD COLUMN IF NOT EXISTS "locale" TEXT NOT NULL DEFAULT 'en';
+  `)
   clubColorColumnReady = true
 }
 
@@ -66,6 +70,7 @@ export async function GET(
               password: true,
               coachPassword: true,
               theme: true,
+              locale: true,
               clubName: true,
               clubLogo: true,
               clubColor: true,

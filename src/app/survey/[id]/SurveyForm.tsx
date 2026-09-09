@@ -26,6 +26,7 @@ import {
   type PainLocationId,
   type PainWhenId,
 } from '@/lib/bodyMapPainLocation'
+import { RPE_LABELS_I18N, t, tx, type KioskLocale } from '@/lib/i18n'
 
 interface SurveyFormProps {
   survey: Survey & {
@@ -40,6 +41,7 @@ interface SurveyFormProps {
   matchDayTags?: string[]
   clubLogo?: string | null
   showClubBranding?: boolean
+  locale?: KioskLocale
 }
 
 export default function SurveyForm({
@@ -51,6 +53,7 @@ export default function SurveyForm({
   matchDayTags = [],
   clubLogo = null,
   showClubBranding = true,
+  locale = 'en',
 }: SurveyFormProps) {
   const router = useRouter()
   const appearance = resolveSurveyAppearanceTheme(surveyTheme)
@@ -350,7 +353,7 @@ export default function SurveyForm({
     )
 
     if (missingRequired.length > 0) {
-      setValidationBanner('Please fill in all required questions.')
+      setValidationBanner(t(locale, 'requiredBanner'))
       const first = missingRequired[0]
       requestAnimationFrame(() => {
         const el = document.getElementById(`survey-q-${first.id}`)
@@ -449,14 +452,14 @@ export default function SurveyForm({
         } catch {
           /* ignore parse */
         }
-        setSubmitError(`Failed to submit survey: ${errorMessage}`)
+        setSubmitError(`${t(locale, 'submitFailedPrefix')}: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error submitting survey:', error)
       if (isLikelyNetworkFailure(error)) {
         queueOffline()
       } else {
-        setSubmitError('Failed to submit survey. Please try again.')
+        setSubmitError(t(locale, 'submitFailed'))
       }
     } finally {
       setIsSubmitting(false)
@@ -473,14 +476,14 @@ export default function SurveyForm({
             <CheckCircle className="mx-auto h-20 w-20 text-emerald-400 mb-5 drop-shadow-lg" />
           )}
           <h2 className="text-2xl font-semibold text-white mb-2 tracking-wide">
-            {savedOffline ? 'Saved on this device' : 'Submitted'}
+            {savedOffline ? t(locale, 'savedOnDevice') : t(locale, 'submittedShort')}
           </h2>
           <p className="text-white/75 text-base">
             {savedOffline
-              ? 'Weak or no network — will sync automatically when online.'
+              ? t(locale, 'weakNetwork')
               : playerId
-                ? 'Returning to player list…'
-                : 'Your responses have been saved.'}
+                ? t(locale, 'returningToList')
+                : t(locale, 'responsesSaved')}
           </p>
         </div>
       </div>
@@ -644,7 +647,7 @@ export default function SurveyForm({
             }
           }}
           className={`absolute top-4 left-4 z-[60] transition-colors rounded-full p-2 backdrop-blur-sm min-w-[44px] min-h-[44px] flex items-center justify-center ${tokens.closeButton}`}
-          aria-label="Close survey"
+          aria-label={t(locale, 'closeSurvey')}
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -670,14 +673,14 @@ export default function SurveyForm({
           <div className="relative px-4 pb-4 pt-12 text-center sm:pt-14">
             <div className={`pointer-events-none absolute inset-x-0 top-10 h-28 ${tokens.headerBackdropBlur}`} aria-hidden />
             <p className="relative text-[10px] font-semibold uppercase tracking-[0.22em] text-white/55">
-              Survey preview
+              {t(locale, 'surveyPreview')}
             </p>
             <h1 className="relative mx-auto mt-2 max-w-2xl text-xl font-semibold tracking-tight text-white drop-shadow-sm sm:text-2xl md:text-3xl">
-              {survey.title}
+              {tx(locale, survey.title)}
             </h1>
             {survey.description ? (
               <p className="relative mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/72">
-                {survey.description}
+                {tx(locale, survey.description)}
               </p>
             ) : null}
             <div className={`relative mx-auto mt-4 h-0.5 w-14 rounded-full ${tokens.headerUnderline}`} aria-hidden />
@@ -732,16 +735,16 @@ export default function SurveyForm({
                   {showSessionType && (
                     <div>
                       <label className="block text-sm font-medium text-white/90 mb-1.5">
-                        Session Type <span className="text-white/50 text-xs">(optional)</span>
+                        {t(locale, 'sessionType')} <span className="text-white/50 text-xs">({t(locale, 'optional')})</span>
                       </label>
                       <select
                         value={sessionType}
                         onChange={(e) => setSessionType(e.target.value)}
                         className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-white backdrop-blur-sm focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
                       >
-                        <option value="" className="text-black">— Select —</option>
-                        {sessionTags.map((t) => (
-                          <option key={t} value={t} className="text-black">{t}</option>
+                        <option value="" className="text-black">{t(locale, 'selectDash')}</option>
+                        {sessionTags.map((tagName) => (
+                          <option key={tagName} value={tagName} className="text-black">{tx(locale, tagName)}</option>
                         ))}
                       </select>
                     </div>
@@ -749,16 +752,16 @@ export default function SurveyForm({
                   {showMatchDay && (
                     <div>
                       <label className="block text-sm font-medium text-white/90 mb-1.5">
-                        Match Day <span className="text-white/50 text-xs">(optional)</span>
+                        {t(locale, 'matchDay')} <span className="text-white/50 text-xs">({t(locale, 'optional')})</span>
                       </label>
                       <select
                         value={matchDay}
                         onChange={(e) => setMatchDay(e.target.value)}
                         className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-white backdrop-blur-sm focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
                       >
-                        <option value="" className="text-black">— Select —</option>
-                        {matchDayTags.map((t) => (
-                          <option key={t} value={t} className="text-black">{t}</option>
+                        <option value="" className="text-black">{t(locale, 'selectDash')}</option>
+                        {matchDayTags.map((tagName) => (
+                          <option key={tagName} value={tagName} className="text-black">{tx(locale, tagName)}</option>
                         ))}
                       </select>
                     </div>
@@ -782,7 +785,7 @@ export default function SurveyForm({
                     </div>
                     <div className="min-w-0 flex-grow">
                       <label className={`block font-medium leading-snug tracking-wide text-white ${shell.questionTitle}`}>
-                        {question.text}
+                        {tx(locale, question.text)}
                         {question.required && <span className="ml-1 text-sm text-red-400">*</span>}
                       </label>
                     </div>
@@ -796,7 +799,7 @@ export default function SurveyForm({
                 value={formData[question.id] as string || ''}
                 onChange={(e) => handleInputChange(question.id, e.target.value)}
                 className={`w-full px-3 py-2.5 sm:py-3 text-white text-sm sm:text-base transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${tokens.inputFieldBase} ${tokens.focusVisibleRing}`}
-                placeholder="Enter your answer..."
+                placeholder={t(locale, 'enterAnswer')}
                 required={question.required}
               />
             )}
@@ -807,7 +810,7 @@ export default function SurveyForm({
                 value={formData[question.id] as string || ''}
                 onChange={(e) => handleInputChange(question.id, e.target.value)}
                 className={`w-full px-3 py-2.5 sm:py-3 text-white text-sm sm:text-base transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${tokens.inputFieldBase} ${tokens.focusVisibleRing}`}
-                placeholder="Enter a number..."
+                placeholder={t(locale, 'enterNumber')}
                 required={question.required}
               />
             )}
@@ -818,7 +821,7 @@ export default function SurveyForm({
                 value={formData[question.id] as string || ''}
                 onChange={(e) => handleInputChange(question.id, e.target.value)}
                 className={`w-full px-3 py-2.5 sm:py-3 text-white text-sm sm:text-base transition-all duration-300 backdrop-blur-sm placeholder-gray-400 touch-manipulation ${tokens.inputFieldBase} ${tokens.focusVisibleRing}`}
-                placeholder="Enter your email..."
+                placeholder={t(locale, 'enterEmail')}
                 required={question.required}
               />
             )}
@@ -826,7 +829,7 @@ export default function SurveyForm({
             {question.type === 'TIME' && (
               <div className="space-y-3">
                 <p className={`text-sm ${tokens.hintText}`}>
-                  Select the time. Pay attention to hour format.
+                  {t(locale, 'selectTimeHint')}
                 </p>
                 <div className="flex items-center space-x-3">
                   <input
@@ -884,7 +887,7 @@ export default function SurveyForm({
                       <span className={`font-semibold text-xs sm:text-sm tracking-wide ${
                         isSelected ? 'text-white' : 'text-gray-200'
                       }`}>
-                        {option}
+                        {option === 'Yes' ? t(locale, 'yes') : t(locale, 'no')}
                       </span>
                     </label>
                   )
@@ -916,7 +919,7 @@ export default function SurveyForm({
                       >
                         
                         <div className="flex items-center justify-center space-x-2 relative z-10">
-                          <span className="tracking-wide drop-shadow-lg">Open Body Map Assessment</span>
+                          <span className="tracking-wide drop-shadow-lg">{t(locale, 'openBodyMap')}</span>
                         </div>
                         
                       </button>
@@ -1000,8 +1003,8 @@ export default function SurveyForm({
                   
                   {/* Simple labels */}
                   <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-500">
-                    <span className="text-sm text-gray-300 font-medium">Poor</span>
-                    <span className="text-sm text-gray-300 font-medium">Excellent</span>
+                    <span className="text-sm text-gray-300 font-medium">{t(locale, 'poor')}</span>
+                    <span className="text-sm text-gray-300 font-medium">{t(locale, 'excellent')}</span>
                   </div>
                   
                   {/* Selected value display */}
@@ -1009,7 +1012,7 @@ export default function SurveyForm({
                     <div className="mt-3 text-center">
                       <div className={`inline-flex items-center px-3 py-1.5 ${tokens.selectedValuePill}`}>
                         <span className={`text-sm font-semibold ${tokens.selectedValueText}`}>
-                          Selected: {formData[question.id]}/10
+                          {t(locale, 'selectedPrefix')}: {formData[question.id]}/10
                         </span>
                       </div>
                     </div>
@@ -1093,8 +1096,8 @@ export default function SurveyForm({
                   
                   {/* Simple labels */}
                   <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-500">
-                    <span className="text-sm text-gray-300 font-medium">Poor</span>
-                    <span className="text-sm text-gray-300 font-medium">Excellent</span>
+                    <span className="text-sm text-gray-300 font-medium">{t(locale, 'poor')}</span>
+                    <span className="text-sm text-gray-300 font-medium">{t(locale, 'excellent')}</span>
                   </div>
                   
                   {/* Selected value display */}
@@ -1102,7 +1105,7 @@ export default function SurveyForm({
                     <div className="mt-3 text-center">
                       <div className={`inline-flex items-center px-3 py-1.5 ${tokens.selectedValuePill}`}>
                         <span className={`text-sm font-semibold ${tokens.selectedValueText}`}>
-                          Selected: {formData[question.id]}/10
+                          {t(locale, 'selectedPrefix')}: {formData[question.id]}/10
                         </span>
                       </div>
                     </div>
@@ -1194,8 +1197,8 @@ export default function SurveyForm({
                   
                   {/* RPE-specific labels */}
                   <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-500">
-                    <span className="text-sm text-green-300 font-medium">Very Light</span>
-                    <span className="text-sm text-red-300 font-medium">Maximal</span>
+                    <span className="text-sm text-green-300 font-medium">{t(locale, 'veryLight')}</span>
+                    <span className="text-sm text-red-300 font-medium">{t(locale, 'maximal')}</span>
                   </div>
                   
                   {/* Selected value display with RPE description */}
@@ -1204,16 +1207,9 @@ export default function SurveyForm({
                       <div className={`inline-flex items-center px-3 py-1.5 ${tokens.selectedValuePill}`}>
                         <span className={`text-sm font-semibold ${tokens.selectedValueText}`}>
                           RPE: {formData[question.id]}/10
-                          {formData[question.id] === '1' && ' - Very Light'}
-                          {formData[question.id] === '2' && ' - Light'}
-                          {formData[question.id] === '3' && ' - Moderate'}
-                          {formData[question.id] === '4' && ' - Somewhat Hard'}
-                          {formData[question.id] === '5' && ' - Hard'}
-                          {formData[question.id] === '6' && ' - Hard+'}
-                          {formData[question.id] === '7' && ' - Very Hard'}
-                          {formData[question.id] === '8' && ' - Very Hard+'}
-                          {formData[question.id] === '9' && ' - Very Very Hard'}
-                          {formData[question.id] === '10' && ' - Maximal'}
+                          {formData[question.id]
+                            ? ` - ${RPE_LABELS_I18N[locale][Number(formData[question.id])] ?? ''}`
+                            : ''}
                         </span>
                       </div>
                     </div>
@@ -1261,7 +1257,7 @@ export default function SurveyForm({
               
               <div className="text-center mb-5 sm:mb-6 relative z-10">
                 <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 mb-3 [font-family:var(--font-outfit)]">
-                  Your selection
+                  {t(locale, 'yourSelection')}
                 </p>
                 <div className="relative inline-flex flex-col items-center gap-1">
                   <div
@@ -1285,11 +1281,11 @@ export default function SurveyForm({
                     <p
                       className="mt-4 max-w-[20rem] sm:max-w-md mx-auto text-center text-base sm:text-lg md:text-xl font-medium text-white/[0.95] leading-snug px-2 tracking-normal [font-family:var(--font-outfit)] drop-shadow-[0_2px_14px_rgba(0,0,0,0.4)] selection:bg-white/20"
                     >
-                      {stepCaption}
+                      {tx(locale, stepCaption)}
                     </p>
                   ) : (
                     <p className="mt-3 text-xs text-slate-500 italic [font-family:var(--font-outfit)] tracking-wide hidden sm:block">
-                      Drag to rate from 1 to 10
+                      {t(locale, 'dragToRate')}
                     </p>
                   )}
                 </div>
@@ -1298,13 +1294,13 @@ export default function SurveyForm({
               {showTriFooter && sliderParsed ? (
                       <div className="flex justify-between items-start gap-2 mt-6 pt-5 border-t border-slate-600/35 relative z-10">
                         <span className="text-[11px] sm:text-xs text-slate-400 text-center flex-1 font-medium uppercase tracking-[0.18em] leading-relaxed [font-family:var(--font-outfit)]">
-                          {sliderParsed.left?.trim() || 'Low'}
+                          {tx(locale, sliderParsed.left?.trim() || t(locale, 'low'))}
                         </span>
                         <span className="text-[11px] sm:text-xs text-slate-300 text-center flex-1 font-semibold uppercase tracking-[0.22em] leading-relaxed [font-family:var(--font-outfit)]">
-                          {sliderParsed.center?.trim() || 'Fair'}
+                          {tx(locale, sliderParsed.center?.trim() || t(locale, 'fair'))}
                         </span>
                         <span className="text-[11px] sm:text-xs text-slate-400 text-center flex-1 font-medium uppercase tracking-[0.18em] leading-relaxed [font-family:var(--font-outfit)]">
-                          {sliderParsed.right?.trim() || 'High'}
+                          {tx(locale, sliderParsed.right?.trim() || t(locale, 'high'))}
                         </span>
                       </div>
               ) : null}
@@ -1313,19 +1309,19 @@ export default function SurveyForm({
                 <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs text-slate-300 relative z-10 mt-2 [font-family:var(--font-outfit)]">
                   <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/35 px-2 sm:px-3 py-2 rounded-xl backdrop-blur-sm border border-slate-600/40">
                     <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-400 shadow-lg shrink-0" />
-                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">Low (1–3)</span>
+                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">{t(locale, 'lowRange')}</span>
                   </div>
                   <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/35 px-2 sm:px-3 py-2 rounded-xl backdrop-blur-sm border border-slate-600/40">
                     <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-orange-400 shadow-lg shrink-0" />
-                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">Fair (4–5)</span>
+                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">{t(locale, 'fairRange')}</span>
                   </div>
                   <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/35 px-2 sm:px-3 py-2 rounded-xl backdrop-blur-sm border border-slate-600/40">
                     <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-400 shadow-lg shrink-0" />
-                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">Good (6–7)</span>
+                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">{t(locale, 'goodRange')}</span>
                   </div>
                   <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-700/35 px-2 sm:px-3 py-2 rounded-xl backdrop-blur-sm border border-slate-600/40">
                     <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-400 shadow-lg shrink-0" />
-                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">High (8–10)</span>
+                    <span className="font-medium text-[11px] sm:text-xs tracking-wide text-slate-200">{t(locale, 'highRange')}</span>
                   </div>
                 </div>
               ) : null}
@@ -1365,7 +1361,7 @@ export default function SurveyForm({
                       className={`h-5 w-5 shrink-0 ${tokens.selectControl}`}
                       required={question.required && question.type === 'SELECT'}
                     />
-                    <span className="text-sm sm:text-base text-white leading-snug flex-1">{option}</span>
+                    <span className="text-sm sm:text-base text-white leading-snug flex-1">{tx(locale, option)}</span>
                   </label>
                 ))}
               </div>
@@ -1390,7 +1386,7 @@ export default function SurveyForm({
             <div className="absolute inset-0 bg-gradient-to-r from-green-300/20 to-emerald-300/20 rounded-xl animate-pulse group-hover:animate-none group-hover:from-green-300/30 group-hover:to-emerald-300/30"></div>
             
             <span className="relative z-10 drop-shadow-lg">
-              {isSubmitting ? 'Submitting...' : 'Submit Survey'}
+              {isSubmitting ? t(locale, 'submitting') : t(locale, 'submitSurvey')}
             </span>
             
             {/* Shine effect */}
@@ -1410,6 +1406,7 @@ export default function SurveyForm({
             selectedAreas={bodyMapData[currentBodyMapQuestionId] || {}}
             onViewChange={setBodyMapView}
             appearanceTheme={appearance}
+            locale={locale}
             onContinue={() => {
               setShowBodyMap(false)
               setCurrentBodyMapQuestionId(null)

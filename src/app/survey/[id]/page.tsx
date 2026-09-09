@@ -6,6 +6,7 @@ import {
   resolveSurveyAppearanceTheme,
   surveyThemeQueryFromKioskTheme,
 } from '@/lib/surveyFormAppearance'
+import { resolveKioskLocale } from '@/lib/i18n'
 
 // Force dynamic rendering to avoid build-time database calls
 export const dynamic = 'force-dynamic'
@@ -17,12 +18,13 @@ interface SurveyPageProps {
   searchParams: Promise<{
     playerId?: string
     surveyTheme?: string
+    lang?: string
   }>
 }
 
 export default async function SurveyPage({ params, searchParams }: SurveyPageProps) {
   const { id } = await params
-  const { playerId, surveyTheme } = await searchParams
+  const { playerId, surveyTheme, lang } = await searchParams
 
   let survey = null
 
@@ -88,6 +90,7 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
   }
   clubLogo = ks?.clubLogo ?? null
   showClubBranding = ks?.showClubBranding ?? true
+  const locale = resolveKioskLocale(lang ?? (ks as { locale?: string } | null)?.locale)
 
   const appearanceResolved = resolveSurveyAppearanceTheme(effectiveSurveyTheme)
 
@@ -102,6 +105,7 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
         matchDayTags={matchDayTags}
         clubLogo={clubLogo}
         showClubBranding={showClubBranding}
+        locale={locale}
       />
     </div>
   )

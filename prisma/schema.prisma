@@ -314,6 +314,7 @@ model KioskSettings {
   coachPassword    String   @default("")
   isEnabled        Boolean  @default(false)
   theme            String   @default("dark")
+  locale           String   @default("en") // en | sr
   clubName         String   @default("")
   clubLogo         String? // data URL or image URL
   clubColor        String? // optional hex accent, e.g. #C8102E

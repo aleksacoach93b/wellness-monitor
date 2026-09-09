@@ -10,6 +10,7 @@ import type { KioskTheme } from '@/lib/kioskThemes'
 import { kioskThemes, kioskTextTokens } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
 import type { BodyMapAreaStored, PainLocationId, PainWhenId } from '@/lib/bodyMapPainLocation'
+import { RPE_LABELS_I18N, t, tx, type KioskLocale } from '@/lib/i18n'
 
 interface PlayerWithStatus {
   id: string
@@ -35,6 +36,7 @@ interface CoachModeViewProps {
   kioskTheme: KioskTheme
   sessionTags?: string[]
   matchDayTags?: string[]
+  locale?: KioskLocale
   onBack: () => void
   onRefresh: () => void
 }
@@ -63,19 +65,6 @@ const RPE_IDLE_TINT: Record<number, string> = {
   8: 'bg-red-900/25 border-red-700/25 text-red-300/70',
   9: 'bg-red-900/30 border-red-700/30 text-red-300/70',
   10: 'bg-red-900/35 border-red-700/35 text-red-300/80',
-}
-
-const RPE_LABELS: Record<number, string> = {
-  1: 'Very Light',
-  2: 'Light',
-  3: 'Moderate',
-  4: 'Somewhat Hard',
-  5: 'Hard',
-  6: 'Hard+',
-  7: 'Very Hard',
-  8: 'Very Hard+',
-  9: 'Very Very Hard',
-  10: 'Maximal',
 }
 
 // Solid accent background per RPE value (used on the roster row accent bar)
@@ -112,8 +101,10 @@ export default function CoachModeView({
   kioskTheme,
   sessionTags = [],
   matchDayTags = [],
+  locale = 'en',
   onRefresh,
 }: CoachModeViewProps) {
+  const rpeLabels = RPE_LABELS_I18N[locale]
   const activeTheme = kioskThemes[kioskTheme] ?? kioskThemes.dark
   const text = kioskTextTokens(kioskTheme)
 
@@ -350,7 +341,7 @@ export default function CoachModeView({
     } catch (err) {
       setErrors((e) => ({
         ...e,
-        [playerId]: err instanceof Error ? err.message : 'Failed to submit',
+        [playerId]: err instanceof Error ? err.message : t(locale, 'failedToSubmit'),
       }))
     } finally {
       setSubmitting((s) => ({ ...s, [playerId]: false }))
@@ -403,7 +394,7 @@ export default function CoachModeView({
   const gridColumns: GridCol[] = [
     {
       id: 'player',
-      label: 'Player',
+      label: t(locale, 'player'),
       width: '212px',
       cell: (player) => {
         const pd = playerData[player.id]
@@ -449,7 +440,7 @@ export default function CoachModeView({
     },
     ...scaleQuestions.map((q) => ({
       id: q.id,
-      label: q.text,
+      label: tx(locale, q.text),
       width: '420px',
       cell: (player: PlayerWithStatus) => {
         const pd = playerData[player.id]
@@ -466,7 +457,7 @@ export default function CoachModeView({
                     type="button"
                     disabled={isSubmitted}
                     onClick={() => setAnswer(player.id, q.id, String(n))}
-                    title={RPE_LABELS[n]}
+                    title={rpeLabels[n]}
                     className={`relative h-9 w-7 rounded-md text-sm font-bold transition-all border ${
                       selected
                         ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10 ring-2 ring-white/50`
@@ -479,9 +470,9 @@ export default function CoachModeView({
               })}
             </div>
             <span className="inline-flex w-[96px] shrink-0">
-              {selectedVal && RPE_LABELS[selectedVal] && (
+              {selectedVal && rpeLabels[selectedVal] && (
                 <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold text-white bg-gradient-to-br ${RPE_COLORS[selectedVal]} border whitespace-nowrap`}>
-                  {RPE_LABELS[selectedVal]}
+                  {rpeLabels[selectedVal]}
                 </span>
               )}
             </span>
@@ -491,7 +482,7 @@ export default function CoachModeView({
     })),
     ...durationQuestionsForGrid.map((q) => ({
       id: q.id,
-      label: 'Duration',
+      label: t(locale, 'duration'),
       width: '104px',
       cell: (player: PlayerWithStatus) => {
         const pd = playerData[player.id]
@@ -511,7 +502,7 @@ export default function CoachModeView({
     })),
     ...booleanQuestions.map((q) => ({
       id: q.id,
-      label: q.text,
+      label: tx(locale, q.text),
       width: '108px',
       cell: (player: PlayerWithStatus) => {
         const pd = playerData[player.id]
@@ -532,7 +523,7 @@ export default function CoachModeView({
                     : text.neutralChip
                 } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
               >
-                {opt}
+                {opt === 'Yes' ? t(locale, 'yes') : t(locale, 'no')}
               </button>
             ))}
           </div>
@@ -541,7 +532,7 @@ export default function CoachModeView({
     })),
     ...bodyMapQuestions.map((q) => ({
       id: q.id,
-      label: q.text,
+      label: tx(locale, q.text),
       width: '112px',
       cell: (player: PlayerWithStatus) => {
         const pd = playerData[player.id]
@@ -559,14 +550,14 @@ export default function CoachModeView({
                 : text.neutralChip
             } ${isSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
           >
-            {areaCount > 0 ? `${areaCount} area${areaCount > 1 ? 's' : ''}` : 'Body Map'}
+            {areaCount > 0 ? `${areaCount} ${areaCount > 1 ? t(locale, 'areas') : t(locale, 'area')}` : t(locale, 'bodyMap')}
           </button>
         )
       },
     })),
     ...textTimeQuestions.map((q) => ({
       id: q.id,
-      label: q.text,
+      label: tx(locale, q.text),
       width: '132px',
       cell: (player: PlayerWithStatus) => {
         const pd = playerData[player.id]
@@ -585,7 +576,7 @@ export default function CoachModeView({
     ...(showSession
       ? [{
           id: 'session',
-          label: 'Session',
+          label: t(locale, 'session'),
           width: '116px',
           cell: (player: PlayerWithStatus) => {
             const isSubmitted = submitted[player.id]
@@ -597,8 +588,8 @@ export default function CoachModeView({
                 className={`h-9 w-full px-1.5 rounded-lg text-xs ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
               >
                 <option value="">—</option>
-                {sessionTags.map((t) => (
-                  <option key={t} value={t} className="text-black">{t}</option>
+                {sessionTags.map((tagName) => (
+                  <option key={tagName} value={tagName} className="text-black">{tx(locale, tagName)}</option>
                 ))}
               </select>
             )
@@ -608,7 +599,7 @@ export default function CoachModeView({
     ...(showMatchDay
       ? [{
           id: 'matchday',
-          label: 'Match Day',
+          label: t(locale, 'matchDay'),
           width: '116px',
           cell: (player: PlayerWithStatus) => {
             const isSubmitted = submitted[player.id]
@@ -620,8 +611,8 @@ export default function CoachModeView({
                 className={`h-9 w-full px-1.5 rounded-lg text-xs ${activeTheme.inputField} ${isSubmitted ? 'opacity-50' : ''}`}
               >
                 <option value="">—</option>
-                {matchDayTags.map((t) => (
-                  <option key={t} value={t} className="text-black">{t}</option>
+                {matchDayTags.map((tagName) => (
+                  <option key={tagName} value={tagName} className="text-black">{tx(locale, tagName)}</option>
                 ))}
               </select>
             )
@@ -638,7 +629,7 @@ export default function CoachModeView({
         if (isSubmitted) {
           return (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-br from-green-500/90 to-emerald-500/90 px-3 py-1 text-xs font-semibold text-white shadow border border-green-400/40">
-              <CheckCircle className="h-3.5 w-3.5" /> Done
+              <CheckCircle className="h-3.5 w-3.5" /> {t(locale, 'done')}
             </span>
           )
         }
@@ -658,7 +649,7 @@ export default function CoachModeView({
             ) : (
               <Send className="h-3.5 w-3.5" />
             )}
-            {isSubmitting ? 'Saving…' : 'Submit'}
+            {isSubmitting ? t(locale, 'saving') : t(locale, 'submit')}
           </button>
         )
       },
@@ -711,7 +702,7 @@ export default function CoachModeView({
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <span className={`text-[11px] font-semibold uppercase tracking-[0.25em] ${text.textFaint} whitespace-nowrap`}>
-              Coach Mode
+              {t(locale, 'coachModeTitle')}
             </span>
             <button
               type="button"
@@ -765,7 +756,7 @@ export default function CoachModeView({
               {scaleQuestions.length > 0 && (
                 <>
                   <span className={`text-[10px] font-semibold uppercase tracking-wide ${text.textFaint}`}>
-                    RPE preset
+                    {t(locale, 'rpePreset')}
                   </span>
                   <div className="flex gap-0.5">
                     {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
@@ -773,7 +764,7 @@ export default function CoachModeView({
                         key={n}
                         type="button"
                         onClick={() => setGlobalRpe(n)}
-                        title={RPE_LABELS[n]}
+                        title={rpeLabels[n]}
                         className={`h-8 w-7 rounded text-xs font-bold transition-all border ${
                           globalRpe === n
                             ? `bg-gradient-to-br ${RPE_COLORS[n]} text-white shadow-lg scale-110 z-10`
@@ -790,7 +781,7 @@ export default function CoachModeView({
                     onClick={applyGlobalRpe}
                     className={`${globalRpe !== null ? activeTheme.primaryButton + ' text-white shadow' : text.neutralChip + ' opacity-60 cursor-not-allowed'} w-full text-center px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
                   >
-                    Apply to All
+                    {t(locale, 'applyToAll')}
                   </button>
                 </>
               )}
@@ -799,7 +790,7 @@ export default function CoachModeView({
               {(sliderQuestions.length > 0 || survey.questions.some((q) => q.type === 'NUMBER')) && (
                 <>
                   <span className={`text-[10px] font-semibold uppercase tracking-wide ${text.textFaint}`}>
-                    Duration (min)
+                    {t(locale, 'durationMin')}
                   </span>
                   <input
                     type="number"
@@ -814,7 +805,7 @@ export default function CoachModeView({
                     onClick={applyGlobalDuration}
                     className={`${activeTheme.primaryButton} w-full text-center text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
                   >
-                    Apply to All
+                    {t(locale, 'applyToAll')}
                   </button>
                 </>
               )}
@@ -823,7 +814,7 @@ export default function CoachModeView({
               {showSession && (
                 <>
                   <span className={`text-[10px] font-semibold uppercase tracking-wide ${text.textFaint}`}>
-                    Session
+                    {t(locale, 'session')}
                   </span>
                   <select
                     value={globalSession}
@@ -831,9 +822,9 @@ export default function CoachModeView({
                     className={`h-8 w-32 px-2 rounded-lg text-xs ${activeTheme.inputField}`}
                   >
                     <option value="">—</option>
-                    {sessionTags.map((t) => (
-                      <option key={t} value={t} className="text-black">
-                        {t}
+                    {sessionTags.map((tagName) => (
+                      <option key={tagName} value={tagName} className="text-black">
+                        {tx(locale, tagName)}
                       </option>
                     ))}
                   </select>
@@ -842,7 +833,7 @@ export default function CoachModeView({
                     onClick={applyGlobalSession}
                     className={`${activeTheme.primaryButton} w-full text-center text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
                   >
-                    Apply to All
+                    {t(locale, 'applyToAll')}
                   </button>
                 </>
               )}
@@ -851,7 +842,7 @@ export default function CoachModeView({
               {showMatchDay && (
                 <>
                   <span className={`text-[10px] font-semibold uppercase tracking-wide ${text.textFaint}`}>
-                    Match Day
+                    {t(locale, 'matchDay')}
                   </span>
                   <select
                     value={globalMatchDay}
@@ -859,9 +850,9 @@ export default function CoachModeView({
                     className={`h-8 w-32 px-2 rounded-lg text-xs ${activeTheme.inputField}`}
                   >
                     <option value="">—</option>
-                    {matchDayTags.map((t) => (
-                      <option key={t} value={t} className="text-black">
-                        {t}
+                    {matchDayTags.map((tagName) => (
+                      <option key={tagName} value={tagName} className="text-black">
+                        {tx(locale, tagName)}
                       </option>
                     ))}
                   </select>
@@ -870,7 +861,7 @@ export default function CoachModeView({
                     onClick={applyGlobalMatchDay}
                     className={`${activeTheme.primaryButton} w-full text-center text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all backdrop-blur-sm`}
                   >
-                    Apply to All
+                    {t(locale, 'applyToAll')}
                   </button>
                 </>
               )}
@@ -885,7 +876,7 @@ export default function CoachModeView({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search player…"
+              placeholder={t(locale, 'searchPlayer')}
               className={`w-full pl-3 pr-8 py-1.5 rounded-lg text-sm ${activeTheme.inputField}`}
             />
             {query && (
@@ -893,7 +884,7 @@ export default function CoachModeView({
                 type="button"
                 onClick={() => setQuery('')}
                 className={`absolute right-2 top-1/2 -translate-y-1/2 ${text.textFaint} hover:opacity-70 text-sm`}
-                aria-label="Clear search"
+                aria-label={t(locale, 'clearSearch')}
               >
                 ✕
               </button>
@@ -909,7 +900,7 @@ export default function CoachModeView({
                 : text.neutralChip
             }`}
           >
-            All
+            {t(locale, 'all')}
           </button>
           {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letter) => {
             const hasPlayers = players.some((p) => p.lastName.toUpperCase().startsWith(letter))
@@ -963,7 +954,7 @@ export default function CoachModeView({
                 <div className="flex items-center gap-3 px-1 pt-4 pb-1">
                   <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300/90 whitespace-nowrap">
-                    Submitted · {donePlayers.length}
+                    {t(locale, 'submitted')} · {donePlayers.length}
                   </span>
                   <span className="h-px flex-1 bg-emerald-400/25" />
                 </div>
@@ -973,7 +964,7 @@ export default function CoachModeView({
 
               {sortedPlayers.length === 0 && (
                 <div className={`rounded-xl p-6 text-center text-sm ${text.textFaint} ${activeTheme.emptyStateCard}`}>
-                  No players match your search.
+                  {t(locale, 'noPlayersMatch')}
                 </div>
               )}
             </div>
@@ -992,7 +983,7 @@ export default function CoachModeView({
             <p className="text-sm text-gray-300">
               <span className="font-semibold text-white">{completedCount}</span>/{totalCount}
               {pendingWithData > 0 && (
-                <span className="ml-2 text-emerald-300">· {pendingWithData} ready</span>
+                <span className="ml-2 text-emerald-300">· {pendingWithData} {t(locale, 'ready')}</span>
               )}
             </p>
           </div>
@@ -1007,7 +998,7 @@ export default function CoachModeView({
             }`}
           >
             <Send className="h-4 w-4" />
-            Submit All ({pendingWithData})
+            {t(locale, 'submitAll')} ({pendingWithData})
           </button>
         </div>
       </div>
@@ -1018,12 +1009,14 @@ export default function CoachModeView({
           <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6`}>
             <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`} />
             <div className="relative">
-              <h3 className={`text-xl font-semibold ${text.textStrong} mb-2`}>Confirm Submission</h3>
+              <h3 className={`text-xl font-semibold ${text.textStrong} mb-2`}>{t(locale, 'confirmSubmission')}</h3>
               <div className={`w-12 h-0.5 ${activeTheme.accentLine} rounded-full mb-4`} />
               <p className={`text-sm ${text.textSoft} mb-6`}>
-                Submit survey data for{' '}
-                <span className={`font-bold ${text.textStrong}`}>{pendingWithData} player{pendingWithData !== 1 ? 's' : ''}</span>?
-                This action cannot be undone.
+                {t(locale, 'submitDataFor')}{' '}
+                <span className={`font-bold ${text.textStrong}`}>
+                  {pendingWithData} {pendingWithData !== 1 ? t(locale, 'playerMany') : t(locale, 'playerOne')}
+                </span>?{' '}
+                {t(locale, 'cannotUndo')}
               </p>
               <div className="flex gap-3">
                 <button
@@ -1031,14 +1024,14 @@ export default function CoachModeView({
                   onClick={executeSubmitAll}
                   className={`flex-1 ${activeTheme.primaryButton} text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all`}
                 >
-                  Yes, Submit All
+                  {t(locale, 'yesSubmitAll')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowConfirmAll(false)}
                   className={`flex-1 ${activeTheme.adminButton} text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all`}
                 >
-                  Cancel
+                  {t(locale, 'cancel')}
                 </button>
               </div>
             </div>
@@ -1070,6 +1063,7 @@ export default function CoachModeView({
               setBodyMapQuestionId(null)
             }}
             appearanceTheme={bodyMapAppearance}
+            locale={locale}
           />,
           document.body
         )}

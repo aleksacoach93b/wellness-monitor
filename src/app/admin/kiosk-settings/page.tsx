@@ -12,6 +12,7 @@ import {
   Unlock,
   RefreshCw,
   Palette,
+  Languages,
   Building2,
   Upload,
   Trash2,
@@ -24,6 +25,7 @@ interface KioskSettings {
   coachPassword: string
   isEnabled: boolean
   theme: KioskTheme
+  locale?: 'en' | 'sr'
   clubName?: string
   clubLogo?: string | null
   clubColor?: string | null
@@ -96,6 +98,7 @@ export default function KioskSettingsPage() {
   const [password, setPassword] = useState('')
   const [coachPassword, setCoachPassword] = useState('')
   const [theme, setTheme] = useState<KioskTheme>('dark')
+  const [locale, setLocale] = useState<'en' | 'sr'>('en')
   const [clubName, setClubName] = useState('')
   const [clubLogo, setClubLogo] = useState<string | null>(null)
   const [clubColor, setClubColor] = useState('#C8102E')
@@ -119,6 +122,7 @@ export default function KioskSettingsPage() {
     setPassword(data.password)
     setCoachPassword(data.coachPassword ?? '')
     setTheme(data.theme ?? 'dark')
+    setLocale(data.locale === 'sr' ? 'sr' : 'en')
     setClubName(data.clubName ?? '')
     setClubLogo(data.clubLogo ?? null)
     setLogoPreview(data.clubLogo ?? null)
@@ -145,6 +149,7 @@ export default function KioskSettingsPage() {
     coachPassword: coachPassword.trim(),
     isEnabled: password.trim() !== '',
     theme,
+    locale,
     clubName: clubName.trim(),
     clubLogo,
     clubColor: useClubColor ? clubColor : null,
@@ -482,6 +487,41 @@ export default function KioskSettingsPage() {
                 )}
               </div>
             )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Kiosk language</label>
+              <p className="text-sm text-gray-500 mb-3">
+                Changes the kiosk, player survey, and Coach Mode language. Answers and exports stay in English.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    { id: 'en' as const, label: 'English', hint: 'Current default' },
+                    { id: 'sr' as const, label: 'Srpski', hint: 'Ceo kiosk i anketa' },
+                  ]
+                ).map((opt) => {
+                  const active = locale === opt.id
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setLocale(opt.id)}
+                      className={`text-left rounded-xl border p-4 transition-all ${
+                        active
+                          ? 'border-blue-500 shadow-lg ring-2 ring-blue-100 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Languages className={`h-4 w-4 ${active ? 'text-blue-600' : 'text-gray-400'}`} />
+                        <p className="text-base font-semibold text-gray-900">{opt.label}</p>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500">{opt.hint}</p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Kiosk Theme</label>

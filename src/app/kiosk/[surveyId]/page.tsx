@@ -15,14 +15,10 @@ import KioskClubBrand from '@/components/KioskClubBrand'
 import { kioskThemes, kioskTextTokens, KioskTheme } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
 import { clubOnColor, normalizeClubColor } from '@/lib/clubAccent'
+import { formatKioskDate, resolveKioskLocale, t, tx, type KioskLocale } from '@/lib/i18n'
 
 const CoachModeView = dynamic(() => import('@/components/CoachModeView'), {
   ssr: false,
-  loading: () => (
-    <div className="flex min-h-[40vh] items-center justify-center text-sm text-white/70">
-      Loading coach mode…
-    </div>
-  ),
 })
 
 type StatusFilter = 'pending' | 'done' | 'all'
@@ -58,6 +54,7 @@ type KioskBootstrap = {
     password?: string
     coachPassword?: string
     theme?: KioskTheme
+    locale?: string
     clubName?: string
     clubLogo?: string | null
     clubColor?: string | null
@@ -126,6 +123,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [surveyNotActive, setSurveyNotActive] = useState(false)
   const [surveyStatusMessage, setSurveyStatusMessage] = useState('')
   const [kioskTheme, setKioskTheme] = useState<KioskTheme>('dark')
+  const [locale, setLocale] = useState<KioskLocale>('en')
   const [clubName, setClubName] = useState('')
   const [clubLogo, setClubLogo] = useState<string | null>(null)
   const [clubColor, setClubColor] = useState<string | null>(null)
@@ -165,6 +163,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const applyBootstrap = useCallback((data: KioskBootstrap) => {
     const ks = data.kioskSettings
     setKioskTheme(ks?.theme ?? 'dark')
+    const nextLocale = resolveKioskLocale(ks?.locale)
+    setLocale(nextLocale)
     setStoredCoachPassword(ks?.coachPassword ?? '')
     setKioskGatePassword(ks?.password ?? '')
     setClubName(ks?.clubName ?? '')
@@ -185,7 +185,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     setPlayers(data.players || [])
 
     if (data.survey?.isRecurring) {
-      const status = isRecurringSurveyActive(data.survey)
+      const status = isRecurringSurveyActive(data.survey, nextLocale)
       if (!status.isCurrentlyActive) {
         setSurveyNotActive(true)
         setSurveyStatusMessage(status.statusMessage)
@@ -270,13 +270,13 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       if (result.synced > 0) {
         setSyncToast(
           result.synced === 1
-            ? '1 offline response synced'
-            : `${result.synced} offline responses synced`
+            ? t(locale, 'offlineSyncedOne')
+            : `${result.synced} ${t(locale, 'offlineSyncedMany')}`
         )
         window.setTimeout(() => setSyncToast(null), 4000)
         await loadBootstrap({ silent: true })
       } else if (before > 0 && result.remaining > 0) {
-        setSyncToast(`${result.remaining} waiting to sync when online`)
+        setSyncToast(`${result.remaining} ${t(locale, 'waitingToSync')}`)
         window.setTimeout(() => setSyncToast(null), 4000)
       }
     }
@@ -310,6 +310,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     const q = new URLSearchParams({ playerId: pid })
     const appearance = surveyThemeFromKiosk(kioskTheme)
     if (appearance) q.set('surveyTheme', appearance)
+    if (locale === 'sr') q.set('lang', 'sr')
     return `/survey/${surveyId}?${q.toString()}`
   }
 
@@ -336,7 +337,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         selectedPlayer.password ?? undefined
       )
     ) {
-      setPlayerAuthError('Incorrect password. Try again.')
+      setPlayerAuthError(t(locale, 'incorrectPassword'))
       setPlayerPassword('')
       return
     }
@@ -367,7 +368,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     if (adminPassword.trim() === adminAccessPassword) {
       router.push('/')
     } else {
-      alert('Incorrect password')
+      alert(t(locale, 'incorrectPasswordAlert'))
       setAdminPassword('')
     }
   }
@@ -462,7 +463,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       setCoachPassword('')
       enterCoachMode()
     } else {
-      alert('Incorrect password. Please try again.')
+      alert(t(locale, 'incorrectPasswordRetry'))
       setCoachPassword('')
     }
   }
@@ -478,11 +479,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
   const accent = showClubBranding ? clubColor : null
   const accentOn = accent ? clubOnColor(accent) : '#FFFFFF'
-  const todayLabel = new Date().toLocaleDateString(undefined, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  })
+  const todayLabel = formatKioskDate(locale)
 
   const filteredPlayers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -604,7 +601,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           <div className="mt-3 flex w-full justify-center">
             <div className="inline-flex items-center gap-1 rounded-full border border-green-400/30 bg-green-900/40 px-2 py-1 text-xs font-semibold text-green-300 backdrop-blur-sm shadow-lg sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-sm">
               <CheckCircle className="h-3 w-3 shrink-0 sm:h-4 sm:w-4" aria-hidden />
-              <span>Completed</span>
+              <span>{t(locale, 'completed')}</span>
             </div>
           </div>
         ) : (
@@ -614,7 +611,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               style={accent ? { backgroundColor: accent, color: accentOn } : undefined}
             >
               <Play className="h-3 w-3 shrink-0 opacity-90 sm:h-3.5 sm:w-3.5" aria-hidden />
-              <span>Start</span>
+              <span>{t(locale, 'start')}</span>
             </div>
           </div>
         )}
@@ -637,6 +634,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         showClubBranding={showClubBranding}
         onPasswordCorrect={handleKioskPasswordCorrect}
         onCancel={() => router.push('/')}
+        locale={locale}
       />
     )
   }
@@ -646,9 +644,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       <div className={`min-h-screen ${activeTheme.rootBackground} flex items-center justify-center p-6`}>
         <div className="text-center max-w-sm">
           <div className="animate-spin rounded-full h-12 w-12 border-2 border-slate-500 border-t-blue-500 mx-auto" aria-hidden />
-          <p className={`mt-6 text-lg font-medium ${text.textStrong}`}>Opening survey…</p>
+          <p className={`mt-6 text-lg font-medium ${text.textStrong}`}>{t(locale, 'openingSurvey')}</p>
           <p className={`mt-2 text-sm ${text.textFaint}`}>
-            Please wait — this may take a moment on a slower connection.
+            {t(locale, 'openingSurveyHint')}
           </p>
         </div>
       </div>
@@ -659,8 +657,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     return (
       <div className={`min-h-screen ${activeTheme.rootBackground} flex items-center justify-center`}>
         <div className="text-center">
-          <h1 className={`text-2xl font-bold ${text.textStrong} mb-4`}>Survey Not Found</h1>
-          <p className={text.textSoft}>The requested survey could not be found.</p>
+          <h1 className={`text-2xl font-bold ${text.textStrong} mb-4`}>{t(locale, 'surveyNotFound')}</h1>
+          <p className={text.textSoft}>{t(locale, 'surveyNotFoundHint')}</p>
         </div>
       </div>
     )
@@ -675,11 +673,11 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className={`text-3xl font-bold ${text.textStrong} mb-3`}>Survey Not Available</h1>
+          <h1 className={`text-3xl font-bold ${text.textStrong} mb-3`}>{t(locale, 'surveyNotAvailable')}</h1>
           <div className="w-16 h-0.5 bg-gradient-to-r from-orange-400 to-red-400 rounded-full mx-auto mb-6"></div>
           <p className={`${text.textSoft} text-lg mb-6`}>{surveyStatusMessage}</p>
           <p className={`text-sm ${text.textFaint}`}>
-            Survey: <span className={`${text.textStrong} font-semibold`}>{survey.title}</span>
+            {t(locale, 'surveyLabel')}: <span className={`${text.textStrong} font-semibold`}>{tx(locale, survey.title)}</span>
           </p>
         </div>
       </div>
@@ -710,7 +708,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           href="#kiosk-player-grid"
           className="sr-only focus:fixed focus:left-4 focus:top-20 focus:z-[80] focus:inline-flex focus:h-auto focus:min-h-0 focus:w-auto focus:overflow-visible focus:whitespace-nowrap focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-slate-900 focus:shadow-xl focus:outline-none focus:ring-2 focus:ring-cyan-500"
         >
-          Skip to player list
+          {t(locale, 'skipToPlayers')}
         </a>
       {/* Futuristic Background Effects */}
       <div className={`absolute inset-0 ${activeTheme.overlayOne}`}></div>
@@ -741,10 +739,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
             <h1
               className={`truncate text-[1.15rem] font-semibold tracking-tight sm:text-xl lg:text-2xl ${text.textStrong}`}
             >
-              {survey.title}
+              {tx(locale, survey.title)}
             </h1>
             <p className={`mt-0.5 truncate text-xs sm:text-sm ${text.textSoft}`}>
-              {isCoachMode ? 'Coach mode · fill in for each player' : todayLabel}
+              {isCoachMode ? t(locale, 'coachModeFill') : todayLabel}
             </p>
             {!isCoachMode ? (
               <div className="mt-2 flex max-w-xs items-center gap-2">
@@ -770,10 +768,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   ? 'border-slate-200/80 bg-white/60 text-slate-600 hover:bg-white'
                   : 'border-white/10 bg-black/20 text-white/55 hover:bg-white/10 hover:text-white/85'
               } ${isCoachMode ? 'ring-2 ring-teal-400/50' : ''}`}
-              aria-label="Staff menu"
+              aria-label={t(locale, 'staff')}
               aria-haspopup="menu"
               aria-expanded={staffMenuOpen}
-              title="Staff"
+              title={t(locale, 'staff')}
             >
               <MoreVertical className="h-5 w-5" />
             </button>
@@ -801,7 +799,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   }`}
                 >
                   {isCoachMode ? <Users className="h-4 w-4 opacity-70" /> : <ClipboardList className="h-4 w-4 opacity-70" />}
-                  {isCoachMode ? 'Player mode' : 'Coach mode'}
+                  {isCoachMode ? t(locale, 'playerMode') : t(locale, 'coachMode')}
                 </button>
                 <button
                   type="button"
@@ -817,7 +815,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   }`}
                 >
                   <Home className="h-4 w-4 opacity-70" />
-                  Admin
+                  {t(locale, 'admin')}
                 </button>
                 <button
                   type="button"
@@ -833,7 +831,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   }`}
                 >
                   {isFullscreen ? <Minimize className="h-4 w-4 opacity-70" /> : <Maximize className="h-4 w-4 opacity-70" />}
-                  {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                  {isFullscreen ? t(locale, 'exitFullscreen') : t(locale, 'fullscreen')}
                 </button>
               </div>
             ) : null}
@@ -847,16 +845,16 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4`}>
             <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`}></div>
             <div className="relative">
-              <h3 className={`text-2xl font-light ${text.textStrong} mb-2 tracking-wide`}>Admin Access Required</h3>
+              <h3 className={`text-2xl font-light ${text.textStrong} mb-2 tracking-wide`}>{t(locale, 'adminAccess')}</h3>
               <div className={`w-16 h-0.5 ${activeTheme.accentLine} rounded-full mb-6`}></div>
-              <p className={`text-base ${text.textSoft} mb-6 tracking-wide`}>Enter password to access admin dashboard:</p>
+              <p className={`text-base ${text.textSoft} mb-6 tracking-wide`}>{t(locale, 'adminAccessHint')}</p>
               <input
                 type="password"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
                 className={`w-full px-4 py-4 rounded-xl backdrop-blur-sm text-base tracking-wide focus:outline-none ${activeTheme.inputField} mb-6`}
-                placeholder="Enter password..."
+                placeholder={t(locale, 'enterPassword')}
                 autoFocus
               />
               <div className="flex space-x-4">
@@ -864,13 +862,13 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   onClick={handlePasswordSubmit}
                   className={`flex-1 ${activeTheme.primaryButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                 >
-                  Access Admin
+                  {t(locale, 'accessAdmin')}
                 </button>
                 <button
                   onClick={handlePasswordCancel}
                   className={`flex-1 ${activeTheme.adminButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                 >
-                  Cancel
+                  {t(locale, 'cancel')}
                 </button>
               </div>
             </div>
@@ -886,32 +884,32 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
             <div className="relative">
               {showResubmitConfirm ? (
                 <>
-                  <h3 className={`text-2xl font-light ${text.textStrong} mb-2 text-center tracking-wide`}>Already submitted</h3>
+                  <h3 className={`text-2xl font-light ${text.textStrong} mb-2 text-center tracking-wide`}>{t(locale, 'alreadySubmitted')}</h3>
                   <div className={`w-16 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-6`}></div>
                   <p className={`text-base ${text.textSoft} mb-6 text-center tracking-wide`}>
-                    <strong className={text.textStrong}>{selectedPlayer.firstName} {selectedPlayer.lastName}</strong> already completed this survey. Submit again?
+                    <strong className={text.textStrong}>{selectedPlayer.firstName} {selectedPlayer.lastName}</strong> {t(locale, 'alreadySubmittedHint')}
                   </p>
                   <div className="flex space-x-4">
                     <button
                       onClick={() => startSurveyForPlayer(selectedPlayer)}
                       className={`flex-1 ${activeTheme.primaryButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                     >
-                      Submit again
+                      {t(locale, 'submitAgain')}
                     </button>
                     <button
                       onClick={handlePlayerPasswordCancel}
                       className={`flex-1 ${activeTheme.adminButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                     >
-                      Cancel
+                      {t(locale, 'cancel')}
                     </button>
                   </div>
                 </>
               ) : (
                 <>
-                  <h3 className={`text-2xl font-light ${text.textStrong} mb-2 text-center tracking-wide`}>Player Authentication</h3>
+                  <h3 className={`text-2xl font-light ${text.textStrong} mb-2 text-center tracking-wide`}>{t(locale, 'playerAuth')}</h3>
                   <div className={`w-16 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-6`}></div>
                   <p className={`text-base ${text.textSoft} mb-4 text-center tracking-wide`}>
-                    Enter password for <strong className={text.textStrong}>{selectedPlayer.firstName} {selectedPlayer.lastName}</strong>:
+                    {t(locale, 'enterPasswordFor')} <strong className={text.textStrong}>{selectedPlayer.firstName} {selectedPlayer.lastName}</strong>:
                   </p>
                   <input
                     type="text"
@@ -942,13 +940,13 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                       onClick={handlePlayerPasswordSubmit}
                       className={`flex-1 ${activeTheme.primaryButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                     >
-                      Continue
+                      {t(locale, 'continue')}
                     </button>
                     <button
                       onClick={handlePlayerPasswordCancel}
                       className={`flex-1 ${activeTheme.adminButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                     >
-                      Cancel
+                      {t(locale, 'cancel')}
                     </button>
                   </div>
                 </>
@@ -963,8 +961,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/40 bg-emerald-950/90 px-4 py-3 text-emerald-100 shadow-2xl backdrop-blur-xl">
             <CheckCircle className="h-5 w-5 shrink-0 text-emerald-300" aria-hidden />
             <div className="min-w-0">
-              <p className="text-sm font-semibold tracking-wide">Survey submitted</p>
-              <p className="text-xs text-emerald-200/80">Ready for the next player.</p>
+              <p className="text-sm font-semibold tracking-wide">{t(locale, 'surveySubmitted')}</p>
+              <p className="text-xs text-emerald-200/80">{t(locale, 'readyNextPlayer')}</p>
             </div>
           </div>
         </div>
@@ -975,8 +973,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           <div className="flex items-center gap-3 rounded-2xl border border-amber-400/40 bg-amber-950/90 px-4 py-3 text-amber-50 shadow-2xl backdrop-blur-xl">
             <Clock3 className="h-5 w-5 shrink-0 text-amber-300" aria-hidden />
             <div className="min-w-0">
-              <p className="text-sm font-semibold tracking-wide">Saved offline on this tablet</p>
-              <p className="text-xs text-amber-100/80">Will sync automatically when the network returns.</p>
+              <p className="text-sm font-semibold tracking-wide">{t(locale, 'savedOffline')}</p>
+              <p className="text-xs text-amber-100/80">{t(locale, 'willSync')}</p>
             </div>
           </div>
         </div>
@@ -999,10 +997,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4`}>
             <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`}></div>
             <div className="relative">
-              <h3 className={`text-2xl font-light ${text.textStrong} mb-2 text-center tracking-wide`}>Coach Access</h3>
+              <h3 className={`text-2xl font-light ${text.textStrong} mb-2 text-center tracking-wide`}>{t(locale, 'coachAccess')}</h3>
               <div className={`w-16 h-0.5 ${activeTheme.accentLine} rounded-full mx-auto mb-6`}></div>
               <p className={`text-base ${text.textSoft} mb-6 text-center tracking-wide`}>
-                Enter password to access Coach Mode
+                {t(locale, 'enterCoachPassword')}
               </p>
               <input
                 type="password"
@@ -1010,7 +1008,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 onChange={(e) => setCoachPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCoachPasswordSubmit()}
                 className={`w-full px-4 py-4 rounded-xl backdrop-blur-sm text-base tracking-wide focus:outline-none ${activeTheme.inputField} mb-6`}
-                placeholder="Enter coach password..."
+                placeholder={t(locale, 'enterCoachPasswordPh')}
                 autoFocus
               />
               <div className="flex space-x-4">
@@ -1018,13 +1016,13 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   onClick={handleCoachPasswordSubmit}
                   className={`flex-1 ${activeTheme.primaryButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                 >
-                  Enter Coach Mode
+                  {t(locale, 'enterCoachMode')}
                 </button>
                 <button
                   onClick={handleCoachPasswordCancel}
                   className={`flex-1 ${activeTheme.adminButton} text-white px-6 py-3 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm`}
                 >
-                  Cancel
+                  {t(locale, 'cancel')}
                 </button>
               </div>
             </div>
@@ -1040,6 +1038,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           kioskTheme={kioskTheme}
           sessionTags={sessionTags}
           matchDayTags={matchDayTags}
+          locale={locale}
           onBack={() => setIsCoachMode(false)}
           onRefresh={() => {
             void loadBootstrap({ silent: true })
@@ -1050,7 +1049,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           <div className={`flex min-h-screen items-center justify-center ${activeTheme.rootBackground}`}>
             <div className="text-center">
               <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-slate-500 border-t-teal-400" />
-              <p className={`mt-4 text-sm ${text.textSoft}`}>Loading coach mode…</p>
+              <p className={`mt-4 text-sm ${text.textSoft}`}>{t(locale, 'loadingCoach')}</p>
             </div>
           </div>
         )
@@ -1059,15 +1058,15 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       <div className={`relative ${activeTheme.panelBackground} backdrop-blur-xl py-3 sm:py-4`}>
         <div className={`absolute inset-0 ${activeTheme.panelOverlay}`}></div>
         <div className="relative max-w-7xl mx-auto px-3 sm:px-6 space-y-2.5">
-          <h2 id="kiosk-filter-heading" className="sr-only">Find your name</h2>
+          <h2 id="kiosk-filter-heading" className="sr-only">{t(locale, 'findYourName')}</h2>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <div className="flex flex-1 rounded-xl border border-white/10 p-0.5 backdrop-blur-sm">
               {(
                 [
-                  { id: 'pending', label: `Pending ${pendingCount}` },
-                  { id: 'done', label: `Done ${doneCount}` },
-                  { id: 'all', label: `All ${players.length}` },
+                  { id: 'pending', label: `${t(locale, 'pending')} ${pendingCount}` },
+                  { id: 'done', label: `${t(locale, 'done')} ${doneCount}` },
+                  { id: 'all', label: `${t(locale, 'all')} ${players.length}` },
                 ] as const
               ).map((tab) => {
                 const active = statusFilter === tab.id
@@ -1094,7 +1093,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search…"
+                  placeholder={t(locale, 'search')}
                   className={`w-full rounded-full py-2 pl-9 pr-3 text-sm backdrop-blur-sm focus:outline-none ${activeTheme.inputField}`}
                   autoComplete="off"
                   enterKeyHint="search"
@@ -1111,7 +1110,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 aria-controls="kiosk-letter-filter"
               >
                 <ALargeSmall className="h-3.5 w-3.5" aria-hidden />
-                Letters
+                {t(locale, 'letters')}
               </button>
             </div>
           </div>
@@ -1133,7 +1132,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 }`}
                 style={!selectedLetter && accent ? { backgroundColor: accent, color: accentOn } : undefined}
               >
-                All
+                {t(locale, 'all')}
               </button>
               {getAlphabet().map((letter) => {
                 const hasPlayers = players.some((p) => p.lastName.toUpperCase().startsWith(letter))
@@ -1165,10 +1164,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       </div>
 
       {recentPlayers.length > 0 && !searchQuery.trim() && !selectedLetter && (
-        <section aria-label="Recent players" className="relative max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-5">
+        <section aria-label={t(locale, 'recentPlayersAria')} className="relative max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-5">
           <div className="mb-2 flex items-center gap-2">
             <Clock3 className={`h-3.5 w-3.5 ${text.textFaint}`} aria-hidden />
-            <h3 className={`text-xs font-semibold tracking-wide ${text.textSoft}`}>Recent</h3>
+            <h3 className={`text-xs font-semibold tracking-wide ${text.textSoft}`}>{t(locale, 'recent')}</h3>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {recentPlayers.slice(0, 8).map((player) => (
@@ -1204,7 +1203,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
 
       <section
         id="kiosk-player-grid"
-        aria-label="Players"
+        aria-label={t(locale, 'playersAria')}
         className="relative max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
       >
         <div className={`absolute inset-0 ${activeTheme.gridOverlay} rounded-3xl`}></div>
@@ -1221,17 +1220,17 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   <User className="w-10 h-10 text-gray-300" />
                 </div>
                 <h3 className={`text-2xl font-light ${text.textStrong} mb-4 tracking-wide`}>
-                  {statusFilter === 'pending' && pendingCount === 0 ? 'Everyone is done' : 'No players found'}
+                  {statusFilter === 'pending' && pendingCount === 0 ? t(locale, 'everyoneDone') : t(locale, 'noPlayersFound')}
                 </h3>
                 <div className="w-16 h-0.5 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full mx-auto mb-4"></div>
                 <p className={`text-base ${text.textSoft} tracking-wide mb-6`}>
                   {statusFilter === 'pending' && pendingCount === 0
-                    ? 'All players have submitted. Switch to Done or All if needed.'
+                    ? t(locale, 'allSubmittedHint')
                     : selectedLetter
-                      ? `No players found starting with "${selectedLetter}"`
+                      ? `${t(locale, 'noLetterHint')} "${selectedLetter}"`
                       : searchQuery.trim()
-                        ? 'Try a different name spelling'
-                        : 'No players available for this survey'}
+                        ? t(locale, 'trySpelling')
+                        : t(locale, 'noPlayersSurvey')}
                 </p>
                 {statusFilter === 'pending' && pendingCount === 0 && (
                   <button
@@ -1239,7 +1238,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                     onClick={() => setStatusFilter('all')}
                     className={`${activeTheme.primaryButton} text-white px-6 py-3 rounded-xl text-base font-semibold`}
                   >
-                    Show all players
+                    {t(locale, 'showAllPlayers')}
                   </button>
                 )}
               </div>

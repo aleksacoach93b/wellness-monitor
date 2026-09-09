@@ -15,6 +15,7 @@ import {
   getBodyMapRating,
   getBodyMapWhenIds,
 } from '@/lib/bodyMapPainLocation'
+import { t as i18n, tx, type KioskLocale } from '@/lib/i18n'
 
 interface BodyMapProps {
   view: 'front' | 'back'
@@ -34,6 +35,7 @@ interface BodyMapProps {
   mode?: 'fullscreen' | 'preview'
   /** Intensity palette — soreness uses cyan/amber/pink like Power BI */
   colorScheme?: 'default' | 'pain' | 'soreness'
+  locale?: KioskLocale
 }
 
 const DRAG_THRESHOLD_PX = 12
@@ -48,6 +50,7 @@ export default function BodyMap({
   appearanceTheme = 'default',
   mode = 'fullscreen',
   colorScheme = 'default',
+  locale = 'en',
 }: BodyMapProps) {
   const isPreview = mode === 'preview'
   const t = useMemo(() => getSurveyBodyMapTokens(appearanceTheme), [appearanceTheme])
@@ -2454,18 +2457,18 @@ export default function BodyMap({
   )
 
   const selectedCount = Object.keys(selectedAreas).length
-  const ratingTargetName = ratingTarget ? getMuscleName(ratingTarget) : ''
+  const ratingTargetName = ratingTarget ? tx(locale, getMuscleName(ratingTarget)) : ''
   const ratingTargetValue =
     pendingRating ?? (ratingTarget ? getBodyMapRating(selectedAreas[ratingTarget]) : 0)
   const padStepIndex: 0 | 1 | 2 =
     padDeck === 1 && padFlipped ? 2 : padFlipped || padDeck === 1 ? 1 : 0
   const padStepTitle =
     padStepIndex === 0
-      ? 'Intensity'
+      ? i18n(locale, 'intensity')
       : padStepIndex === 1
-        ? 'Where does it hurt most?'
-        : 'When does it hurt?'
-  const justSavedName = justSavedAreaId ? getMuscleName(justSavedAreaId) : ''
+        ? i18n(locale, 'exactSpot')
+        : i18n(locale, 'whenHurts')
+  const justSavedName = justSavedAreaId ? tx(locale, getMuscleName(justSavedAreaId)) : ''
 
   const handlePadBack = () => {
     if (padStepIndex === 2) backFromWhen()
@@ -2474,15 +2477,15 @@ export default function BodyMap({
 
   const renderPadStepper = () => {
     const steps = [
-      { n: 1, label: 'Intensity' },
-      { n: 2, label: 'Spot' },
-      { n: 3, label: 'When' },
+      { n: 1, label: i18n(locale, 'intensity') },
+      { n: 2, label: i18n(locale, 'spot') },
+      { n: 3, label: i18n(locale, 'when') },
     ] as const
     return (
       <div
         className="mb-3 flex items-center justify-center gap-1.5"
         role="navigation"
-        aria-label="Pain entry steps"
+        aria-label={i18n(locale, 'painSteps')}
       >
         {steps.map((step, i) => {
           const active = padStepIndex === i
@@ -2537,11 +2540,11 @@ export default function BodyMap({
         aria-hidden
       >
         <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-sky-300/80">
-          Prox
+          {i18n(locale, 'prox')}
         </span>
         <div className="my-1.5 w-px flex-1 rounded-full bg-gradient-to-b from-sky-400/70 via-white/25 to-orange-400/70" />
         <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-orange-300/80">
-          Dist
+          {i18n(locale, 'dist')}
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
@@ -2567,7 +2570,7 @@ export default function BodyMap({
                   {isWhole ? '∞' : index + 1}
                 </span>
                 <span className="min-w-0 flex-1 text-sm font-semibold leading-snug sm:text-base">
-                  {option.label}
+                  {tx(locale, option.label)}
                 </span>
               </button>
             </div>
@@ -2619,8 +2622,8 @@ export default function BodyMap({
               type="button"
               onClick={onClose}
               className={`${t.closeBtn} min-h-11 min-w-11 flex items-center justify-center transition-colors touch-manipulation`}
-              data-title="Close body map"
-              aria-label="Close body map"
+              data-title={i18n(locale, 'closeBodyMap')}
+              aria-label={i18n(locale, 'closeBodyMap')}
             >
               <X className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
@@ -2631,14 +2634,14 @@ export default function BodyMap({
               className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-xs sm:text-sm font-semibold text-white/90 bg-white/10 border border-white/20 disabled:opacity-40 touch-manipulation"
             >
               <Eraser className="h-4 w-4" aria-hidden />
-              Clear all
+              {i18n(locale, 'clearAll')}
             </button>
             <button
               type="button"
               onClick={onContinue}
               className={`${t.continueBtn} min-h-11 py-2 px-4 sm:px-5 text-sm font-semibold touch-manipulation`}
             >
-              Done
+              {i18n(locale, 'bodyMapDone')}
             </button>
           </div>
           
@@ -2653,7 +2656,7 @@ export default function BodyMap({
                   view === 'front' ? t.viewToggleOn : t.viewToggleOff
                 }`}
               >
-                Front
+                {i18n(locale, 'front')}
               </button>
               <button
                 type="button"
@@ -2663,13 +2666,13 @@ export default function BodyMap({
                   view === 'back' ? t.viewToggleOn : t.viewToggleOff
                 }`}
               >
-                Back
+                {i18n(locale, 'back')}
               </button>
             </div>
           </div>
           
           <p className={`text-xs sm:text-sm ${t.hint} text-center`}>
-            Tap a muscle — intensity, exact spot, and when it hurts (each area separately)
+            {i18n(locale, 'bodyMapHint')}
           </p>
         </div>
         
@@ -2684,7 +2687,7 @@ export default function BodyMap({
               <h5
                 className={`text-xs font-semibold uppercase tracking-[0.14em] sm:text-sm ${t.selectedTitle}`}
               >
-                Selected Areas{selectedCount > 0 ? ` (${selectedCount})` : ''}
+                {i18n(locale, 'selectedAreas')}{selectedCount > 0 ? ` (${selectedCount})` : ''}
               </h5>
               <div className="h-px flex-1 rounded-full bg-white/15" aria-hidden />
             </div>
@@ -2693,15 +2696,15 @@ export default function BodyMap({
                 <div className="grid auto-rows-min grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
                   {Object.entries(selectedAreas).map(([area, stored]) => {
                     const rating = getBodyMapRating(stored)
-                    const locationLabel = getBodyMapLocationLabel(stored)
+                    const locationLabel = tx(locale, getBodyMapLocationLabel(stored))
                     const whenCount = getBodyMapWhenIds(stored).length
                     const whenPart =
                       whenCount > 0
-                        ? `${whenCount} situation${whenCount === 1 ? '' : 's'}`
+                        ? `${whenCount} ${whenCount === 1 ? i18n(locale, 'situation') : i18n(locale, 'situations')}`
                         : null
                     const detailLine = [locationLabel, whenPart].filter(Boolean).join(' · ')
                     const fullTitle = [
-                      getMuscleName(area),
+                      tx(locale, getMuscleName(area)),
                       `${rating}/10`,
                       locationLabel,
                       whenPart,
@@ -2738,7 +2741,7 @@ export default function BodyMap({
                         )}
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-left text-xs font-medium leading-snug text-white sm:text-sm">
-                            {getMuscleName(area)}
+                            {tx(locale, getMuscleName(area))}
                           </span>
                           {detailLine && (
                             <span className="block truncate text-[11px] leading-tight text-white/55">
@@ -2759,7 +2762,7 @@ export default function BodyMap({
                           type="button"
                           onClick={() => handleDeselectArea(area)}
                           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-red-400 transition-colors hover:bg-red-500/15 hover:text-red-300 active:scale-95 touch-manipulation"
-                          aria-label={`Remove ${getMuscleName(area)}`}
+                          aria-label={`${i18n(locale, 'clearAll')} ${tx(locale, getMuscleName(area))}`}
                         >
                           <X className="h-4 w-4 sm:h-[18px] sm:w-[18px]" strokeWidth={2.25} />
                         </button>
@@ -2770,7 +2773,7 @@ export default function BodyMap({
                 </div>
               ) : (
                 <div className={`py-6 text-center text-sm ${t.emptyHint} sm:py-8`}>
-                  No areas selected yet
+                  {i18n(locale, 'noAreasSelected')}
                 </div>
               )}
             </div>
@@ -2897,7 +2900,7 @@ export default function BodyMap({
           <div className="pointer-events-none fixed inset-x-0 bottom-[max(5.5rem,env(safe-area-inset-bottom))] z-[10001] flex justify-center px-3">
             <div className="bodymap-save-toast inline-flex max-w-lg items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-950/95 px-4 py-3 text-sm font-semibold text-emerald-100 shadow-2xl backdrop-blur-xl">
               <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" aria-hidden />
-              <span className="truncate">Saved — {justSavedName}</span>
+              <span className="truncate">{i18n(locale, 'savedPrefix')} {justSavedName}</span>
             </div>
           </div>
         )}
@@ -2919,7 +2922,7 @@ export default function BodyMap({
                         onClick={handlePadBack}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white touch-manipulation"
                         aria-label={
-                          padStepIndex === 2 ? 'Back to exact spot' : 'Back to intensity'
+                          padStepIndex === 2 ? i18n(locale, 'backToSpot') : i18n(locale, 'backToIntensity')
                         }
                       >
                         <ChevronLeft className="h-5 w-5" />
@@ -3011,7 +3014,7 @@ export default function BodyMap({
                         onClick={() => selectIntensity(0)}
                         className="mt-3 min-h-12 w-full shrink-0 rounded-xl border border-white/20 bg-white/10 text-sm font-semibold text-white touch-manipulation"
                       >
-                        Clear this area
+                        {i18n(locale, 'clearThisArea')}
                       </button>
                     </>
                   ) : (
@@ -3059,7 +3062,7 @@ export default function BodyMap({
                                 ✓
                               </span>
                               <span className="min-w-0 flex-1 text-sm font-semibold leading-snug sm:text-base">
-                                {option.label}
+                                {tx(locale, option.label)}
                               </span>
                             </button>
                           )
@@ -3071,7 +3074,7 @@ export default function BodyMap({
                         disabled={pendingWhen.length === 0}
                         className="mt-3 min-h-12 w-full shrink-0 rounded-xl bg-sky-500 text-sm font-semibold text-white shadow-lg shadow-sky-500/30 touch-manipulation disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                       >
-                        Save this area
+                        {i18n(locale, 'saveThisArea')}
                         {pendingWhen.length > 0 ? ` (${pendingWhen.length})` : ''}
                       </button>
                     </>

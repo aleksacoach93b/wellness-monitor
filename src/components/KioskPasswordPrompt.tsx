@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import Image from 'next/image'
 import { kioskThemes, kioskTextTokens, type KioskTheme } from '@/lib/kioskThemes'
+import { t, type KioskLocale } from '@/lib/i18n'
 
 interface KioskPasswordPromptProps {
   onPasswordCorrect: () => void
@@ -17,6 +18,7 @@ interface KioskPasswordPromptProps {
   surveyId?: string
   /** When already loaded via bootstrap — skip an extra settings round-trip */
   expectedPassword?: string | null
+  locale?: KioskLocale
 }
 
 export default function KioskPasswordPrompt({
@@ -28,6 +30,7 @@ export default function KioskPasswordPrompt({
   showClubBranding = true,
   surveyId,
   expectedPassword,
+  locale = 'en',
 }: KioskPasswordPromptProps) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -44,7 +47,7 @@ export default function KioskPasswordPrompt({
     e.preventDefault()
 
     if (!password.trim()) {
-      setError('Please enter the password')
+      setError(t(locale, 'pleaseEnterPassword'))
       return
     }
 
@@ -56,7 +59,7 @@ export default function KioskPasswordPrompt({
         if (password.trim() === expectedPassword) {
           onPasswordCorrect()
         } else {
-          setError('Incorrect password. Please try again.')
+          setError(t(locale, 'incorrectPasswordRetry'))
         }
         return
       }
@@ -69,14 +72,14 @@ export default function KioskPasswordPrompt({
         if (password.trim() === settings?.password) {
           onPasswordCorrect()
         } else {
-          setError('Incorrect password. Please try again.')
+          setError(t(locale, 'incorrectPasswordRetry'))
         }
       } else {
-        setError('Unable to verify password. Please try again.')
+        setError(t(locale, 'unableVerify'))
       }
     } catch (err) {
       console.error('Error verifying password:', err)
-      setError('Unable to verify password. Please try again.')
+      setError(t(locale, 'unableVerify'))
     } finally {
       setLoading(false)
     }
@@ -126,18 +129,18 @@ export default function KioskPasswordPrompt({
               ) : null}
 
               <h1 className={`text-3xl sm:text-4xl font-light ${text.textStrong} tracking-wide mb-3 drop-shadow-lg`}>
-                Survey Access
+                {t(locale, 'surveyAccess')}
               </h1>
               <div className={`h-1 w-20 mx-auto rounded-full mb-5 ${activeTheme.accentLine}`} />
               <p className={`${text.textSoft} text-base sm:text-lg font-medium tracking-wide leading-relaxed px-2`}>
-                Enter the access code to open the kiosk
+                {t(locale, 'surveyAccessHint')}
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="password" className={`block text-sm font-semibold ${text.textSoft} mb-3 tracking-wide`}>
-                  Access Code
+                  {t(locale, 'accessCode')}
                 </label>
                 <div className="relative">
                   <input
@@ -146,7 +149,7 @@ export default function KioskPasswordPrompt({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className={`w-full px-5 py-4 pr-14 rounded-xl text-lg tracking-wide backdrop-blur-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-white/25 transition-all duration-200 ${activeTheme.inputField}`}
-                    placeholder="Enter access code"
+                    placeholder={t(locale, 'enterAccessCode')}
                     disabled={loading}
                     autoFocus
                     autoComplete="off"
@@ -156,7 +159,7 @@ export default function KioskPasswordPrompt({
                     onClick={() => setShowPassword(!showPassword)}
                     className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg ${text.textFaint} hover:opacity-70 hover:bg-black/5 transition-colors`}
                     disabled={loading}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? t(locale, 'hidePassword') : t(locale, 'showPassword')}
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -186,12 +189,12 @@ export default function KioskPasswordPrompt({
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-6 w-6 border-2 border-white/30 border-t-white" />
-                      Verifying…
+                      {t(locale, 'verifying')}
                     </>
                   ) : (
                     <>
                       <Lock className="w-5 h-5" />
-                      Start Survey
+                      {t(locale, 'startSurvey')}
                     </>
                   )}
                 </button>
@@ -202,14 +205,14 @@ export default function KioskPasswordPrompt({
                     disabled={loading}
                     className={`w-full flex items-center justify-center px-6 py-3.5 rounded-xl text-base font-semibold transition-all duration-300 backdrop-blur-sm border ${activeTheme.adminButton} text-white disabled:opacity-50`}
                   >
-                    Cancel
+                    {t(locale, 'cancel')}
                   </button>
                 )}
               </div>
             </form>
 
             <p className="mt-8 text-center text-sm text-gray-500 leading-relaxed">
-              Contact your coach if you don&apos;t have the access code
+              {t(locale, 'contactCoach')}
             </p>
           </div>
         </div>

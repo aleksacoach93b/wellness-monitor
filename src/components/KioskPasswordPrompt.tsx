@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import Image from 'next/image'
 import { kioskThemes, kioskTextTokens, type KioskTheme } from '@/lib/kioskThemes'
-import KioskClubBrand from '@/components/KioskClubBrand'
 
 interface KioskPasswordPromptProps {
   onPasswordCorrect: () => void
@@ -37,7 +37,8 @@ export default function KioskPasswordPrompt({
   const activeTheme = kioskThemes[theme] ?? kioskThemes.dark
   const text = kioskTextTokens(theme)
   const hasCode = Boolean(password.trim())
-  const hasBrand = showClubBranding && Boolean(clubName?.trim() || clubLogo?.trim())
+  const logo = showClubBranding ? clubLogo?.trim() || '' : ''
+  const brandName = showClubBranding ? clubName?.trim() || '' : ''
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -94,22 +95,22 @@ export default function KioskPasswordPrompt({
           className={`relative rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden ${activeTheme.modalBackground} border`}
         >
           <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-3xl pointer-events-none`} aria-hidden />
+          {logo ? (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
+              <Image
+                src={logo}
+                alt=""
+                width={420}
+                height={420}
+                unoptimized
+                className="h-[82%] w-[82%] object-contain opacity-[0.22]"
+              />
+            </div>
+          ) : null}
 
           <div className="relative px-8 pt-10 pb-8 sm:px-10 sm:py-12">
             <div className="text-center mb-8">
-              {hasBrand ? (
-                <div className="mb-8">
-                  <KioskClubBrand
-                    clubName={clubName}
-                    clubLogo={clubLogo}
-                    showBranding={showClubBranding}
-                    kioskTheme={theme}
-                    size="lg"
-                    align="center"
-                    logoOnly
-                  />
-                </div>
-              ) : (
+              {!logo ? (
                 <div className="relative mx-auto w-24 h-24 mb-8">
                   <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/25 via-white/10 to-transparent blur-xl scale-125" aria-hidden />
                   <div
@@ -118,7 +119,11 @@ export default function KioskPasswordPrompt({
                     <Lock className="w-11 h-11 text-white drop-shadow-md" strokeWidth={1.75} />
                   </div>
                 </div>
-              )}
+              ) : brandName ? (
+                <p className={`mb-4 text-sm font-semibold uppercase tracking-[0.22em] ${text.textFaint}`}>
+                  {brandName}
+                </p>
+              ) : null}
 
               <h1 className={`text-3xl sm:text-4xl font-light ${text.textStrong} tracking-wide mb-3 drop-shadow-lg`}>
                 Survey Access

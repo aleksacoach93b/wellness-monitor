@@ -98,35 +98,39 @@ export default function KioskPasswordPrompt({
           className={`relative rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden ${activeTheme.modalBackground} border`}
         >
           <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-3xl pointer-events-none`} aria-hidden />
-          {logo ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
-              <Image
-                src={logo}
-                alt=""
-                width={420}
-                height={420}
-                unoptimized
-                className="h-[82%] w-[82%] object-contain opacity-[0.22]"
-              />
-            </div>
-          ) : null}
 
           <div className="relative px-8 pt-10 pb-8 sm:px-10 sm:py-12">
             <div className="text-center mb-8">
-              {!logo ? (
-                <div className="relative mx-auto w-24 h-24 mb-8">
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/25 via-white/10 to-transparent blur-xl scale-125" aria-hidden />
-                  <div
-                    className={`relative flex h-full w-full items-center justify-center rounded-full shadow-2xl border border-white/10 ${activeTheme.primaryButton}`}
-                  >
+              <div className="relative mx-auto mb-4 h-24 w-24 sm:mb-5 sm:h-28 sm:w-28">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/25 via-white/10 to-transparent blur-xl scale-125" aria-hidden />
+                <div
+                  className={`relative flex h-full w-full items-center justify-center overflow-hidden rounded-full shadow-2xl ${
+                    logo
+                      ? 'bg-white/95 p-2 ring-1 ring-white/30'
+                      : `border border-white/10 ${activeTheme.primaryButton}`
+                  }`}
+                >
+                  {logo ? (
+                    <Image
+                      src={logo}
+                      alt={brandName || t(locale, 'surveyAccess')}
+                      width={112}
+                      height={112}
+                      unoptimized
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
                     <Lock className="w-11 h-11 text-white drop-shadow-md" strokeWidth={1.75} />
-                  </div>
+                  )}
                 </div>
-              ) : brandName ? (
-                <p className={`mb-4 text-sm font-semibold uppercase tracking-[0.22em] ${text.textFaint}`}>
+              </div>
+              {brandName ? (
+                <p className={`mb-5 text-sm font-semibold uppercase tracking-[0.22em] ${text.textFaint}`}>
                   {brandName}
                 </p>
-              ) : null}
+              ) : (
+                <div className="mb-5" />
+              )}
 
               <h1 className={`text-3xl sm:text-4xl font-light ${text.textStrong} tracking-wide mb-3 drop-shadow-lg`}>
                 {t(locale, 'surveyAccess')}

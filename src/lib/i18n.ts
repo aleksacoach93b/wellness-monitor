@@ -383,7 +383,28 @@ export const RPE_LABELS_I18N: Record<KioskLocale, Record<number, string>> = {
   },
 }
 
+/** Display-only EN → SR. Stored answers / CSV / Power BI stay English. */
 const CONTENT_SR: Record<string, string> = {
+  'are you feeling sick today? (sore throat / headache / stomach pain / fever / cough)':
+    'Da li se danas osećaš bolesno? (Upala grla / Glavobolja / Bol u stomaku / Groznica / Kašalj)',
+  'are you feeling sick today?': 'Da li se danas osećaš bolesno?',
+  'what time did you go to sleep?': 'U koliko sati si legao?',
+  'what time did you go to bed?': 'U koliko sati si legao?',
+  'what time did you wake up?': 'U koliko sati si ustao?',
+  'how would you rate your sleep quality?': 'Kako bi ocenio kvalitet sna?',
+  'how is your mood today?': 'Kakvo ti je raspoloženje danas?',
+  'how fatigued do you feel today?': 'Koliko si umoran danas?',
+  'how sore do you feel today?': 'Koliko si ukočen danas?',
+  'how stressed do you feel today?': 'Koliko si pod stresom danas?',
+  'how ready do you feel today?': 'Koliko si spreman danas?',
+  'how is your energy today?': 'Kakva ti je energija danas?',
+  'any pain or discomfort today?': 'Imaš li bol ili nelagodnost danas?',
+  'did you sleep well?': 'Da li si dobro spavao?',
+  'how many hours did you sleep?': 'Koliko sati si spavao?',
+  'completely exhausted — almost no usable energy left in the tank today.':
+    'Potpuno iscrpljen — skoro nema upotrebljive energije danas.',
+  'somewhat fresh — okay to train, though you are not buzzing with spring today.':
+    'Donekle svež — može trening, ali nisi eksplozivan danas.',
   'session rpe': 'RPE sesije',
   'daily wellness': 'Dnevni wellness',
   'daily wellness check': 'Dnevna wellness provera',
@@ -418,29 +439,27 @@ const CONTENT_SR: Record<string, string> = {
   'duration (min)': 'Trajanje (min)',
   'duration (minutes)': 'Trajanje (minuti)',
   training: 'Trening',
-  'strength': 'Snaga',
-  'activation': 'Aktivacija',
-  'tactical': 'Taktika',
-  'technical': 'Tehnika',
+  strength: 'Snaga',
+  activation: 'Aktivacija',
+  tactical: 'Taktika',
+  technical: 'Tehnika',
   'small sided games': 'Igre na malom prostoru',
   ssg: 'SSG',
-  'off': 'Slobodan',
+  off: 'Slobodan',
   'rest day': 'Dan odmora',
-  'travel': 'Putovanje',
+  travel: 'Putovanje',
   'pre-match': 'Pred meč',
   'post-match': 'Posle meča',
   'md+3': 'DM+3',
   'md-4': 'DM-4',
   'md-5': 'DM-5',
-  poor: 'Loše',
-  excellent: 'Odlično',
-  'sleep quality': 'Kvalitet sna',
+  'sleep quality': 'kvalitet sna',
   'how did you sleep?': 'Kako si spavao?',
-  mood: 'Raspoloženje',
-  stress: 'Stres',
-  fatigue: 'Umor',
-  soreness: 'Ukočenost / bol u mišićima',
-  readiness: 'Spremnost',
+  mood: 'raspoloženje',
+  stress: 'stres',
+  fatigue: 'umor',
+  soreness: 'ukočenost',
+  readiness: 'spremnost',
   'how do you feel today?': 'Kako se osećaš danas?',
   'energy level': 'Nivo energije',
   gym: 'Teretana',
@@ -457,6 +476,39 @@ const CONTENT_SR: Record<string, string> = {
   'md+2': 'DM+2',
   yes: 'Da',
   no: 'Ne',
+  'fair sleep': 'Solidan san',
+  'poor sleep': 'Loš san',
+  'very poor sleep': 'Veoma loš san',
+  'terrible sleep': 'Užasan san',
+  'good sleep': 'Dobar san',
+  'very good sleep': 'Veoma dobar san',
+  'excellent sleep': 'Odličan san',
+  'okay sleep': 'Prihvatljiv san',
+  'average sleep': 'Prosečan san',
+  'below average sleep': 'Ispodprosečan san',
+  'perfect sleep': 'Savršen san',
+  'awful sleep': 'Užasan san',
+  'very poor': 'Veoma loše',
+  'below average': 'Ispod proseka',
+  'average (okay)': 'Prosečno (ok)',
+  'almost perfect': 'Skoro savršeno',
+  'neutral / okay': 'Neutralno / ok',
+  'a bit low': 'Malo nisko',
+  'somewhat good': 'Donekle dobro',
+  'very tired': 'Veoma umoran',
+  'fully fresh': 'Potpuno odmoran',
+  'fully rested': 'Potpuno odmoran',
+  'okay — mixed night': 'Ok — mešana noć',
+  'excellent, fully rested': 'Odlično, potpuno odmoran',
+  terrible: 'Užasno',
+  awful: 'Užasno',
+  perfect: 'Savršeno',
+  outstanding: 'Izvanredno',
+  great: 'Odlično',
+  okay: 'Ok',
+  average: 'Prosečno',
+  poor: 'Loše',
+  excellent: 'Odlično',
   low: 'Nisko',
   fair: 'Srednje',
   good: 'Dobro',
@@ -473,6 +525,14 @@ const CONTENT_SR: Record<string, string> = {
   maximal: 'Maksimalno',
   'max effort': 'Maksimalan napor',
   rest: 'Odmor',
+  'sore throat': 'Upala grla',
+  headache: 'Glavobolja',
+  'stomach pain': 'Bol u stomaku',
+  fever: 'Groznica',
+  cough: 'Kašalj',
+  sick: 'bolesno',
+  'feeling sick': 'bolesno',
+  'sick today': 'bolesno danas',
   'proximal attachment': 'Proksimalni pripoj',
   'proximal–belly': 'Proksimalno–trbuh',
   'proximal-belly': 'Proksimalno–trbuh',
@@ -498,6 +558,45 @@ const CONTENT_SR: Record<string, string> = {
   'during tackling / contact': 'Tokom starta / kontakta',
 }
 
+const PHRASE_SR: Array<[string, string]> = Object.entries(CONTENT_SR).sort(
+  (a, b) => b[0].length - a[0].length,
+)
+
+const BODY_WORD_SR: Array<[RegExp, string]> = [
+  [/\bLeft\b/g, 'Leva'],
+  [/\bRight\b/g, 'Desna'],
+  [/\bFront\b/g, 'prednja'],
+  [/\bBack\b/g, 'zadnja'],
+  [/\bUpper\b/g, 'gornja'],
+  [/\bLower\b/g, 'donja'],
+  [/\bHead\b/g, 'glava'],
+  [/\bNeck\b/g, 'vrat'],
+  [/\bShoulder\b/g, 'rame'],
+  [/\bChest\b/g, 'grudi'],
+  [/\bAbdomen\b/g, 'stomak'],
+  [/\bHip\b/g, 'kuk'],
+  [/\bGroin\b/g, 'prepone'],
+  [/\bThigh\b/g, 'butina'],
+  [/\bQuad\b/g, 'kvadriceps'],
+  [/\bHamstring\b/g, 'zadnja loža'],
+  [/\bKnee\b/g, 'koleno'],
+  [/\bCalf\b/g, 'list'],
+  [/\bShin\b/g, 'potkolenica'],
+  [/\bAnkle\b/g, 'skočni zglob'],
+  [/\bFoot\b/g, 'stopalo'],
+  [/\bToe\b/g, 'prst'],
+  [/\bArm\b/g, 'nadlaktica'],
+  [/\bForearm\b/g, 'podlaktica'],
+  [/\bElbow\b/g, 'lakat'],
+  [/\bWrist\b/g, 'zglob'],
+  [/\bHand\b/g, 'šaka'],
+  [/\bFinger\b/g, 'prst'],
+  [/\bTrap\b/g, 'trapez'],
+  [/\bAdductor\b/g, 'aduktor'],
+  [/\bGlute\b/g, 'gluteus'],
+  [/\bIntercostal\b/g, 'interkostalni'],
+]
+
 function norm(value: string): string {
   return value
     .trim()
@@ -506,50 +605,63 @@ function norm(value: string): string {
     .replace(/\s+/g, ' ')
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function lookupExact(key: string): string | undefined {
+  return CONTENT_SR[key] ?? CONTENT_SR[key.replace(/[?!.]+$/, '').trim()]
+}
+
+function applyPhrases(text: string): string {
+  let out = text
+  for (const [en, sr] of PHRASE_SR) {
+    if (en.length < 3) continue
+    const re = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(en)}(?![\\p{L}\\p{N}])`, 'giu')
+    out = out.replace(re, sr)
+  }
+  return out
+}
+
+function applyQuestionPatterns(text: string): string | null {
+  const key = norm(text)
+  const rate = key.match(/^how would you rate your (.+?)\??$/)
+  if (rate) {
+    const inner = lookupExact(rate[1]) ?? applyPhrases(rate[1])
+    return `Kako bi ocenio ${inner}?`
+  }
+  const time = key.match(/^what time did you (.+?)\??$/)
+  if (time) {
+    if (/go to sleep|go to bed|fall asleep/.test(time[1])) return 'U koliko sati si legao?'
+    if (/wake up|get up/.test(time[1])) return 'U koliko sati si ustao?'
+  }
+  const feeling = key.match(/^are you feeling (.+?)(?:\s*\((.+)\))?\??$/)
+  if (feeling) {
+    const state = lookupExact(feeling[1]) ?? applyPhrases(feeling[1])
+    const extra = feeling[2] ? ` (${applyPhrases(feeling[2])})` : ''
+    return `Da li se osećaš ${state}${extra}?`
+  }
+  const howToday = key.match(/^how (.+) do you feel today\??$/)
+  if (howToday) {
+    const inner = lookupExact(howToday[1]) ?? applyPhrases(howToday[1])
+    return `Koliko se danas osećaš ${inner}?`
+  }
+  return null
+}
+
 export function tx(locale: KioskLocale, text?: string | null): string {
   if (!text) return ''
   if (locale !== 'sr') return text
-  const key = norm(text)
-  const exact = CONTENT_SR[key] ?? CONTENT_SR[key.replace(/[?!.]+$/, '').trim()]
+
+  const exact = lookupExact(norm(text))
   if (exact) return exact
 
-  let out = text
-  const replacements: Array<[RegExp, string]> = [
-    [/\bLeft\b/g, 'Leva'],
-    [/\bRight\b/g, 'Desna'],
-    [/\bFront\b/g, 'prednja'],
-    [/\bBack\b/g, 'zadnja'],
-    [/\bUpper\b/g, 'gornja'],
-    [/\bLower\b/g, 'donja'],
-    [/\bHead\b/g, 'glava'],
-    [/\bNeck\b/g, 'vrat'],
-    [/\bShoulder\b/g, 'rame'],
-    [/\bChest\b/g, 'grudi'],
-    [/\bAbdomen\b/g, 'stomak'],
-    [/\bHip\b/g, 'kuk'],
-    [/\bGroin\b/g, 'prepone'],
-    [/\bThigh\b/g, 'butina'],
-    [/\bQuad\b/g, 'kvadriceps'],
-    [/\bHamstring\b/g, 'zadnja loža'],
-    [/\bKnee\b/g, 'koleno'],
-    [/\bCalf\b/g, 'list'],
-    [/\bShin\b/g, 'potkolenica'],
-    [/\bAnkle\b/g, 'skočni zglob'],
-    [/\bFoot\b/g, 'stopalo'],
-    [/\bToe\b/g, 'prst'],
-    [/\bArm\b/g, 'nadlaktica'],
-    [/\bForearm\b/g, 'podlaktica'],
-    [/\bElbow\b/g, 'lakat'],
-    [/\bWrist\b/g, 'zglob'],
-    [/\bHand\b/g, 'šaka'],
-    [/\bFinger\b/g, 'prst'],
-    [/\bTrap\b/g, 'trapez'],
-    [/\bAdductor\b/g, 'aduktor'],
-    [/\bGlute\b/g, 'gluteus'],
-    [/\bIntercostal\b/g, 'interkostalni'],
-  ]
-  for (const [re, sr] of replacements) out = out.replace(re, sr)
-  return out === text ? text : out
+  const patterned = applyQuestionPatterns(text)
+  if (patterned) return patterned
+
+  let out = applyPhrases(text)
+  for (const [re, sr] of BODY_WORD_SR) out = out.replace(re, sr)
+  return out
 }
 
 export function formatKioskDate(locale: KioskLocale, date = new Date()): string {

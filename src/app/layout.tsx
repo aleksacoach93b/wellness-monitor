@@ -21,7 +21,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Wellness Monitor",
+  title: "Wellness App AB",
   description: "Sports wellness monitoring application",
 };
 

@@ -221,6 +221,9 @@ export async function GET(
           orderBy: { order: 'asc' }
         },
         responses: {
+          where: {
+            player: { isNot: null },
+          },
           include: {
             player: {
               select: {
@@ -255,17 +258,21 @@ export async function GET(
     const origin = request.nextUrl.origin
 
     // Create flattened CSV data - each response as one row with ALL body parts as columns
-    const csvData = survey.responses.map(response => {
+    const csvData = survey.responses
+      .filter((response): response is typeof response & { player: NonNullable<typeof response.player> } =>
+        Boolean(response.player)
+      )
+      .map(response => {
       // Format date as YYYY-MM-DD HH:MM:SS for Power BI compatibility
       const formattedDate = response.submittedAt.toISOString()
         .replace('T', ' ')
         .replace(/\.\d{3}Z$/, '')
-      const hasPhoto = Boolean(response.player?.id && response.player.image?.trim())
+      const hasPhoto = Boolean(response.player.image?.trim())
       
       const row: Record<string, string | number | null> = {
-        playerName: response.player ? `${response.player.firstName} ${response.player.lastName}` : 'Unknown Player',
-        playerImageUrl: hasPhoto ? `${origin}/api/players/${response.player!.id}/photo` : '',
-        playerEmail: response.player?.email || '',
+        playerName: `${response.player.firstName} ${response.player.lastName}`,
+        playerImageUrl: hasPhoto ? `${origin}/api/players/${response.player.id}/photo` : '',
+        playerEmail: response.player.email || '',
         submittedAt: formattedDate,
         surveyTitle: survey.title
       }

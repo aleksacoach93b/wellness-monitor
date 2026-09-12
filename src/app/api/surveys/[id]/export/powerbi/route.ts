@@ -152,6 +152,9 @@ export async function GET(
           orderBy: { order: 'asc' }
         },
         responses: {
+          where: {
+            player: { isNot: null },
+          },
           include: {
             answers: true
           },

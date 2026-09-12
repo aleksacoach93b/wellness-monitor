@@ -224,9 +224,11 @@ export async function GET(
           include: {
             player: {
               select: {
+                id: true,
                 firstName: true,
                 lastName: true,
-                email: true
+                email: true,
+                image: true,
               }
             },
             answers: true,
@@ -250,15 +252,19 @@ export async function GET(
       }
     })
 
+    const origin = request.nextUrl.origin
+
     // Create flattened CSV data - each response as one row with ALL body parts as columns
     const csvData = survey.responses.map(response => {
       // Format date as YYYY-MM-DD HH:MM:SS for Power BI compatibility
       const formattedDate = response.submittedAt.toISOString()
         .replace('T', ' ')
         .replace(/\.\d{3}Z$/, '')
+      const hasPhoto = Boolean(response.player?.id && response.player.image?.trim())
       
       const row: Record<string, string | number | null> = {
         playerName: response.player ? `${response.player.firstName} ${response.player.lastName}` : 'Unknown Player',
+        playerImageUrl: hasPhoto ? `${origin}/api/players/${response.player!.id}/photo` : '',
         playerEmail: response.player?.email || '',
         submittedAt: formattedDate,
         surveyTitle: survey.title
@@ -333,6 +339,7 @@ export async function GET(
     // Stable header order (not dependent on which fields the first row happened to set)
     const headers: string[] = [
       'playerName',
+      'playerImageUrl',
       'playerEmail',
       'submittedAt',
       'surveyTitle',

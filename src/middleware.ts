@@ -34,6 +34,7 @@ function isAlwaysPublicApi(pathname: string, method: string): boolean {
     if (pathname === '/api/surveys') return true
     if (/^\/api\/surveys\/[^/]+$/.test(pathname)) return true
     if (/^\/api\/surveys\/[^/]+\/schedule$/.test(pathname)) return true
+    if (/^\/api\/players\/[^/]+\/photo$/.test(pathname)) return true
   }
 
   return false

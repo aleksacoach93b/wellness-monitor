@@ -532,7 +532,7 @@ export default function BodyMap({
     const rating = getBodyMapRating(selectedAreas[areaId])
     // Preview: light anatomical silhouette (Power BI style), not a dark blob
     if (!rating) {
-      if (mapMode === 'joints' && !isPreview) return '#111827'
+      if (mapMode === 'joints' && !isPreview) return 'transparent'
       return isPreview ? '#dbe4f0' : '#d1d5db'
     }
 

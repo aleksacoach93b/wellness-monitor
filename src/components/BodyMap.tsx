@@ -8,13 +8,24 @@ import {
   PAIN_LOCATION_OPTIONS,
   PAIN_WHEN_OPTIONS,
   type BodyMapAreaStored,
-  type PainLocationId,
+  type BodyMapLocationId,
   type PainWhenId,
   getBodyMapLocationId,
   getBodyMapLocationLabel,
   getBodyMapRating,
   getBodyMapWhenIds,
+  isPainLocationId,
 } from '@/lib/bodyMapPainLocation'
+import {
+  AREA_LOCATION_OPTIONS,
+  JOINT_LOCATION_OPTIONS,
+  JOINTS_AREA_LABELS,
+  getJointsAreaKind,
+  isAreaLocationId,
+  isJointLocationId,
+  shouldSuggestMuscleView,
+} from '@/lib/jointsAreasMap'
+import JointsAreasSvg from '@/components/JointsAreasSvg'
 import { t as i18n, tx, type KioskLocale } from '@/lib/i18n'
 
 interface BodyMapProps {
@@ -22,7 +33,7 @@ interface BodyMapProps {
   onAreaClick: (
     areaId: string,
     rating: number,
-    location?: PainLocationId | null,
+    location?: BodyMapLocationId | null,
     when?: PainWhenId[] | null
   ) => void
   selectedAreas: Record<string, BodyMapAreaStored>
@@ -66,7 +77,8 @@ export default function BodyMap({
   const [padFlipped, setPadFlipped] = useState(false)
   const [padAnimate, setPadAnimate] = useState(true)
   const [pendingRating, setPendingRating] = useState<number | null>(null)
-  const [pendingLocation, setPendingLocation] = useState<PainLocationId | null>(null)
+  const [pendingLocation, setPendingLocation] = useState<BodyMapLocationId | null>(null)
+  const [mapMode, setMapMode] = useState<'muscle' | 'joints'>('muscle')
   const [pendingWhen, setPendingWhen] = useState<PainWhenId[]>([])
   const [justSavedAreaId, setJustSavedAreaId] = useState<string | null>(null)
   const [isFlipping, setIsFlipping] = useState(false)
@@ -106,7 +118,15 @@ export default function BodyMap({
     setPadAnimate(true)
     const existing = getBodyMapRating(stored)
     setPendingRating(existing > 0 ? existing : null)
-    setPendingLocation(getBodyMapLocationId(stored))
+    const loc = getBodyMapLocationId(stored)
+    const kind = getJointsAreaKind(areaId)
+    const locationMatches =
+      kind === 'joint'
+        ? isJointLocationId(loc)
+        : kind === 'area'
+          ? isAreaLocationId(loc)
+          : isPainLocationId(loc)
+    setPendingLocation(locationMatches ? loc : null)
     setPendingWhen(getBodyMapWhenIds(stored))
   }
 
@@ -257,7 +277,7 @@ export default function BodyMap({
     flipPadTo(0, true, true)
   }
 
-  const selectLocation = (location: PainLocationId) => {
+  const selectLocation = (location: BodyMapLocationId) => {
     if (!ratingTarget || !pendingRating) return
     setPendingLocation(location)
     // Switch to deck 1 on the location face, then flip to "when"
@@ -310,6 +330,13 @@ export default function BodyMap({
   const handleClearAll = () => {
     Object.keys(selectedAreas).forEach((areaId) => onAreaClick(areaId, 0))
     closeRatingPad()
+  }
+
+  const switchMapMode = (next: 'muscle' | 'joints') => {
+    if (next === mapMode) return
+    closeRatingPad()
+    resetZoom()
+    setMapMode(next)
   }
 
   const switchView = (next: 'front' | 'back') => {
@@ -498,13 +525,16 @@ export default function BodyMap({
       'right-back-2nd-finger': 'Right Back 2nd Finger',
       'right-back-1st-finger': 'Right Back 1st Finger'
     };
-    return muscleNames[areaId] || areaId.replace(/-/g, ' ');
+    return JOINTS_AREA_LABELS[areaId] || muscleNames[areaId] || areaId.replace(/-/g, ' ');
   }
 
   const getAreaColor = (areaId: string) => {
     const rating = getBodyMapRating(selectedAreas[areaId])
     // Preview: light anatomical silhouette (Power BI style), not a dark blob
-    if (!rating) return isPreview ? '#dbe4f0' : '#d1d5db'
+    if (!rating) {
+      if (mapMode === 'joints' && !isPreview) return '#111827'
+      return isPreview ? '#dbe4f0' : '#d1d5db'
+    }
 
     if (colorScheme === 'soreness') {
       if (rating <= 3) return '#67e8f9'
@@ -2533,8 +2563,37 @@ export default function BodyMap({
     )
   }
 
+  const jointsKind = ratingTarget ? getJointsAreaKind(ratingTarget) : null
+  const locationOptions =
+    jointsKind === 'joint'
+      ? JOINT_LOCATION_OPTIONS
+      : jointsKind === 'area'
+        ? AREA_LOCATION_OPTIONS
+        : PAIN_LOCATION_OPTIONS
+  const showMuscleAxis = jointsKind !== 'joint'
+  const showMuscleGroupHint = Boolean(ratingTarget && shouldSuggestMuscleView(ratingTarget))
+
+  const renderMuscleGroupHint = () =>
+    showMuscleGroupHint ? (
+      <div className="rounded-xl border border-sky-300/40 bg-sky-500/15 px-3 py-2.5">
+        <p className="text-[12px] font-medium leading-snug text-sky-50 sm:text-sm">
+          {i18n(locale, 'muscleGroupHint')}
+        </p>
+        <button
+          type="button"
+          onClick={() => switchMapMode('muscle')}
+          className="mt-2 min-h-10 rounded-lg bg-white px-3 text-xs font-bold text-slate-950 touch-manipulation sm:text-sm"
+        >
+          {i18n(locale, 'openMuscleView')}
+        </button>
+      </div>
+    ) : null
+
   const renderLocationOptions = () => (
-    <div className="flex min-h-0 flex-1 gap-2.5">
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+      {renderMuscleGroupHint()}
+      <div className="flex min-h-0 flex-1 gap-2.5">
+      {showMuscleAxis && (
       <div
         className="flex w-9 shrink-0 flex-col items-center py-0.5"
         aria-hidden
@@ -2547,10 +2606,14 @@ export default function BodyMap({
           {i18n(locale, 'dist')}
         </span>
       </div>
+      )}
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
-        {PAIN_LOCATION_OPTIONS.map((option, index) => {
+        {locationOptions.map((option, index) => {
           const selected = pendingLocation === option.id
-          const isWhole = option.id === 'whole_muscle'
+          const isWhole =
+            option.id === 'whole_muscle' ||
+            option.id === 'whole_joint' ||
+            option.id === 'whole_area'
           return (
             <div key={option.id} className={isWhole ? 'mt-1 border-t border-white/10 pt-2' : undefined}>
               <button
@@ -2576,6 +2639,7 @@ export default function BodyMap({
             </div>
           )
         })}
+      </div>
       </div>
     </div>
   )
@@ -2645,6 +2709,29 @@ export default function BodyMap({
             </button>
           </div>
           
+          <div className="flex justify-center mb-2 sm:mb-3">
+            <div className={`${t.viewToggleRail} grid w-full max-w-xl grid-cols-2 gap-1 p-1`}>
+              <button
+                type="button"
+                onClick={() => switchMapMode('muscle')}
+                className={`min-h-11 rounded-lg px-3 text-xs sm:text-sm font-semibold transition-colors touch-manipulation ${
+                  mapMode === 'muscle' ? t.viewToggleOn : t.viewToggleOff
+                }`}
+              >
+                {i18n(locale, 'muscleView')}
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMapMode('joints')}
+                className={`min-h-11 rounded-lg px-3 text-xs sm:text-sm font-semibold transition-colors touch-manipulation ${
+                  mapMode === 'joints' ? t.viewToggleOn : t.viewToggleOff
+                }`}
+              >
+                {i18n(locale, 'jointsAreasView')}
+              </button>
+            </div>
+          </div>
+
           {/* Front/Back Toggle — large tablet-friendly targets */}
           <div className="flex justify-center mb-2 sm:mb-3">
             <div className={`${t.viewToggleRail} grid w-full max-w-md grid-cols-2 gap-1 p-1`}>
@@ -2672,7 +2759,7 @@ export default function BodyMap({
           </div>
           
           <p className={`text-xs sm:text-sm ${t.hint} text-center`}>
-            {i18n(locale, 'bodyMapHint')}
+            {mapMode === 'joints' ? i18n(locale, 'bodyMapHintJoints') : i18n(locale, 'bodyMapHint')}
           </p>
         </div>
         
@@ -2862,7 +2949,15 @@ export default function BodyMap({
                         pointerEvents: view === 'front' && !isFlipping ? 'auto' : 'none',
                       }}
                     >
-                      {frontBodySVG}
+                      {mapMode === 'muscle' ? (
+                        frontBodySVG
+                      ) : (
+                        <JointsAreasSvg
+                          view="front"
+                          getAreaColor={getAreaColor}
+                          onAreaClick={handleAreaClick}
+                        />
+                      )}
                     </div>
                     <div
                       className="bodymap-flip-face"
@@ -2878,7 +2973,15 @@ export default function BodyMap({
                         pointerEvents: view === 'back' && !isFlipping ? 'auto' : 'none',
                       }}
                     >
-                      {backBodySVG}
+                      {mapMode === 'muscle' ? (
+                        backBodySVG
+                      ) : (
+                        <JointsAreasSvg
+                          view="back"
+                          getAreaColor={getAreaColor}
+                          onAreaClick={handleAreaClick}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2943,7 +3046,7 @@ export default function BodyMap({
                       {padStepIndex === 2 && (
                         <p className="text-[11px] text-white/45">Select all that apply</p>
                       )}
-                      {padStepIndex === 1 && (
+                      {padStepIndex === 1 && jointsKind !== 'joint' && (
                         <p className="text-[11px] text-white/45">
                           Proximal (upper) → distal (lower)
                         </p>
@@ -2984,6 +3087,9 @@ export default function BodyMap({
                 >
                   {padDeck === 0 ? (
                     <>
+                      {showMuscleGroupHint ? (
+                        <div className="mb-2.5">{renderMuscleGroupHint()}</div>
+                      ) : null}
                       <div className="grid grid-cols-5 gap-2.5">
                         {Array.from({ length: 10 }, (_, i) => i + 1).map((rating) => {
                           const selected = ratingTargetValue === rating

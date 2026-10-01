@@ -222,7 +222,7 @@ function matchBodyMapKind(text: string): 'pain' | 'soreness' | null {
 }
 
 function isFrontArea(areaId: string) {
-  return areaId.startsWith('path-')
+  return areaId.startsWith('path-') || areaId.startsWith('front_')
 }
 
 function applyMappedAnswer(

@@ -213,10 +213,7 @@ export async function GET(
               
               // Convert path IDs to readable names and create separate rows for each body part
               Object.entries(bodyMapData).forEach(([key, value]) => {
-                let muscleName = key
-                if (key.startsWith('path-')) {
-                  muscleName = getMuscleName(key)
-                }
+                const muscleName = getMuscleName(key)
                 const rating = getBodyMapRating(value)
                 
                 bodyMapRows.push({

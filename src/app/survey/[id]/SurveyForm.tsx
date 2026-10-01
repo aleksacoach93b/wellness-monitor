@@ -23,7 +23,7 @@ import {
 import {
   parseBodyMapAnswerValue,
   type BodyMapAreaStored,
-  type PainLocationId,
+  type BodyMapLocationId,
   type PainWhenId,
 } from '@/lib/bodyMapPainLocation'
 import { RPE_LABELS_I18N, t, tx, type KioskLocale } from '@/lib/i18n'
@@ -299,7 +299,7 @@ export default function SurveyForm({
   const handleBodyMapClick = (
     areaId: string,
     rating: number,
-    location?: PainLocationId | null,
+    location?: BodyMapLocationId | null,
     when?: PainWhenId[] | null
   ) => {
     if (!currentBodyMapQuestionId) return

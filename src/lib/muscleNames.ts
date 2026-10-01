@@ -1,6 +1,9 @@
 /** Shared muscle labels for body-map area IDs. */
 
+import { JOINTS_AREA_LABELS } from '@/lib/jointsAreasMap'
+
 export function getMuscleName(areaId: string): string {
+  if (JOINTS_AREA_LABELS[areaId]) return JOINTS_AREA_LABELS[areaId]
   const muscleNames: Record<string, string> = {
     // Front body paths
     'path-4': 'Face and Skin',

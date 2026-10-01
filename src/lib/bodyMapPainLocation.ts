@@ -1,5 +1,14 @@
 /** Exact spot + situational triggers within a selected body-map area. */
 
+import {
+  AREA_LOCATION_LABELS,
+  JOINT_LOCATION_LABELS,
+  isAreaLocationId,
+  isJointLocationId,
+  type AreaLocationId,
+  type JointLocationId,
+} from '@/lib/jointsAreasMap'
+
 export const PAIN_LOCATION_IDS = [
   'proximal_attachment',
   'proximal_belly',
@@ -10,6 +19,8 @@ export const PAIN_LOCATION_IDS = [
 ] as const
 
 export type PainLocationId = (typeof PAIN_LOCATION_IDS)[number]
+
+export type BodyMapLocationId = PainLocationId | JointLocationId | AreaLocationId
 
 export const PAIN_LOCATION_LABELS: Record<PainLocationId, string> = {
   proximal_attachment: 'Proximal attachment',
@@ -67,7 +78,7 @@ export const PAIN_WHEN_OPTIONS: { id: PainWhenId; label: string }[] =
 
 export type BodyMapAreaValue = {
   rating: number
-  location: PainLocationId
+  location: BodyMapLocationId
   when: PainWhenId[]
 }
 
@@ -75,6 +86,15 @@ export type BodyMapAreaStored = number | BodyMapAreaValue
 
 export function isPainLocationId(value: unknown): value is PainLocationId {
   return typeof value === 'string' && (PAIN_LOCATION_IDS as readonly string[]).includes(value)
+}
+
+export function isBodyMapLocationId(value: unknown): value is BodyMapLocationId {
+  return isPainLocationId(value) || isJointLocationId(value) || isAreaLocationId(value)
+}
+
+export function bodyMapAreaSide(areaId: string): 'front' | 'back' {
+  if (areaId.startsWith('front_') || areaId.startsWith('path-')) return 'front'
+  return 'back'
 }
 
 export function isPainWhenId(value: unknown): value is PainWhenId {
@@ -98,16 +118,19 @@ export function getBodyMapRating(value: BodyMapAreaStored | undefined | null): n
 
 export function getBodyMapLocationId(
   value: BodyMapAreaStored | undefined | null
-): PainLocationId | null {
+): BodyMapLocationId | null {
   if (value == null || typeof value === 'number') return null
-  return isPainLocationId(value.location) ? value.location : null
+  return isBodyMapLocationId(value.location) ? value.location : null
 }
 
 export function getBodyMapLocationLabel(
   value: BodyMapAreaStored | undefined | null
 ): string | null {
   const id = getBodyMapLocationId(value)
-  return id ? PAIN_LOCATION_LABELS[id] : null
+  if (!id) return null
+  if (isPainLocationId(id)) return PAIN_LOCATION_LABELS[id]
+  if (isJointLocationId(id)) return JOINT_LOCATION_LABELS[id]
+  return AREA_LOCATION_LABELS[id]
 }
 
 export function getBodyMapWhenIds(
@@ -143,7 +166,7 @@ export function normalizeBodyMapAreaValue(
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const obj = value as { rating?: unknown; location?: unknown; when?: unknown }
     const rating = typeof obj.rating === 'number' ? obj.rating : NaN
-    if (rating >= 1 && rating <= 10 && isPainLocationId(obj.location)) {
+    if (rating >= 1 && rating <= 10 && isBodyMapLocationId(obj.location)) {
       return {
         rating,
         location: obj.location,

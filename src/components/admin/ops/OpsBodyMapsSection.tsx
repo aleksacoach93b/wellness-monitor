@@ -5,6 +5,7 @@ import { Activity, AlertTriangle } from 'lucide-react'
 import BodyMap from '@/components/BodyMap'
 import type { OpsPlayerCard } from '@/components/admin/ops/WellnessFlipCard'
 import {
+  bodyMapAreaSide,
   getBodyMapLocationLabel,
   getBodyMapRating,
   type BodyMapAreaStored,
@@ -40,7 +41,7 @@ function aggregate(players: OpsPlayerCard[], kind: Kind, view: 'front' | 'back')
     for (const [areaId, stored] of Object.entries(areas)) {
       const rating = getBodyMapRating(stored)
       if (rating <= 0) continue
-      const side = areaId.startsWith('path-') ? 'front' : 'back'
+      const side = bodyMapAreaSide(areaId)
       if (side !== view) continue
       hit = true
       out[areaId] = Math.max(out[areaId] ?? 0, rating)
@@ -85,7 +86,7 @@ function buildReports(players: OpsPlayerCard[], kind: Kind): Report[] {
         muscle: getMuscleName(areaId),
         rating,
         location: getBodyMapLocationLabel(stored),
-        side: areaId.startsWith('path-') ? 'front' : 'back',
+        side: bodyMapAreaSide(areaId),
       })
     }
   }

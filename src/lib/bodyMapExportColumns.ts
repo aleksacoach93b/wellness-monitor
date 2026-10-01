@@ -11,6 +11,7 @@ import {
   getBodyMapWhenLabels,
   parseBodyMapAnswerValue,
 } from '@/lib/bodyMapPainLocation'
+import { JOINTS_AREAS_ZONE_IDS } from '@/lib/jointsAreasMap'
 
 /** Exact area IDs used by BodyMap / historical CSV structure. */
 export const BODY_MAP_EXPORT_AREA_IDS: string[] = [
@@ -167,6 +168,7 @@ export const BODY_MAP_EXPORT_AREA_IDS: string[] = [
   'left-adductor-back',
   'right-adductor-back',
   'back-head',
+  ...JOINTS_AREAS_ZONE_IDS,
 ]
 
 export type BodyMapExportMode = 'full' | 'legacy'

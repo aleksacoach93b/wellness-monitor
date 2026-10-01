@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import type { KioskTheme } from '@/lib/kioskThemes'
 import { kioskThemes, kioskTextTokens } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
-import type { BodyMapAreaStored, PainLocationId, PainWhenId } from '@/lib/bodyMapPainLocation'
+import type { BodyMapAreaStored, BodyMapLocationId, PainWhenId } from '@/lib/bodyMapPainLocation'
 import { RPE_LABELS_I18N, t, tx, type KioskLocale } from '@/lib/i18n'
 
 interface PlayerWithStatus {
@@ -263,7 +263,7 @@ export default function CoachModeView({
   const handleBodyMapClick = (
     areaId: string,
     rating: number,
-    location?: PainLocationId | null,
+    location?: BodyMapLocationId | null,
     when?: PainWhenId[] | null
   ) => {
     if (!bodyMapPlayerId || !bodyMapQuestionId) return

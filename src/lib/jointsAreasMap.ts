@@ -53,35 +53,21 @@ function pair(
   suggestMuscleView = false
 ): JointsAreaZone[] {
   return [
-    {
-      id: `${view}_left_${slug}`,
-      label: `Left ${label}`,
-      kind,
-      view,
-      suggestMuscleView,
-    },
-    {
-      id: `${view}_right_${slug}`,
-      label: `Right ${label}`,
-      kind,
-      view,
-      suggestMuscleView,
-    },
+    { id: `${view}_left_${slug}`, label: `Left ${label}`, kind, view, suggestMuscleView },
+    { id: `${view}_right_${slug}`, label: `Right ${label}`, kind, view, suggestMuscleView },
   ]
 }
 
 export const JOINTS_AREAS_ZONES: JointsAreaZone[] = [
   ...pair('front', 'head', 'Head', 'area'),
   ...pair('front', 'neck', 'Neck', 'joint'),
-  ...pair('front', 'upper_chest', 'Upper Chest', 'area'),
-  ...pair('front', 'upper_arm', 'Upper Arm', 'area'),
   ...pair('front', 'shoulder', 'Shoulder', 'joint'),
   ...pair('front', 'chest', 'Chest', 'area', true),
-  ...pair('front', 'elbow', 'Elbow', 'joint'),
-  ...pair('front', 'lower_arm', 'Lower Arm', 'area'),
-  ...pair('front', 'forearm', 'Forearm', 'area'),
   ...pair('front', 'groin', 'Groin', 'joint'),
   ...pair('front', 'hip', 'Hip', 'joint'),
+  ...pair('front', 'upper_arm', 'Upper Arm', 'area'),
+  ...pair('front', 'elbow', 'Elbow', 'joint'),
+  ...pair('front', 'forearm', 'Forearm', 'area'),
   ...pair('front', 'wrist', 'Wrist', 'joint'),
   ...pair('front', 'hand', 'Hand', 'area'),
   ...pair('front', 'quads', 'Quads', 'area', true),
@@ -93,13 +79,12 @@ export const JOINTS_AREAS_ZONES: JointsAreaZone[] = [
   ...pair('back', 'head', 'Head', 'area'),
   ...pair('back', 'neck', 'Neck', 'joint'),
   ...pair('back', 'shoulder', 'Shoulder', 'joint'),
-  ...pair('back', 'upper_arm', 'Upper Arm', 'area'),
   ...pair('back', 'upper_back', 'Upper Back', 'area', true),
-  ...pair('back', 'elbow', 'Elbow', 'joint'),
   ...pair('back', 'lower_back', 'Lower Back', 'joint'),
-  ...pair('back', 'lower_arm', 'Lower Arm', 'area'),
-  ...pair('back', 'forearm', 'Forearm', 'area'),
   ...pair('back', 'glutes', 'Glutes', 'area', true),
+  ...pair('back', 'upper_arm', 'Upper Arm', 'area'),
+  ...pair('back', 'elbow', 'Elbow', 'joint'),
+  ...pair('back', 'forearm', 'Forearm', 'area'),
   ...pair('back', 'wrist', 'Wrist', 'joint'),
   ...pair('back', 'hand', 'Hand', 'area'),
   ...pair('back', 'hamstrings', 'Hamstrings', 'area', true),

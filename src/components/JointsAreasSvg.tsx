@@ -28,7 +28,7 @@ function Zone({
       d={d}
       fill={selected ? fill : '#d1d5db'}
       stroke="#374151"
-      strokeWidth="1.1"
+      strokeWidth="1.05"
       strokeLinejoin="round"
       strokeLinecap="round"
       paintOrder="fill stroke"
@@ -38,22 +38,22 @@ function Zone({
   )
 }
 
-/** Exact panels from the original joints / areas mannequin, as clean vector paths. */
+/** Original joints mannequin, rebuilt as a clean symmetric vector. */
 export default function JointsAreasSvg({
   view,
   getAreaColor,
   onAreaClick,
   className,
 }: Props) {
-  const z = (id: string, d: string) => (
-    <Zone key={id} id={id} d={d} fill={getAreaColor(id)} onAreaClick={onAreaClick} />
+  const z = (id: string, d: string, key: string) => (
+    <Zone key={key} id={id} d={d} fill={getAreaColor(id)} onAreaClick={onAreaClick} />
   )
 
   return (
     <svg
       width="400"
       height="600"
-      viewBox={view === 'front' ? '0 0 208 524' : '0 0 212 524'}
+      viewBox={view === 'front' ? '0 0 206 524' : '0 0 212 524'}
       xmlns="http://www.w3.org/2000/svg"
       className={className ?? 'max-w-full h-auto'}
       preserveAspectRatio="xMidYMid meet"
@@ -67,82 +67,81 @@ export default function JointsAreasSvg({
       </defs>
       {view === 'front' ? (
         <g>
-          {z('front_right_head', 'M98.2,8.5L98.2,9.0L95.6,9.7L90.5,10.6L87.8,11.8L87.4,13.3L86.0,15.4L83.4,18.0L81.6,19.4L80.5,19.8L80.0,21.8L80.0,25.3L79.8,27.2L79.2,27.2L79.0,32.3L79.0,42.5L79.3,47.6L79.9,47.6L80.2,49.4L80.2,53.1L81.0,55.3L82.5,56.3L83.2,57.5L83.2,58.9L83.5,59.6L83.9,59.6L84.1,60.1L84.1,61.1L84.4,61.6L85.0,61.6L85.5,63.1L86.0,66.1L89.8,69.6L97.0,73.6L100.6,73.7L100.6,69.7L100.9,67.7L101.4,67.7L101.6,52.8L101.6,23.1L100.8,8.2L99.1,8.2Z')}
-          {z('front_left_head', 'M105.2,25.1L105.2,58.8L108.9,74.2L116.2,71.3L121.3,65.1L124.2,55.5L126.1,50.5L127.1,49.9L127.6,42.2L127.6,27.4L125.6,18.3L121.6,14.8L119.6,12.6L119.6,11.5L116.0,10.3L108.8,8.9Z')}
-          {z('front_right_neck', 'M88.2,73.2L88.2,81.6L100.6,89.6L100.6,80.2Z')}
-          {z('front_left_neck', 'M106.2,80.2L106.2,91.6L120.0,83.0L110.2,93.6L148.6,93.6L120.0,83.0L118.6,74.2Z')}
-          {z('front_right_upper_chest', 'M97.6,93.2L93.8,91.2L89.6,86.0L87.8,86.2L84.2,83.2L58.2,93.2Z')}
-          {z('front_left_upper_arm', 'M159.2,97.2L159.2,144.6L179.9,154.9L179.9,124.2L177.9,108.0L167.6,99.2Z')}
-          {z('front_right_shoulder', 'M51.2,97.2L51.2,146.6L92.6,146.6L99.6,136.6L99.6,97.2Z')}
-          {z('front_left_shoulder', 'M104.4,97.2L104.4,136.6L114.0,147.6L155.6,147.6L155.6,97.2Z')}
-          {z('front_right_upper_arm', 'M46.6,98.2L38.2,100.2L30.0,107.2L25.2,128.2L25.2,153.6L46.6,144.6Z')}
-          {z('front_right_chest', 'M50.2,149.2L63.2,232.9L100.6,246.6L100.6,142.2L91.1,149.2Z')}
-          {z('front_left_chest', 'M155.6,150.2L113.8,150.2L105.2,142.2L105.2,246.6L144.6,230.6Z')}
-          {z('front_left_elbow', 'M159.2,148.2L154.0,177.2L157.2,188.6L183.6,183.6L184.9,180.0L178.9,158.2Z')}
-          {z('front_right_elbow', 'M47.6,149.2L29.2,158.2L24.2,179.2L25.2,183.6L49.6,187.6L52.9,176.2Z')}
-          {z('front_right_lower_arm', 'M21.2,187.2L17.2,202.2L18.2,205.6L43.9,205.6L47.6,191.2L24.6,186.2Z')}
-          {z('front_left_lower_arm', 'M185.6,188.2L181.2,187.2L160.2,191.2L159.2,192.6L163.2,197.8L163.2,208.6L188.6,208.6L189.9,202.2L188.6,202.2Z')}
-          {z('front_right_forearm', 'M16.2,209.2L12.0,224.2L12.0,265.6L25.6,265.6L40.9,228.6L40.9,212.2Z')}
-          {z('front_left_forearm', 'M165.2,212.2L169.0,242.9L180.0,266.6L196.6,266.6L196.6,212.2Z')}
-          {z('front_left_groin', 'M144.6,233.2L105.2,250.2L105.2,287.6L127.6,287.6L135.6,262.8L144.6,252.6Z')}
-          {z('front_right_groin', 'M62.2,235.2L62.2,254.6L71.2,262.8L80.2,287.6L100.6,287.6L100.6,250.2Z')}
-          {z('front_left_hip', 'M146.6,255.0L145.2,258.1L139.0,263.2L130.2,287.6L150.6,287.6Z')}
-          {z('front_right_hip', 'M59.2,258.2L55.0,287.6L75.6,287.6L68.6,266.2Z')}
-          {z('front_right_wrist', 'M10.2,270.2L9.0,278.6L22.6,278.6L22.6,270.2Z')}
-          {z('front_left_wrist', 'M183.2,270.2L183.2,279.6L194.6,279.6L194.8,278.6L196.6,278.6L196.6,270.2Z')}
-          {z('front_right_hand', 'M8.8,286.0L7.8,293.5L7.2,301.7L7.2,310.5L9.2,316.3L13.2,319.2L17.8,321.4L23.0,322.9L23.9,321.2L20.6,316.4L18.3,313.8L17.2,313.3L16.9,311.3L17.6,307.7L18.9,308.3L21.0,313.2L23.2,315.6L25.7,315.6L26.9,311.3L26.9,302.6L26.8,294.5L26.7,287.0L25.9,283.0L24.4,282.5L20.0,282.2L12.8,282.2Z')}
-          {z('front_left_hand', 'M193.0,283.2L185.8,283.2L181.4,286.0L179.8,291.5L179.0,299.3L179.0,309.5L180.7,313.9L184.2,312.4L186.6,309.4L188.0,304.9L189.1,302.6L189.9,302.6L190.2,305.2L190.2,310.5L187.2,314.8L181.1,318.3L178.5,321.5L179.5,324.4L183.2,324.9L189.5,322.9L194.4,319.3L198.1,314.2L199.9,307.3L199.9,298.6L199.1,291.5L197.4,286.0Z')}
-          {z('front_right_quads', 'M55.2,291.2L55.2,380.6L89.9,380.6L89.9,339.2L78.9,291.2Z')}
-          {z('front_right_adductors', 'M82.2,291.2L95.2,332.6L96.6,332.6L96.6,291.2Z')}
-          {z('front_left_adductors', 'M124.6,291.2L105.0,291.2L110.2,333.6Z')}
-          {z('front_left_quads', 'M128.2,292.2L112.2,337.2L112.2,381.6L148.6,381.6L152.9,352.6L152.9,292.2Z')}
-          {z('front_right_knee', 'M57.2,385.2L57.2,409.6L82.6,409.6L88.6,385.2Z')}
-          {z('front_left_knee', 'M117.0,385.2L122.2,397.8L122.2,410.6L151.6,410.6L151.6,385.2Z')}
-          {z('front_right_shin', 'M53.2,415.2L53.2,444.9L61.2,464.8L65.0,491.6L82.6,491.6L82.6,415.2Z')}
-          {z('front_left_shin', 'M123.0,415.2L123.0,490.6L140.6,490.6L152.6,442.6L152.6,415.2Z')}
-          {z('front_right_ankle', 'M66.2,499.2L66.2,506.6L84.6,506.6L84.6,498.2L67.2,498.2Z')}
-          {z('front_left_ankle', 'M121.0,504.2L121.0,506.6L141.6,506.6L140.6,502.2L139.6,502.1L139.6,499.2L136.8,499.2L136.6,498.2L123.2,498.2L122.2,504.2Z')}
-          {z('front_right_foot', 'M52.2,518.2L56.1,518.2L56.1,519.6L86.6,519.6L86.6,512.2L85.6,511.2L59.2,511.2Z')}
-          {z('front_left_foot', 'M120.2,513.2L120.2,520.9L154.6,520.9L145.6,512.2L121.2,512.2Z')}
+          {z('front_right_head', 'M102.2,8L95.0,8.2L87.0,10L82.0,14L79.0,20L78.0,28L78.0,42L79.0,54L82.0,64L87.0,71L90.0,74L102.2,74Z', 'front_right_head')}
+          {z('front_left_head', 'M103.8,8L111.0,8.2L119.0,10L124.0,14L127.0,20L128.0,28L128.0,42L127.0,54L124.0,64L119.0,71L116.0,74L103.8,74Z', 'front_left_head')}
+          {z('front_right_neck', 'M102.2,74L90.0,74L81.0,84L53.0,96L102.2,108Z', 'front_right_neck')}
+          {z('front_left_neck', 'M103.8,74L116.0,74L125.0,84L153.0,96L103.8,108Z', 'front_left_neck')}
+          {z('front_right_shoulder', 'M102.2,108L53.0,96L51.0,96L53.0,148L94.0,148L102.2,136Z', 'front_right_shoulder')}
+          {z('front_left_shoulder', 'M103.8,108L153.0,96L155.0,96L153.0,148L112.0,148L103.8,136Z', 'front_left_shoulder')}
+          {z('front_right_upper_arm', 'M51.0,96L45.0,99L35.0,108L29.0,122L26.0,136L25.0,148L51.0,148Z', 'front_right_upper_arm')}
+          {z('front_left_upper_arm', 'M155.0,96L161.0,99L171.0,108L177.0,122L180.0,136L181.0,148L155.0,148Z', 'front_left_upper_arm')}
+          {z('front_right_chest', 'M102.2,136L94.0,148L54.0,148L56.0,186L61.0,236L102.2,250Z', 'front_right_chest')}
+          {z('front_left_chest', 'M103.8,136L112.0,148L152.0,148L150.0,186L145.0,236L103.8,250Z', 'front_left_chest')}
+          {z('front_right_groin', 'M102.2,250L61.0,236L75.0,262L81.0,289L102.2,289Z', 'front_right_groin')}
+          {z('front_left_groin', 'M103.8,250L145.0,236L131.0,262L125.0,289L103.8,289Z', 'front_left_groin')}
+          {z('front_right_hip', 'M61.0,236L54.0,255L54.0,289L81.0,289L75.0,262Z', 'front_right_hip')}
+          {z('front_left_hip', 'M145.0,236L152.0,255L152.0,289L125.0,289L131.0,262Z', 'front_left_hip')}
+          {z('front_right_elbow', 'M51.0,148L24.0,148L20.0,186L56.0,186Z', 'front_right_elbow')}
+          {z('front_left_elbow', 'M155.0,148L182.0,148L186.0,186L150.0,186Z', 'front_left_elbow')}
+          {z('front_right_elbow', 'M56.0,186L20.0,186L15.0,209L61.0,209Z', 'front_right_elbow__2')}
+          {z('front_left_elbow', 'M150.0,186L186.0,186L191.0,209L145.0,209Z', 'front_left_elbow__2')}
+          {z('front_right_forearm', 'M61.0,209L15.0,209L10.0,268L26.0,268Z', 'front_right_forearm')}
+          {z('front_left_forearm', 'M145.0,209L191.0,209L196.0,268L180.0,268Z', 'front_left_forearm')}
+          {z('front_right_wrist', 'M26.0,268L10.0,268L6.0,289L20.0,289Z', 'front_right_wrist')}
+          {z('front_left_wrist', 'M180.0,268L196.0,268L200.0,289L186.0,289Z', 'front_left_wrist')}
+          {z('front_right_hand', 'M21.0,289L7.0,289L5.0,295L4.0,305L5.0,315L9.0,321L15.0,323L21.0,321L24.0,313L23.0,303L22.0,295Z', 'front_right_hand')}
+          {z('front_left_hand', 'M185.0,289L199.0,289L201.0,295L202.0,305L201.0,315L197.0,321L191.0,323L185.0,321L182.0,313L183.0,303L184.0,295Z', 'front_left_hand')}
+          {z('front_right_adductors', 'M102.2,289L85.0,289L92.0,330L102.2,310Z', 'front_right_adductors')}
+          {z('front_left_adductors', 'M103.8,289L121.0,289L114.0,330L103.8,310Z', 'front_left_adductors')}
+          {z('front_right_quads', 'M85.0,289L54.0,289L53.0,340L56.0,382L88.0,382L92.0,330Z', 'front_right_quads')}
+          {z('front_left_quads', 'M121.0,289L152.0,289L153.0,340L150.0,382L118.0,382L114.0,330Z', 'front_left_quads')}
+          {z('front_right_knee', 'M88.0,382L56.0,382L52.0,414L83.0,414Z', 'front_right_knee')}
+          {z('front_left_knee', 'M118.0,382L150.0,382L154.0,414L123.0,414Z', 'front_left_knee')}
+          {z('front_right_shin', 'M83.0,414L52.0,414L53.0,450L65.0,497L84.0,497Z', 'front_right_shin')}
+          {z('front_left_shin', 'M123.0,414L154.0,414L153.0,450L141.0,497L122.0,497Z', 'front_left_shin')}
+          {z('front_right_ankle', 'M84.0,497L65.0,497L58.0,510L87.0,510Z', 'front_right_ankle')}
+          {z('front_left_ankle', 'M122.0,497L141.0,497L148.0,510L119.0,510Z', 'front_left_ankle')}
+          {z('front_right_foot', 'M87.0,510L58.0,510L51.0,521L91.0,521Z', 'front_right_foot')}
+          {z('front_left_foot', 'M119.0,510L148.0,510L155.0,521L115.0,521Z', 'front_left_foot')}
         </g>
       ) : (
         <g>
-          {z('back_right_head', 'M107.2,23.1L107.2,50.8L110.8,65.9L118.0,68.4L122.4,66.7L123.9,60.7L125.4,57.0L127.1,55.6L128.6,53.1L129.9,49.4L130.6,43.0L130.6,33.8L129.4,26.2L126.9,20.2L124.1,16.0L121.1,13.4L119.4,11.4L119.1,10.0L116.0,9.2L110.2,9.2Z')}
-          {z('back_left_head', 'M101.0,9.2L95.8,9.2L91.2,10.7L87.1,13.6L85.0,15.8L85.0,17.3L84.2,19.7L82.8,22.7L82.0,31.4L82.0,45.7L83.6,55.3L86.7,60.3L88.8,64.5L89.8,67.9L93.6,68.4L100.3,65.9L103.6,50.8L103.6,23.1Z')}
-          {z('back_left_neck', 'M103.6,67.2L100.2,68.0L100.2,69.2L97.2,69.2L92.9,72.0L90.0,72.0L90.0,80.6L103.6,80.6Z')}
-          {z('back_right_neck', 'M108.2,67.2L108.2,80.6L122.6,80.6L121.6,74.2L119.6,72.0Z')}
-          {z('back_left_shoulder', 'M103.6,84.2L83.2,84.2L55.2,98.6L103.6,98.6Z')}
-          {z('back_right_shoulder', 'M108.2,84.2L108.2,98.6L155.6,98.6L130.8,86.2L129.9,84.2Z')}
-          {z('back_left_upper_arm', 'M48.6,103.2L36.2,107.0L30.0,118.2L27.0,139.6L30.2,153.6L48.6,145.6Z')}
-          {z('back_left_upper_back', 'M52.2,103.2L52.2,191.6L103.6,177.6L103.6,103.2Z')}
-          {z('back_right_upper_back', 'M108.2,103.2L108.2,177.6L150.6,191.6L157.6,153.6L157.6,103.2Z')}
-          {z('back_right_upper_arm', 'M163.2,103.2L163.2,146.6L179.6,155.6L183.6,140.6L183.6,122.2L175.6,109.2Z')}
-          {z('back_left_elbow', 'M49.6,150.2L30.2,157.2L25.2,183.6L52.6,188.6L54.6,178.2Z')}
-          {z('back_right_elbow', 'M161.2,150.2L157.2,176.2L159.2,188.6L183.6,183.6L184.6,179.2L179.6,158.2Z')}
-          {z('back_left_lower_back', 'M104.6,180.2L63.2,194.2L66.2,213.8L66.2,247.6L87.1,240.6L104.6,250.6Z')}
-          {z('back_right_lower_back', 'M107.2,180.2L107.2,250.6L125.8,240.6L147.6,247.6L147.6,194.0Z')}
-          {z('back_left_lower_arm', 'M25.2,186.2L20.2,204.6L45.6,208.6L49.6,191.2Z')}
-          {z('back_right_lower_arm', 'M186.6,187.2L163.2,192.2L167.2,209.9L190.6,204.6Z')}
-          {z('back_left_forearm', 'M19.2,209.2L14.0,233.2L14.0,266.6L28.6,266.6L40.9,236.6L44.6,213.2Z')}
-          {z('back_right_forearm', 'M168.2,212.2L168.2,231.6L182.2,265.6L197.6,265.6L197.6,220.2L192.6,212.2Z')}
-          {z('back_left_glutes', 'M82.2,244.2L63.2,251.2L63.2,283.6L86.6,293.6L104.6,286.6L104.6,254.0Z')}
-          {z('back_right_glutes', 'M129.6,244.2L107.2,255.2L107.2,287.6L124.2,294.9L151.6,282.6L151.6,251.2Z')}
-          {z('back_right_wrist', 'M185.2,270.2L185.2,279.6L198.6,279.6L198.6,270.2Z')}
-          {z('back_left_wrist', 'M13.2,270.2L13.2,274.1L12.0,274.1L12.0,278.6L27.9,278.6L27.9,273.2L26.6,273.2L26.6,270.2Z')}
-          {z('back_left_hand', 'M10.5,286.5L9.5,293.0L9.5,300.1L10.5,307.8L12.6,313.2L15.7,316.2L17.4,318.5L17.8,320.1L21.2,321.6L27.5,323.1L30.2,322.5L29.3,319.7L27.1,317.5L23.4,315.9L20.9,312.5L19.5,307.2L20.1,304.4L22.8,303.9L24.1,306.1L24.1,311.1L24.9,314.1L26.5,315.1L27.8,315.1L29.0,314.1L30.2,310.0L31.3,302.8L31.1,295.2L29.6,287.2L24.4,283.2L15.5,283.2Z')}
-          {z('back_right_hand', 'M195.5,283.2L189.3,283.2L185.5,284.0L184.0,285.5L183.2,289.5L183.2,295.9L182.7,299.1L181.6,299.1L181.0,303.0L181.0,310.8L181.9,314.9L183.7,315.4L185.6,313.7L187.6,309.7L189.0,307.8L189.8,307.8L190.1,309.8L190.1,314.0L187.6,317.1L182.5,319.0L180.3,321.0L180.9,322.9L184.2,323.4L190.0,322.4L192.9,321.3L192.9,320.3L194.6,318.0L198.1,314.4L200.4,308.8L201.4,301.1L201.6,297.2L200.9,297.2L200.1,293.8L199.1,286.8Z')}
-          {z('back_right_hamstrings', 'M153.9,285.2L127.2,299.2L115.2,342.2L115.2,372.6L151.6,372.6L153.9,327.6Z')}
-          {z('back_left_hamstrings', 'M58.2,286.2L58.2,371.6L92.6,371.6L97.6,342.2L83.6,298.2Z')}
-          {z('back_left_adductors', 'M104.6,291.2L87.2,297.2L99.2,337.6L104.6,316.6Z')}
-          {z('back_right_adductors', 'M108.2,292.2L108.2,316.6L112.6,338.6L123.6,297.2Z')}
-          {z('back_left_knee', 'M62.2,376.2L62.2,401.6L90.6,401.6L90.6,376.2Z')}
-          {z('back_right_knee', 'M118.2,376.2L118.2,401.6L149.9,401.6L149.9,376.2Z')}
-          {z('back_left_calves', 'M61.2,407.2L58.2,428.2L58.2,456.6L89.9,456.6L93.9,443.6L93.9,407.2Z')}
-          {z('back_right_calves', 'M121.2,407.2L118.0,430.2L122.2,457.6L149.6,457.6L153.9,443.6L153.9,425.2L149.6,407.2Z')}
-          {z('back_left_ankle', 'M62.0,461.2L69.2,485.8L69.2,500.6L87.6,500.6L83.6,487.1L83.6,473.8L87.6,461.2Z')}
-          {z('back_right_ankle', 'M124.2,461.2L128.2,481.8L124.2,500.6L143.9,500.6L143.9,481.8L148.6,461.2Z')}
-          {z('back_right_heel', 'M145.9,504.0L121.0,504.0L119.0,519.6L147.9,519.6Z')}
-          {z('back_left_heel', 'M66.0,504.2L63.0,519.9L92.9,519.9L89.6,504.2Z')}
+          {z('back_right_head', 'M105.2,8L100.0,8.5L94.0,11L88.0,16L84.0,24L81.5,36L82.0,48L86.0,60L91.0,67L105.2,67Z', 'back_right_head')}
+          {z('back_left_head', 'M106.8,8L112.0,8.5L118.0,11L124.0,16L128.0,24L130.5,36L130.0,48L126.0,60L121.0,67L106.8,67Z', 'back_left_head')}
+          {z('back_right_neck', 'M105.2,67L91.0,67L84.0,83L105.2,83Z', 'back_right_neck')}
+          {z('back_left_neck', 'M106.8,67L121.0,67L128.0,83L106.8,83Z', 'back_left_neck')}
+          {z('back_right_shoulder', 'M105.2,83L84.0,83L66.0,102L105.2,102Z', 'back_right_shoulder')}
+          {z('back_left_shoulder', 'M106.8,83L128.0,83L146.0,102L106.8,102Z', 'back_left_shoulder')}
+          {z('back_right_upper_arm', 'M66.0,102L44.0,102L34.0,118L29.0,154L55.0,154Z', 'back_right_upper_arm')}
+          {z('back_left_upper_arm', 'M146.0,102L168.0,102L178.0,118L183.0,154L157.0,154Z', 'back_left_upper_arm')}
+          {z('back_right_upper_back', 'M105.2,102L66.0,102L55.0,154L62.0,192L105.2,178Z', 'back_right_upper_back')}
+          {z('back_left_upper_back', 'M106.8,102L146.0,102L157.0,154L150.0,192L106.8,178Z', 'back_left_upper_back')}
+          {z('back_right_lower_back', 'M105.2,178L61.0,192L64.0,244L105.2,250Z', 'back_right_lower_back')}
+          {z('back_left_lower_back', 'M106.8,178L151.0,192L148.0,244L106.8,250Z', 'back_left_lower_back')}
+          {z('back_right_elbow', 'M55.0,154L28.0,154L23.0,187L58.0,187Z', 'back_right_elbow')}
+          {z('back_left_elbow', 'M157.0,154L184.0,154L189.0,187L154.0,187Z', 'back_left_elbow')}
+          {z('back_right_elbow', 'M58.0,187L23.0,187L18.0,209L63.0,209Z', 'back_right_elbow__2')}
+          {z('back_left_elbow', 'M154.0,187L189.0,187L194.0,209L149.0,209Z', 'back_left_elbow__2')}
+          {z('back_right_forearm', 'M63.0,209L18.0,209L13.0,268L28.0,268Z', 'back_right_forearm')}
+          {z('back_left_forearm', 'M149.0,209L194.0,209L199.0,268L184.0,268Z', 'back_left_forearm')}
+          {z('back_right_wrist', 'M28.0,268L13.0,268L9.0,291L23.0,291Z', 'back_right_wrist')}
+          {z('back_left_wrist', 'M184.0,268L199.0,268L203.0,291L189.0,291Z', 'back_left_wrist')}
+          {z('back_right_glutes', 'M105.2,250L64.0,244L60.0,260L57.0,275L57.0,291L105.2,291Z', 'back_right_glutes')}
+          {z('back_left_glutes', 'M106.8,250L148.0,244L152.0,260L155.0,275L155.0,291L106.8,291Z', 'back_left_glutes')}
+          {z('back_right_hand', 'M24.0,291L10.0,291L8.0,297L7.0,307L8.0,317L12.0,323L18.0,325L24.0,323L27.0,315L26.0,305L25.0,297Z', 'back_right_hand')}
+          {z('back_left_hand', 'M188.0,291L202.0,291L204.0,297L205.0,307L204.0,317L200.0,323L194.0,325L188.0,323L185.0,315L186.0,305L187.0,297Z', 'back_left_hand')}
+          {z('back_right_adductors', 'M105.2,291L90.0,291L96.0,330L105.2,312Z', 'back_right_adductors')}
+          {z('back_left_adductors', 'M106.8,291L122.0,291L116.0,330L106.8,312Z', 'back_left_adductors')}
+          {z('back_right_hamstrings', 'M90.0,291L57.0,291L56.0,340L59.0,373L92.0,373L96.0,330Z', 'back_right_hamstrings')}
+          {z('back_left_hamstrings', 'M122.0,291L155.0,291L156.0,340L153.0,373L120.0,373L116.0,330Z', 'back_left_hamstrings')}
+          {z('back_right_knee', 'M92.0,373L59.0,373L60.0,406L89.0,406Z', 'back_right_knee')}
+          {z('back_left_knee', 'M120.0,373L153.0,373L152.0,406L123.0,406Z', 'back_left_knee')}
+          {z('back_right_calves', 'M89.0,406L60.0,406L58.0,430L67.0,458L90.0,458Z', 'back_right_calves')}
+          {z('back_left_calves', 'M123.0,406L152.0,406L154.0,430L145.0,458L122.0,458Z', 'back_left_calves')}
+          {z('back_right_ankle', 'M90.0,458L67.0,458L66.0,503L89.0,503Z', 'back_right_ankle')}
+          {z('back_left_ankle', 'M122.0,458L145.0,458L146.0,503L123.0,503Z', 'back_left_ankle')}
+          {z('back_right_heel', 'M89.0,503L66.0,503L64.0,520L90.0,520Z', 'back_right_heel')}
+          {z('back_left_heel', 'M123.0,503L146.0,503L148.0,520L122.0,520Z', 'back_left_heel')}
         </g>
       )}
     </svg>

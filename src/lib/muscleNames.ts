@@ -3,6 +3,9 @@
 import { JOINTS_AREA_LABELS } from '@/lib/jointsAreasMap'
 
 export function getMuscleName(areaId: string): string {
+  if (areaId.includes('abdomen')) {
+    return JOINTS_AREA_LABELS[areaId.replace('abdomen', 'groin')] || areaId.replace('abdomen', 'groin').replace(/_/g, ' ')
+  }
   if (JOINTS_AREA_LABELS[areaId]) return JOINTS_AREA_LABELS[areaId]
   const muscleNames: Record<string, string> = {
     // Front body paths

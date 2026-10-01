@@ -52,18 +52,17 @@ function pair(
   kind: JointsAreaKind,
   suggestMuscleView = false
 ): JointsAreaZone[] {
-  const title = label
   return [
     {
       id: `${view}_left_${slug}`,
-      label: `Left ${title}`,
+      label: `Left ${label}`,
       kind,
       view,
       suggestMuscleView,
     },
     {
       id: `${view}_right_${slug}`,
-      label: `Right ${title}`,
+      label: `Right ${label}`,
       kind,
       view,
       suggestMuscleView,
@@ -74,13 +73,15 @@ function pair(
 export const JOINTS_AREAS_ZONES: JointsAreaZone[] = [
   ...pair('front', 'head', 'Head', 'area'),
   ...pair('front', 'neck', 'Neck', 'joint'),
+  ...pair('front', 'upper_chest', 'Upper Chest', 'area'),
+  ...pair('front', 'upper_arm', 'Upper Arm', 'area'),
   ...pair('front', 'shoulder', 'Shoulder', 'joint'),
   ...pair('front', 'chest', 'Chest', 'area', true),
-  ...pair('front', 'abdomen', 'Abdomen', 'area'),
-  ...pair('front', 'hip', 'Hip', 'joint'),
-  ...pair('front', 'upper_arm', 'Upper Arm', 'area'),
   ...pair('front', 'elbow', 'Elbow', 'joint'),
+  ...pair('front', 'lower_arm', 'Lower Arm', 'area'),
   ...pair('front', 'forearm', 'Forearm', 'area'),
+  ...pair('front', 'groin', 'Groin', 'joint'),
+  ...pair('front', 'hip', 'Hip', 'joint'),
   ...pair('front', 'wrist', 'Wrist', 'joint'),
   ...pair('front', 'hand', 'Hand', 'area'),
   ...pair('front', 'quads', 'Quads', 'area', true),
@@ -89,18 +90,16 @@ export const JOINTS_AREAS_ZONES: JointsAreaZone[] = [
   ...pair('front', 'shin', 'Shin', 'area'),
   ...pair('front', 'ankle', 'Ankle', 'joint'),
   ...pair('front', 'foot', 'Foot', 'joint'),
-
   ...pair('back', 'head', 'Head', 'area'),
   ...pair('back', 'neck', 'Neck', 'joint'),
   ...pair('back', 'shoulder', 'Shoulder', 'joint'),
-  ...pair('back', 'upper_back', 'Upper Back', 'area', true),
-  ...pair('back', 'mid_back', 'Mid Back', 'area', true),
-  ...pair('back', 'lower_back', 'Lower Back', 'joint'),
-  ...pair('back', 'glutes', 'Glutes', 'area', true),
-  ...pair('back', 'hip', 'Hip', 'joint'),
   ...pair('back', 'upper_arm', 'Upper Arm', 'area'),
+  ...pair('back', 'upper_back', 'Upper Back', 'area', true),
   ...pair('back', 'elbow', 'Elbow', 'joint'),
+  ...pair('back', 'lower_back', 'Lower Back', 'joint'),
+  ...pair('back', 'lower_arm', 'Lower Arm', 'area'),
   ...pair('back', 'forearm', 'Forearm', 'area'),
+  ...pair('back', 'glutes', 'Glutes', 'area', true),
   ...pair('back', 'wrist', 'Wrist', 'joint'),
   ...pair('back', 'hand', 'Hand', 'area'),
   ...pair('back', 'hamstrings', 'Hamstrings', 'area', true),
@@ -115,24 +114,26 @@ export const JOINTS_AREAS_ZONE_IDS = JOINTS_AREAS_ZONES.map((z) => z.id)
 
 const ZONE_BY_ID = new Map(JOINTS_AREAS_ZONES.map((z) => [z.id, z]))
 
-export const JOINTS_AREA_LABELS: Record<string, string> = Object.fromEntries(
-  JOINTS_AREAS_ZONES.map((z) => [z.id, z.label])
-)
+export const JOINTS_AREA_LABELS: Record<string, string> = {
+  ...Object.fromEntries(JOINTS_AREAS_ZONES.map((z) => [z.id, z.label])),
+  front_left_abdomen: 'Left Groin',
+  front_right_abdomen: 'Right Groin',
+}
 
 export function getJointsAreaZone(areaId: string): JointsAreaZone | undefined {
-  return ZONE_BY_ID.get(areaId)
+  return ZONE_BY_ID.get(areaId) ?? ZONE_BY_ID.get(areaId.replace('abdomen', 'groin'))
 }
 
 export function isJointsAreaId(areaId: string): boolean {
-  return ZONE_BY_ID.has(areaId)
+  return ZONE_BY_ID.has(areaId) || areaId in JOINTS_AREA_LABELS
 }
 
 export function getJointsAreaKind(areaId: string): JointsAreaKind | null {
-  return ZONE_BY_ID.get(areaId)?.kind ?? null
+  return getJointsAreaZone(areaId)?.kind ?? null
 }
 
 export function shouldSuggestMuscleView(areaId: string): boolean {
-  return Boolean(ZONE_BY_ID.get(areaId)?.suggestMuscleView)
+  return Boolean(getJointsAreaZone(areaId)?.suggestMuscleView)
 }
 
 export function isJointLocationId(value: unknown): value is JointLocationId {

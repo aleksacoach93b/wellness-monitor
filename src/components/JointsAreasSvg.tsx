@@ -63,10 +63,18 @@ export default function JointsAreasSvg({
       <defs>
         <style>{`
           .body-area { cursor: pointer; touch-action: manipulation; }
-          .body-area:hover { fill: #86efac; fill-opacity: 0.28; }
+          .body-area:hover { fill: #94a3b8; fill-opacity: 0.22; }
         `}</style>
       </defs>
-      <image href={href} x="0" y="0" width={iw} height="524" preserveAspectRatio="xMidYMid meet" />
+      <image
+        href={href}
+        x="0"
+        y="0"
+        width={iw}
+        height="524"
+        preserveAspectRatio="xMidYMid meet"
+        style={{ imageRendering: 'auto' }}
+      />
       {isFront ? (
         <g>
           {z('front_right_head', 'M89,10L86,12L84,14L82,16L81,18L80,20L79,22L79,24L78,26L78,28L78,30L78,32L78,34L78,36L78,38L78,40L77,42L76,44L77,46L77,48L78,50L80,52L81,54L82,56L82,58L83,60L83,62L84,64L85,66L86,68L87,70L86,72L86,74L86,76L102,76L102,74L102,72L102,70L102,68L102,66L102,64L102,62L102,60L102,58L102,56L102,54L102,52L102,50L102,48L102,46L102,44L102,42L102,40L102,38L102,36L102,34L102,32L102,30L102,28L102,26L102,24L102,22L102,20L102,18L102,16L102,14L102,12L102,10Z')}

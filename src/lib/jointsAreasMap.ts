@@ -106,7 +106,7 @@ export const JOINTS_AREAS_ZONES: JointsAreaZone[] = [
   ...pair('back', 'adductors', 'Adductors', 'area', true),
   ...pair('back', 'knee', 'Knee', 'joint'),
   ...pair('back', 'calves', 'Calves', 'area', true),
-  ...pair('back', 'ankle', 'Ankle', 'joint'),
+  ...pair('back', 'achilles', 'Achilles', 'joint'),
   ...pair('back', 'heel', 'Heel', 'joint'),
 ]
 
@@ -118,10 +118,17 @@ export const JOINTS_AREA_LABELS: Record<string, string> = {
   ...Object.fromEntries(JOINTS_AREAS_ZONES.map((z) => [z.id, z.label])),
   front_left_abdomen: 'Left Groin',
   front_right_abdomen: 'Right Groin',
+  back_left_ankle: 'Left Achilles',
+  back_right_ankle: 'Right Achilles',
 }
 
 export function getJointsAreaZone(areaId: string): JointsAreaZone | undefined {
-  return ZONE_BY_ID.get(areaId) ?? ZONE_BY_ID.get(areaId.replace('abdomen', 'groin'))
+  return (
+    ZONE_BY_ID.get(areaId) ??
+    ZONE_BY_ID.get(areaId.replace('abdomen', 'groin')) ??
+    ZONE_BY_ID.get(areaId.replace('back_left_ankle', 'back_left_achilles')) ??
+    ZONE_BY_ID.get(areaId.replace('back_right_ankle', 'back_right_achilles'))
+  )
 }
 
 export function isJointsAreaId(areaId: string): boolean {

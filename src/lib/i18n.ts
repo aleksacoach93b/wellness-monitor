@@ -696,6 +696,7 @@ const BODY_WORD_SR: Array<[RegExp, string]> = [
   [/\bKnee\b/g, 'koleno'],
   [/\bCalf\b/g, 'list'],
   [/\bShin\b/g, 'potkolenica'],
+  [/\bAchilles\b/g, 'Ahilova tetiva'],
   [/\bAnkle\b/g, 'skočni zglob'],
   [/\bFoot\b/g, 'stopalo'],
   [/\bHeel\b/g, 'peta'],

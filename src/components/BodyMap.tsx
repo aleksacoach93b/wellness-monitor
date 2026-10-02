@@ -44,6 +44,8 @@ interface BodyMapProps {
   appearanceTheme?: SurveyAppearanceTheme
   /** Compact read-only SVG for Live Ops / wellness cards */
   mode?: 'fullscreen' | 'preview'
+  /** Preview mannequin: muscle (default) or joints / areas. Survey still starts on muscle. */
+  mapMode?: 'muscle' | 'joints'
   /** Intensity palette — soreness uses cyan/amber/pink like Power BI */
   colorScheme?: 'default' | 'pain' | 'soreness'
   locale?: KioskLocale
@@ -60,6 +62,7 @@ export default function BodyMap({
   onClose,
   appearanceTheme = 'default',
   mode = 'fullscreen',
+  mapMode: initialMapMode = 'muscle',
   colorScheme = 'default',
   locale = 'en',
 }: BodyMapProps) {
@@ -78,7 +81,7 @@ export default function BodyMap({
   const [padAnimate, setPadAnimate] = useState(true)
   const [pendingRating, setPendingRating] = useState<number | null>(null)
   const [pendingLocation, setPendingLocation] = useState<BodyMapLocationId | null>(null)
-  const [mapMode, setMapMode] = useState<'muscle' | 'joints'>('muscle')
+  const [mapMode, setMapMode] = useState<'muscle' | 'joints'>(initialMapMode)
   const [pendingWhen, setPendingWhen] = useState<PainWhenId[]>([])
   const [justSavedAreaId, setJustSavedAreaId] = useState<string | null>(null)
   const [isFlipping, setIsFlipping] = useState(false)
@@ -2658,7 +2661,18 @@ export default function BodyMap({
         }
       >
         <div className="ops-bodymap-preview-inner mx-auto h-full w-full">
-          {view === 'front' ? frontBodySVG : backBodySVG}
+          {mapMode === 'joints' ? (
+            <JointsAreasSvg
+              view={view}
+              getAreaColor={getAreaColor}
+              onAreaClick={handleAreaClick}
+              className="ops-bodymap-svg h-full w-full"
+            />
+          ) : view === 'front' ? (
+            frontBodySVG
+          ) : (
+            backBodySVG
+          )}
         </div>
       </div>
     )

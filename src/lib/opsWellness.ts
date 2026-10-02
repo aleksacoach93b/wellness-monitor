@@ -11,6 +11,7 @@ import {
   parseBodyMapAnswerValue,
   type BodyMapAreaStored,
 } from '@/lib/bodyMapPainLocation'
+import { getJointsAreaZone, isJointsAreaId } from '@/lib/jointsAreasMap'
 import { getMuscleName } from '@/lib/muscleNames'
 import type { OpsMappableColumnId } from '@/lib/opsTableColumns'
 
@@ -468,6 +469,25 @@ function summarizeBodyMap(
     areas,
     details,
   }
+}
+
+/** Split a stored body-map into muscle SVG ids vs joints / areas ids. */
+export function layerBodyMapSummary(
+  summary: BodyMapSummary,
+  layer: 'muscle' | 'joints',
+  kind: 'pain' | 'soreness',
+): BodyMapSummary {
+  const areas: Record<string, BodyMapAreaStored> = {}
+  for (const [areaId, stored] of Object.entries(summary.areas)) {
+    const joints = isJointsAreaId(areaId)
+    if (layer === 'joints' ? !joints : joints) continue
+    const canonical = joints ? (getJointsAreaZone(areaId)?.id ?? areaId) : areaId
+    const prev = areas[canonical]
+    if (!prev || getBodyMapRating(stored) >= getBodyMapRating(prev)) {
+      areas[canonical] = stored
+    }
+  }
+  return summarizeBodyMap(areas, kind)
 }
 
 function mean(values: number[]) {

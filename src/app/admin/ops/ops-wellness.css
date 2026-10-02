@@ -177,6 +177,49 @@
   animation: sg8SorenessBoth 15s ease-in-out infinite;
 }
 
+.sg8-maps-1 .sg7-front {
+  animation: sg8FrontPainOnly 10s ease-in-out infinite;
+}
+.sg8-maps-1 .sg8-map-1 {
+  animation: sg8PainOnly 10s ease-in-out infinite;
+}
+.sg8-maps-2 .sg7-front {
+  animation: sg8FrontBoth 15s ease-in-out infinite;
+}
+.sg8-maps-2 .sg8-map-1 {
+  animation: sg8PainBoth 15s ease-in-out infinite;
+}
+.sg8-maps-2 .sg8-map-2 {
+  animation: sg8SorenessBoth 15s ease-in-out infinite;
+}
+.sg8-maps-3 .sg7-front {
+  animation: sg8FrontMaps3 20s ease-in-out infinite;
+}
+.sg8-maps-3 .sg8-map-1 {
+  animation: sg8Map1Maps3 20s ease-in-out infinite;
+}
+.sg8-maps-3 .sg8-map-2 {
+  animation: sg8Map2Maps3 20s ease-in-out infinite;
+}
+.sg8-maps-3 .sg8-map-3 {
+  animation: sg8Map3Maps3 20s ease-in-out infinite;
+}
+.sg8-maps-4 .sg7-front {
+  animation: sg8FrontMaps4 24s ease-in-out infinite;
+}
+.sg8-maps-4 .sg8-map-1 {
+  animation: sg8Map1Maps4 24s ease-in-out infinite;
+}
+.sg8-maps-4 .sg8-map-2 {
+  animation: sg8Map2Maps4 24s ease-in-out infinite;
+}
+.sg8-maps-4 .sg8-map-3 {
+  animation: sg8Map3Maps4 24s ease-in-out infinite;
+}
+.sg8-maps-4 .sg8-map-4 {
+  animation: sg8Map4Maps4 24s ease-in-out infinite;
+}
+
 .sg7-face {
   position: absolute;
   inset: 0;
@@ -1091,6 +1134,116 @@
   }
 }
 
+@keyframes sg8FrontMaps3 {
+  0%, 22%, 96%, 100% {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) rotateY(0deg);
+  }
+  26%, 92% {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985) rotateY(6deg);
+  }
+}
+@keyframes sg8Map1Maps3 {
+  0%, 22%, 48%, 100% {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985) rotateY(-6deg);
+  }
+  26%, 44% {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+@keyframes sg8Map2Maps3 {
+  0%, 44%, 70%, 100% {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985) rotateY(-6deg);
+  }
+  48%, 66% {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+@keyframes sg8Map3Maps3 {
+  0%, 66%, 96%, 100% {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985) rotateY(-6deg);
+  }
+  70%, 92% {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+
+@keyframes sg8FrontMaps4 {
+  0%, 16%, 96%, 100% {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) rotateY(0deg);
+  }
+  20%, 92% {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985) rotateY(6deg);
+  }
+}
+@keyframes sg8Map1Maps4 {
+  0%, 16%, 36%, 100% {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985) rotateY(-6deg);
+  }
+  20%, 32% {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+@keyframes sg8Map2Maps4 {
+  0%, 32%, 52%, 100% {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985) rotateY(-6deg);
+  }
+  36%, 48% {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+@keyframes sg8Map3Maps4 {
+  0%, 48%, 68%, 100% {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985) rotateY(-6deg);
+  }
+  52%, 64% {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+@keyframes sg8Map4Maps4 {
+  0%, 64%, 96%, 100% {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985) rotateY(-6deg);
+  }
+  68%, 92% {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sg7-gauge.sg7-gauge-dynamic,
   .sg7-row-fill,
@@ -1101,16 +1254,38 @@
   .sg8-both .sg7-front,
   .sg8-both .sg8-pain-face,
   .sg8-both .sg8-soreness-face,
+  .sg8-maps-1 .sg7-front,
+  .sg8-maps-1 .sg8-map-1,
+  .sg8-maps-2 .sg7-front,
+  .sg8-maps-2 .sg8-map-1,
+  .sg8-maps-2 .sg8-map-2,
+  .sg8-maps-3 .sg7-front,
+  .sg8-maps-3 .sg8-map-1,
+  .sg8-maps-3 .sg8-map-2,
+  .sg8-maps-3 .sg8-map-3,
+  .sg8-maps-4 .sg7-front,
+  .sg8-maps-4 .sg8-map-1,
+  .sg8-maps-4 .sg8-map-2,
+  .sg8-maps-4 .sg8-map-3,
+  .sg8-maps-4 .sg8-map-4,
   .ops-ticker-track {
     animation: none !important;
   }
   .sg8-pain-only .sg7-front,
   .sg8-soreness-only .sg7-front,
-  .sg8-both .sg7-front {
+  .sg8-both .sg7-front,
+  .sg8-maps-1 .sg7-front,
+  .sg8-maps-2 .sg7-front,
+  .sg8-maps-3 .sg7-front,
+  .sg8-maps-4 .sg7-front {
     opacity: 1;
   }
   .sg8-pain-face,
-  .sg8-soreness-face {
+  .sg8-soreness-face,
+  .sg8-map-1,
+  .sg8-map-2,
+  .sg8-map-3,
+  .sg8-map-4 {
     opacity: 0;
   }
 }
@@ -1817,6 +1992,15 @@
   letter-spacing: -0.02em;
   color: #f8fafc;
   font-family: var(--font-outfit), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.ops-bm-heading {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
 }
 
 .ops-bm-grid {

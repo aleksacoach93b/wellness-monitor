@@ -7,19 +7,34 @@ type Props = {
   kind: 'pain' | 'soreness'
   athleteName: string
   summary: BodyMapSummary
+  mapMode?: 'muscle' | 'joints'
+  slotClass?: string
 }
 
 const noop = () => {}
 
-export default function OpsBodyMapFace({ kind, athleteName, summary }: Props) {
+export default function OpsBodyMapFace({
+  kind,
+  athleteName,
+  summary,
+  mapMode = 'muscle',
+  slotClass,
+}: Props) {
   const isPain = kind === 'pain'
-  const kicker = isPain ? 'PAIN MAP' : 'SORENESS MAP'
+  const kicker =
+    mapMode === 'joints'
+      ? isPain
+        ? 'PAIN · JOINTS / AREAS'
+        : 'SORENESS · JOINTS / AREAS'
+      : isPain
+        ? 'PAIN MAP'
+        : 'SORENESS MAP'
   const mainLabel = isPain ? 'REPORTED PAINFUL AREA' : 'REPORTED SORENESS AREA'
   const top = summary.details[0] ?? null
 
   return (
     <div
-      className={`sg7-face sg7-map-face ${isPain ? 'sg7-back sg8-pain-face' : 'sg7-soreness sg8-soreness-face'}`}
+      className={`sg7-face sg7-map-face ${isPain ? 'sg7-back sg8-pain-face' : 'sg7-soreness sg8-soreness-face'}${slotClass ? ` ${slotClass}` : ''}`}
     >
       <div className="sg7-back-top">
         <div className="sg7-back-kicker">{kicker}</div>
@@ -38,6 +53,7 @@ export default function OpsBodyMapFace({ kind, athleteName, summary }: Props) {
           <div className="sg7-map-svg">
             <BodyMap
               mode="preview"
+              mapMode={mapMode}
               view="front"
               colorScheme={isPain ? 'pain' : 'soreness'}
               selectedAreas={summary.areas}
@@ -53,6 +69,7 @@ export default function OpsBodyMapFace({ kind, athleteName, summary }: Props) {
           <div className="sg7-map-svg">
             <BodyMap
               mode="preview"
+              mapMode={mapMode}
               view="back"
               colorScheme={isPain ? 'pain' : 'soreness'}
               selectedAreas={summary.areas}

@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import type { PlayerWellness } from '@/lib/opsWellness'
+import { layerBodyMapSummary, type PlayerWellness } from '@/lib/opsWellness'
 import OpsBodyMapFace from '@/components/admin/ops/OpsBodyMapFace'
 
 export type OpsDerivedCell = {
@@ -135,8 +135,31 @@ export default function WellnessFlipCard({ player }: { player: OpsPlayerCard }) 
     )
   }
 
-  const flipClass =
-    w.flipMode === 'both'
+  const painMuscle = layerBodyMapSummary(w.pain, 'muscle', 'pain')
+  const soreMuscle = layerBodyMapSummary(w.sorenessMap, 'muscle', 'soreness')
+  const painJoints = layerBodyMapSummary(w.pain, 'joints', 'pain')
+  const soreJoints = layerBodyMapSummary(w.sorenessMap, 'joints', 'soreness')
+  const jointsFlip = painJoints.hasData || soreJoints.hasData
+  const extraMapFaces = [
+    painMuscle.hasData
+      ? { kind: 'pain' as const, layer: 'muscle' as const, summary: painMuscle }
+      : null,
+    soreMuscle.hasData
+      ? { kind: 'soreness' as const, layer: 'muscle' as const, summary: soreMuscle }
+      : null,
+    painJoints.hasData
+      ? { kind: 'pain' as const, layer: 'joints' as const, summary: painJoints }
+      : null,
+    soreJoints.hasData
+      ? { kind: 'soreness' as const, layer: 'joints' as const, summary: soreJoints }
+      : null,
+  ].filter((f): f is NonNullable<typeof f> => f != null)
+
+  const flipClass = jointsFlip
+    ? extraMapFaces.length
+      ? ` sg8-maps-${extraMapFaces.length}`
+      : ' sg8-no-flip'
+    : w.flipMode === 'both'
       ? ' sg8-both'
       : w.flipMode === 'pain'
         ? ' sg8-pain-only'
@@ -280,12 +303,27 @@ export default function WellnessFlipCard({ player }: { player: OpsPlayerCard }) 
           </div>
         </div>
 
-        {w.pain.hasData ? (
-          <OpsBodyMapFace kind="pain" athleteName={name} summary={w.pain} />
-        ) : null}
-        {w.sorenessMap.hasData ? (
-          <OpsBodyMapFace kind="soreness" athleteName={name} summary={w.sorenessMap} />
-        ) : null}
+        {jointsFlip
+          ? extraMapFaces.map((face, i) => (
+              <OpsBodyMapFace
+                key={`${face.kind}-${face.layer}`}
+                kind={face.kind}
+                mapMode={face.layer}
+                slotClass={`sg8-map-${i + 1}`}
+                athleteName={name}
+                summary={face.summary}
+              />
+            ))
+          : (
+              <>
+                {w.pain.hasData ? (
+                  <OpsBodyMapFace kind="pain" athleteName={name} summary={w.pain} />
+                ) : null}
+                {w.sorenessMap.hasData ? (
+                  <OpsBodyMapFace kind="soreness" athleteName={name} summary={w.sorenessMap} />
+                ) : null}
+              </>
+            )}
       </div>
     </div>
   )

@@ -10,9 +10,11 @@ import {
   getBodyMapRating,
   type BodyMapAreaStored,
 } from '@/lib/bodyMapPainLocation'
+import { getJointsAreaZone, isJointsAreaId } from '@/lib/jointsAreasMap'
 import { getMuscleName } from '@/lib/muscleNames'
 
 type Kind = 'pain' | 'soreness'
+type Layer = 'muscle' | 'joints'
 type Band = 'all' | 'critical' | 'moderate' | 'low'
 
 type Report = {
@@ -27,7 +29,7 @@ type Report = {
 
 const noop = () => {}
 
-function aggregate(players: OpsPlayerCard[], kind: Kind, view: 'front' | 'back') {
+function aggregate(players: OpsPlayerCard[], kind: Kind, view: 'front' | 'back', layer: Layer) {
   const out: Record<string, number> = {}
   const who = new Set<string>()
   let sum = 0
@@ -41,10 +43,13 @@ function aggregate(players: OpsPlayerCard[], kind: Kind, view: 'front' | 'back')
     for (const [areaId, stored] of Object.entries(areas)) {
       const rating = getBodyMapRating(stored)
       if (rating <= 0) continue
+      const joints = isJointsAreaId(areaId)
+      if (layer === 'joints' ? !joints : joints) continue
       const side = bodyMapAreaSide(areaId)
       if (side !== view) continue
+      const canonicalId = joints ? (getJointsAreaZone(areaId)?.id ?? areaId) : areaId
       hit = true
-      out[areaId] = Math.max(out[areaId] ?? 0, rating)
+      out[canonicalId] = Math.max(out[canonicalId] ?? 0, rating)
       sum += rating
       count += 1
       const muscle = getMuscleName(areaId)
@@ -109,11 +114,13 @@ function MapCard({
   title,
   kind,
   view,
+  layer,
   agg,
 }: {
   title: string
   kind: Kind
   view: 'front' | 'back'
+  layer: Layer
   agg: ReturnType<typeof aggregate>
 }) {
   const isPain = kind === 'pain'
@@ -136,6 +143,7 @@ function MapCard({
       <div className="ops-bm-visual">
         <BodyMap
           mode="preview"
+          mapMode={layer}
           view={view}
           colorScheme="pain"
           selectedAreas={agg.areas}
@@ -298,10 +306,14 @@ export default function OpsBodyMapsSection({ players }: { players: OpsPlayerCard
     () => players.filter((p) => p.status === 'done' && p.wellness),
     [players],
   )
-  const painFront = useMemo(() => aggregate(done, 'pain', 'front'), [done])
-  const painBack = useMemo(() => aggregate(done, 'pain', 'back'), [done])
-  const soreFront = useMemo(() => aggregate(done, 'soreness', 'front'), [done])
-  const soreBack = useMemo(() => aggregate(done, 'soreness', 'back'), [done])
+  const painFront = useMemo(() => aggregate(done, 'pain', 'front', 'muscle'), [done])
+  const painBack = useMemo(() => aggregate(done, 'pain', 'back', 'muscle'), [done])
+  const soreFront = useMemo(() => aggregate(done, 'soreness', 'front', 'muscle'), [done])
+  const soreBack = useMemo(() => aggregate(done, 'soreness', 'back', 'muscle'), [done])
+  const jointsPainFront = useMemo(() => aggregate(done, 'pain', 'front', 'joints'), [done])
+  const jointsPainBack = useMemo(() => aggregate(done, 'pain', 'back', 'joints'), [done])
+  const jointsSoreFront = useMemo(() => aggregate(done, 'soreness', 'front', 'joints'), [done])
+  const jointsSoreBack = useMemo(() => aggregate(done, 'soreness', 'back', 'joints'), [done])
   const painReports = useMemo(() => buildReports(done, 'pain'), [done])
   const soreReports = useMemo(() => buildReports(done, 'soreness'), [done])
 
@@ -309,11 +321,20 @@ export default function OpsBodyMapsSection({ players }: { players: OpsPlayerCard
     <section className="ops-bm-section">
       <h3 className="ops-section-title">Body Maps</h3>
 
+      <h4 className="ops-bm-heading">Muscle view</h4>
       <div className="ops-bm-grid">
-        <MapCard title="Painful Areas — Front" kind="pain" view="front" agg={painFront} />
-        <MapCard title="Sore Areas — Front" kind="soreness" view="front" agg={soreFront} />
-        <MapCard title="Painful Areas — Back" kind="pain" view="back" agg={painBack} />
-        <MapCard title="Sore Areas — Back" kind="soreness" view="back" agg={soreBack} />
+        <MapCard title="Painful Areas — Front" kind="pain" view="front" layer="muscle" agg={painFront} />
+        <MapCard title="Sore Areas — Front" kind="soreness" view="front" layer="muscle" agg={soreFront} />
+        <MapCard title="Painful Areas — Back" kind="pain" view="back" layer="muscle" agg={painBack} />
+        <MapCard title="Sore Areas — Back" kind="soreness" view="back" layer="muscle" agg={soreBack} />
+      </div>
+
+      <h4 className="ops-bm-heading">Joints / Areas</h4>
+      <div className="ops-bm-grid">
+        <MapCard title="Painful Areas — Front" kind="pain" view="front" layer="joints" agg={jointsPainFront} />
+        <MapCard title="Sore Areas — Front" kind="soreness" view="front" layer="joints" agg={jointsSoreFront} />
+        <MapCard title="Painful Areas — Back" kind="pain" view="back" layer="joints" agg={jointsPainBack} />
+        <MapCard title="Sore Areas — Back" kind="soreness" view="back" layer="joints" agg={jointsSoreBack} />
       </div>
 
       <div className="ops-area-grid">

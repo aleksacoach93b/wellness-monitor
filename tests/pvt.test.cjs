@@ -5,7 +5,7 @@ const os = require('node:os')
 const path = require('node:path')
 const ts = require('typescript')
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pvt-unit-'))
-for (const name of ['protocol', 'engine', 'baseline', 'server']) {
+for (const name of ['protocol', 'engine', 'baseline', 'server', 'options', 'export']) {
   const source = fs.readFileSync(path.join(__dirname, '../src/lib/pvt', name + '.ts'), 'utf8')
   fs.writeFileSync(path.join(dir, name + '.js'), ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText)
 }
@@ -126,4 +126,35 @@ test('context accepts standing and arbitrary valid awake minutes without changin
   for (const minutesAwake of [0, 30, 60, 90, 120, 180, 240, 1440]) assert.equal(contextSchema.safeParse({...context, minutesAwake}).success, true)
   for (const minutesAwake of [-1, 1441, 3.5]) assert.equal(contextSchema.safeParse({...context, minutesAwake}).success, false)
   assert.equal(contextSchema.safeParse({...context, posture: 'unsupported'}).success, false)
+})
+
+
+test('personal reference excludes records more than 28 calendar days before the test', () => {
+  const current = row('2026-10-15')
+  assert.equal(baselineFor(current, [row('2026-09-16'), row('2026-09-17'), row('2026-10-15')]).days, 1)
+})
+
+test('unified export preserves measured zeros and leaves absent results blank', () => {
+  const { pvtExportValues } = require(path.join(dir, 'export.js'))
+  assert.ok(Object.values(pvtExportValues('')).every(value => value === null))
+  const receipt = JSON.stringify({kind:'PVT',attemptId:'a',durationSeconds:30,medianRT:1})
+  const s = {id:'a',durationSeconds:30,protocolVersion:'v3',status:'COMPLETED',practice:false,questionId:'q',localDate:'2026-10-15',startedAt:'2026-10-15T08:00:00Z',finishedAt:'2026-10-15T08:00:30Z',context:{posture:'standing',caffeine:false,minutesAwake:0},summary:{medianRT:250,responses:10,falseStarts:0,slowResponses:0,slowPercent:0,responseSpeed:4,quality:'OK',flags:[]}}
+  const values = pvtExportValues(receipt, s)
+  assert.equal(values['Median RT ms'], 250)
+  assert.equal(values['Early taps'], 0)
+  assert.equal(values['Slow responses percent (exploratory)'], 0)
+  assert.equal(values['Caffeine 0 or 1'], 0)
+  assert.equal(values['Minutes since waking'], 0)
+  assert.equal(values.Position, 'standing')
+  assert.equal(values['Completed at UTC'], '2026-10-15T08:00:30.000Z')
+})
+
+test('export joins only the explicit completed attempt for the same response, player and question', () => {
+  const { linkedPvtSession } = require(path.join(dir, 'export.js'))
+  const receipt = JSON.stringify({kind:'PVT',attemptId:'a'})
+  const s = {id:'a',responseId:'r',playerId:'p',questionId:'q',practice:false,status:'COMPLETED'}
+  const match = patch => linkedPvtSession(receipt,new Map([['a',{...s,...patch}]]),'r','p','q')
+  assert.equal(match({}).id, 'a')
+  for (const patch of [{responseId:'other'}, {playerId:'other'}, {questionId:'other'}, {practice:true}, {status:'INTERRUPTED'}]) assert.equal(match(patch),undefined)
+  assert.equal(linkedPvtSession('',new Map([['a',s]]),'r','p','q'),undefined)
 })

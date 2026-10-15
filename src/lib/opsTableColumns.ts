@@ -152,7 +152,7 @@ export const OPS_COLUMN_CATALOG: OpsColumnMeta[] = [
 export const DEFAULT_OPS_COLUMNS: OpsColumnConfig[] = [
   { id: 'athlete', enabled: true },
   { id: 'performance', enabled: true },
-  { id: 'focus', enabled: false },
+  { id: 'focus', enabled: true },
   { id: 'submitted', enabled: true },
   { id: 'bed', enabled: true },
   { id: 'wake', enabled: true },

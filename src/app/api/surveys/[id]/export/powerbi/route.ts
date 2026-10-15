@@ -1,4 +1,5 @@
-import { pvtExportValues } from '@/lib/pvt/export'
+import { loadPvtExportSessions } from '@/lib/pvt/export-server'
+import { linkedPvtSession, pvtExportValues } from '@/lib/pvt/export'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
@@ -168,6 +169,9 @@ export async function GET(
       return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
     }
     
+    const focusSessions = survey.questions.some(q => q.type === 'PVT')
+      ? await loadPvtExportSessions(survey.id, survey.responses.map(r => r.id)) : new Map()
+
     // Format data for Power BI
     const powerBiData = {
       survey: {
@@ -206,7 +210,7 @@ export async function GET(
         response.answers.map(answer => {
           const question = survey.questions.find(q => q.id === answer.questionId)
           
-          if (question?.type === 'PVT') return Object.entries(pvtExportValues(answer.value)).map(([field, value]) => ({
+          if (question?.type === 'PVT') return Object.entries(pvtExportValues(answer.value, linkedPvtSession(answer.value, focusSessions, response.id, response.playerId, question.id))).map(([field, value]) => ({
             responseId: response.id, playerName: response.playerName, playerEmail: response.playerEmail, submittedAt: response.submittedAt.toISOString(), questionText: `${question.text} - ${field}`, questionType: 'PVT', answerValue: value, surveyTitle: survey.title, sessionType: response.sessionType ?? null, matchDay: response.matchDay ?? null,
           }))
           // For Body Map questions, create separate rows for each body part

@@ -15,6 +15,13 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pvt-integration-'))
 for (const file of ['protocol','engine']) fs.writeFileSync(path.join(dir,file+'.cjs'),ts.transpileModule(fs.readFileSync(new URL('../src/lib/pvt/'+file+'.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText.replace("require(\"./protocol\")","require(\"./protocol.cjs\")"))
 const {PVT_VERSION}=createRequire(import.meta.url)(path.join(dir,'protocol.cjs'))
 const {PvtEngine}=createRequire(import.meta.url)(path.join(dir,'engine.cjs'))
+function parseCsv(text) {
+  const rows=[]; let row=[], cell='', quoted=false
+  for(let i=0;i<text.length;i++) { const c=text[i]; if(c==='"') { if(quoted && text[i+1]==='"') {cell+='"';i++} else quoted=!quoted } else if(!quoted && (c===',' || c==='\n')) { row.push(cell);cell='';if(c==='\n'){rows.push(row);row=[]} } else cell+=c }
+  row.push(cell);rows.push(row)
+  const [headers,...values]=rows
+  return {headers,rows:values.filter(r=>r.some(Boolean)).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]??''])))}
+}
 let checks=0
 function check(value,message){assert.ok(value,message);checks++}
 const adminToken=await new SignJWT({email:'test@example.invalid',role:'TEAM_ADMIN',teamId:'test-team'}).setProtectedHeader({alg:'HS256'}).setSubject('test-admin').setIssuedAt().setExpirationTime('1h').sign(new TextEncoder().encode('pvt-local-test-only'))
@@ -28,6 +35,8 @@ try {
   await db.pvtAuthWindow.deleteMany({})
   await db.survey.deleteMany({where:{id:{in:['legacy-survey','race-survey','sixty-survey']},teamId:'test-team'}})
 
+  const emptyCsv=parseCsv(await fetch(base+'/api/surveys/test-survey/export/csv').then(r=>r.text()))
+  check(emptyCsv.headers.includes('Focus test - Position') && emptyCsv.rows.length===0,'empty CSV retains a usable stable header')
   check((await request('/api/pvt/admin')).status===401,'admin auth required')
   const admin=await request('/api/pvt/admin',null,true)
   check(admin.status===200 && admin.data.ready,'admin reads migrated PVT')
@@ -74,10 +83,18 @@ try {
   const linked=await db.pvtSession.findUnique({where:{id:session.data.id}})
   check(linked.responseId===repeated.data.id && linked.summary.medianRT===250,'resubmit preserves attempt and updates link')
   check(linked.context.posture==='standing' && linked.context.minutesAwake===75,'standing and manual waking minutes survive completion and wellness submission')
-  const csv=await fetch(base+'/api/surveys/test-survey/export/csv',{headers:{Cookie:cookie}}).then(r=>r.text())
+  const csvResponse=await fetch(base+'/api/surveys/test-survey/export/csv')
+  check(csvResponse.ok && csvResponse.headers.get('cache-control').includes('no-store'),'permanent CSV link works without login and prevents stale caching')
+  const csv=await csvResponse.text()
   check(csv.includes('Focus test - Median RT ms') && csv.includes('250'),'CSV exposes numeric Focus metrics')
+  const exported=parseCsv(csv).rows[0]
+  check(exported['Sleep quality']==='8' && exported['Focus test - Attempt ID']===session.data.id && exported.responseId===repeated.data.id && exported.playerId==='test-player','one CSV row combines wellness and the explicit saved Focus attempt with stable IDs')
+  check(exported['Focus test - Position']==='standing' && exported['Focus test - Minutes since waking']==='75' && exported['Focus test - Caffeine 0 or 1']==='0','main CSV exports waking context numerically')
+  check(exported['Focus test - Early taps']==='0' && exported['Focus test - Slow responses count (exploratory)']==='0' && exported['Focus test - Response speed 1/s']==='4' && exported['Focus test - Status']==='COMPLETED','CSV preserves measured zeros and full server metrics')
+  check(!csv.includes(session.data.token) && !csv.includes('tokenHash') && !csv.includes(start.context.deviceId),'main CSV omits credentials and device identifiers')
   const powerbi=await request('/api/surveys/test-survey/export/powerbi',null,true)
   check(powerbi.data.some(x=>x.questionText==='Focus test - Median RT ms'&&x.answerValue===250),'Power BI exposes numeric metrics')
+  check(powerbi.data.some(x=>x.questionText==='Focus test - Minutes since waking'&&x.answerValue===75),'Power BI JSON and main CSV expose the same context')
   const practice=await request(p,{...start,practice:true})
   const interrupted=await request(p,{action:'finish',id:practice.data.id,token:practice.data.token,result:{trials:[],elapsedMs:0,maxFrameGapMs:0,interruption:'cancelled'}})
   check(interrupted.status===200,'interruption retained separately')
@@ -93,6 +110,29 @@ try {
   await db.pvtAuthWindow.deleteMany({})
   await db.survey.create({data:{id:'legacy-survey',teamId:'test-team',title:'Legacy Wellness',createdBy:'test-admin',questions:{create:{id:'legacy-question',text:'Fatigue',type:'SCALE'}}}})
   check((await request('/api/responses',{surveyId:'legacy-survey',playerId:'test-player',answers:[{questionId:'legacy-question',value:'5'}]})).status===200,'ordinary wellness surveys still submit')
+  const copied=await db.pvtSession.findUnique({where:{id:session.data.id}})
+  const {id:copiedId,...copiedFields}=copied
+  const extra=await db.pvtSession.create({data:{...copiedFields,responseId:null,startedAt:new Date(Date.now()-60000),summary:{...copied.summary,medianRT:125}}})
+  const ops=await request('/api/ops/today?surveyId=test-survey',null,true)
+  check(ops.status===200 && ops.data.focusQuestions[0].id==='focus-question' && ops.data.focusAvailable,'Live Ops includes the native Focus module')
+  const focus=ops.data.players.find(p=>p.id==='test-player').focus
+  check(focus.attemptId===session.data.id && focus.linked && focus.medianRT===250 && focus.count===2,'Live Ops matches the exact wellness CSV result instead of another same-day attempt')
+  await db.response.create({data:{id:'historical-without-focus',surveyId:'test-survey',playerId:'test-player',submittedAt:new Date(Date.now()-86400000),answers:{create:{questionId:'sleep-question',value:'7'}}}})
+  const historyCsv=parseCsv(await fetch(base+'/api/surveys/test-survey/export/csv').then(r=>r.text()))
+  check(historyCsv.rows.length===2 && historyCsv.rows.find(r=>r.responseId==='historical-without-focus')['Focus test - Median RT ms']==='' && historyCsv.rows.find(r=>r.responseId===repeated.data.id)['Focus test - Median RT ms']==='250','older unanswered Focus remains blank and unsubmitted repeats cannot overwrite the linked result')
+  const legacyCsv=parseCsv(await fetch(base+'/api/surveys/test-survey/export/csv?legacy=1').then(r=>r.text()))
+  check(!legacyCsv.headers.some(h=>h.includes('Exact spot')) && legacyCsv.headers.includes('Focus test - Position') && historyCsv.headers.some(h=>h.includes('Exact spot')),'legacy body-map option preserves Focus data and full body-map schema')
+  await db.question.update({where:{id:'focus-question'},data:{text:'Focus test, "AM"'}})
+  const quotedCsv=parseCsv(await fetch(base+'/api/surveys/test-survey/export/csv').then(r=>r.text()))
+  check(quotedCsv.rows.find(r=>r.responseId===repeated.data.id)['Focus test, "AM" - Median RT ms']==='250','CSV correctly escapes quoted question labels without moving metric values')
+  await db.question.update({where:{id:'focus-question'},data:{text:'Focus test'}})
+  const historicalRows=Array.from({length:8},(_,i)=>{const startedAt=new Date(Date.now()-(26+i)*86400000);return {...copiedFields,id:'reference-history-'+i,responseId:null,startedAt,finishedAt:new Date(startedAt.getTime()+30000),localDate:new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Belgrade'}).format(startedAt)}})
+  await db.pvtSession.createMany({data:historicalRows})
+  const referenceHistory=await request('/api/pvt/admin',null,true)
+  check(referenceHistory.data.baselines['reference-history-0'].days===7 && referenceHistory.data.baselines['reference-history-0'].reference===250 && !referenceHistory.data.sessions.some(s=>s.id==='reference-history-7'),'historical analysis calculates a full prior reference without exposing older rows in the 28-day view')
+  await db.pvtSession.deleteMany({where:{teamId:'test-team',id:{startsWith:'reference-history-'}}})
+  await db.pvtSession.delete({where:{id:extra.id}})
+  await db.response.delete({where:{id:'historical-without-focus'}})
   await db.response.delete({where:{id:repeated.data.id}})
   check((await db.pvtSession.findUnique({where:{id:session.data.id}})).responseId===null,'response deletion cannot delete PVT history')
   await db.survey.create({data:{id:'race-survey',teamId:'test-team',title:'Race Wellness',createdBy:'test-admin',questions:{create:{id:'race-focus',text:'Focus test',type:'PVT',options:JSON.stringify({durationSeconds:30,protocolVersion:PVT_VERSION})}}}})

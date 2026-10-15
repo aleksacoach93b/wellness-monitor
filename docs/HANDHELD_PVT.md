@@ -79,3 +79,16 @@ PVT_TEST_BASE_URL=http://127.0.0.1:4317 PVT_TEST_DATABASE_URL='postgresql://post
 ```
 
 Never reuse production environment files for synthetic tests. Stop the fixture to discard its in-memory data.
+
+
+## Unified wellness CSV and Live Ops (October 2026)
+
+The permanent main URL is `/api/surveys/{surveyId}/export/csv`. It retains one row per submitted wellness response, with the original wellness/body-map fields and Focus fields prefixed by the question text. Existing six Focus column names are retained. Added columns contain status, protocol, survey-local test date, UTC start/completion timestamps, mean reciprocal response speed (1/s), exploratory slow-response count/percentage (≥355 ms), quality flags, posture, caffeine (0/1), minutes since waking and question ID. `playerId` and `responseId` are appended before session tags. Numeric missing values are blank; measured zero stays zero. Empty exports include the header. Responses are served with `Cache-Control: no-store`.
+
+Focus joins require the answer's exact attempt ID, response ID, player ID and question ID, plus a non-practice completed session. No same-day/best/latest substitute is used in the CSV. Old answer snapshots retain their existing summary fields if a joined session is unavailable; unavailable context is blank. No raw events, player grants, token hashes or device identifiers enter the public CSV. The established `?legacy=1` option removes only the extra body-map detail columns; it includes Focus. The Power BI JSON endpoint uses the same Focus values and units. Existing Power Query column-selection steps may need to include the added columns.
+
+Live Ops displays a dedicated Focus overview regardless of an administrator's saved table-column visibility. The Focus table column is enabled in new/default layouts. The selected wellness response's attached result takes priority, matching CSV; otherwise the first completed official test on the selected date is shown as awaiting wellness submission. Practice/unfinished attempts stay separate. Analysis links carry survey, player, question and date context. Focus does not contribute to wellness readiness scores or rule weighting.
+
+The Focus analysis page distinguishes linked results from unsubmitted tests and retains a separate attempts CSV. Its personal reference uses up to 14 distinct prior eligible days within the 28 calendar days preceding each test, with a minimum of seven and the established matching conditions. Extra earlier history is loaded to calculate references for historical rows in the 28-day view; only the requested display window is shown. Positive percentage change is slower median RT, never a fatigue percentage.
+
+Demo attempts at `/pvt/demo` are isolated and never exported. Players must finish their Focus test, select Done, then submit the wellness questionnaire to include it in the main CSV.

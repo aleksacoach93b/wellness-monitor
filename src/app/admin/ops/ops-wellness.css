@@ -3017,3 +3017,27 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.ops-focus-panel { padding: 22px; border: 1px solid rgba(56,189,248,.25); border-radius: 22px; background: radial-gradient(ellipse at 100% 0,rgba(14,165,233,.1),transparent 60%),#101b2c; color:#e2e8f0; }
+.ops-focus-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; }
+.ops-focus-heading > div:first-child > p { display:flex; align-items:center; gap:8px; margin:0 0 6px; font-size:10px; font-weight:800; letter-spacing:.14em; color:#7dd3fc; }
+.ops-focus-heading > div:first-child > h2 { margin:0 0 4px; font-size:21px; font-weight:750; color:#f8fafc; }
+.ops-focus-heading > div:first-child > span { font-size:12px; color:#94a3b8; }
+.ops-focus-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+.ops-focus-actions > a { display:inline-flex; align-items:center; gap:5px; color:#7dd3fc; font-size:12px; font-weight:700; }
+.ops-focus-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-top:20px; }
+.ops-focus-stats > div { padding:14px; border:1px solid rgba(100,116,139,.25); background:rgba(15,23,42,.6); border-radius:14px; }
+.ops-focus-stats small { display:block; font-size:11px; color:#94a3b8; }
+.ops-focus-stats strong { display:block; margin-top:6px; font-size:25px; font-weight:750; color:#f1f5f9; }
+.ops-focus-stats em { display:inline-block; font-style:normal; font-size:11px; font-weight:400; color:#94a3b8; }
+.ops-focus-details { margin-top:18px; font-size:12px; }
+.ops-focus-details summary { cursor:pointer; font-weight:700; padding:8px 0; color:#bae6fd; }
+.ops-focus-details summary span { margin-left:8px; font-weight:400; font-size:11px; color:#94a3b8; }
+.ops-focus-scroll { overflow:auto; max-height:400px; margin-top:8px; }
+.ops-focus-scroll table { width:100%; text-align:left; white-space:nowrap; border-collapse:collapse; }
+.ops-focus-scroll th { color:#94a3b8; font-size:10px; font-weight:600; }
+.ops-focus-scroll th,.ops-focus-scroll td { padding:12px 10px; border-bottom:1px solid rgba(100,116,139,.2); }
+.ops-focus-scroll td a { display:flex; align-items:center; gap:6px; color:#bae6fd; }
+.ops-focus-scroll small { display:block; margin-top:4px; font-size:10px; color:#94a3b8; }
+.ops-focus-details > p { color:#94a3b8; font-size:11px; line-height:1.7; margin:12px 0 0; }
+@media(max-width:700px) { .ops-focus-panel { padding:16px; } .ops-focus-stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; } .ops-focus-details summary span { display:block; margin:4px 0; } }

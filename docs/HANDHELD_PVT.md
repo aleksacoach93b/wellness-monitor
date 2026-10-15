@@ -50,7 +50,7 @@ Builds use Prisma client generation and Next build only. Never run `db push --ac
 2. Back up production data to a private location. Build a production-target deployment with `--skip-domain` so the active domain stays on the old version during verification.
 3. Apply `prisma/manual-migrations/2026-10-handheld-pvt.sql` explicitly. Only the enum and new tables/indexes/foreign keys are added. Compare existing record counts before and after.
 4. Verify the staged deployment, then promote its domain. Add Focus questions through the normal editor when the coach is ready.
-5. For application rollback, promote the previous known-good deployment and retain the additive tables. `PVT_ENABLED=false` disables new test operations; remove the required state/question before using that emergency switch on an assigned survey. Do not drop result tables.
+5. Prefer an enum-aware application rollback and retain the additive tables. A build predating the PVT enum cannot read native PVT questions: snapshot and reconfigure those questions before restoring such a build. `PVT_ENABLED=false` disables new test operations; remove the required state/question before using that emergency switch on an assigned survey. Do not drop result tables.
 
 Actual iPhone/Safari timing, touch latency, OS interruption behavior and agreement with a reference instrument remain device-validation work. Automated browser tests establish application behavior only.
 

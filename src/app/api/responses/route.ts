@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { parsePvtAnswer } from '@/lib/pvt/options'
 import { equalSecret, hashToken } from '@/lib/pvt/server'
-import type { PvtSummary } from '@/lib/pvt/baseline'
+import { summarizePvt, validatePvtRecord, type PvtResult } from '@/lib/pvt/protocol'
 
 const submitResponseSchema = z.object({
   surveyId: z.string(),
@@ -53,9 +53,15 @@ export async function POST(request: NextRequest) {
           continue
         }
         const receipt = parsePvtAnswer(answer.value)
-        const attempt = receipt && await tx.pvtSession.findFirst({ where: { id: receipt.attemptId, surveyId: survey.id, questionId: question.id, playerId: data.playerId || '__missing__', status: 'COMPLETED', practice: false } })
+        const attempt = receipt && await tx.pvtSession.findFirst({ where: { id: receipt.attemptId, surveyId: survey.id, questionId: question.id, playerId: data.playerId || '__missing__', practice: false } })
         if (!receipt?.token || !attempt?.finishedAt || !equalSecret(hashToken(receipt.token), attempt.tokenHash) || Date.now() - attempt.startedAt.getTime() > 48 * 3600_000) throw new Error('PVT_INVALID')
-        const summary = attempt.summary as PvtSummary | null
+        if (attempt.status !== 'COMPLETED') throw new Error('PVT_REPEAT_REQUIRED', { cause: question.id })
+        // Recheck the raw record as well: a receipt from an older browser must
+        // not bypass the current rules, even if it previously said COMPLETED.
+        const rawResult = attempt.raw as PvtResult | null
+        if (!rawResult || !Array.isArray(rawResult.trials) || !validatePvtRecord(rawResult, attempt.durationSeconds, attempt.protocolVersion)) throw new Error('PVT_INVALID')
+        const summary = summarizePvt(rawResult, attempt.durationSeconds, attempt.protocolVersion)
+        if (summary.repeatRequired) throw new Error('PVT_REPEAT_REQUIRED', { cause: question.id })
         // Only server-computed metrics are stored in the answer. Never persist access tokens there.
         answer.value = JSON.stringify({ kind: 'PVT', attemptId: attempt.id, durationSeconds: attempt.durationSeconds, protocolVersion: attempt.protocolVersion, medianRT: summary?.medianRT, responses: summary?.responses, falseStarts: summary?.falseStarts, quality: summary?.quality, flags: summary?.flags })
         attempts.push(attempt.id)
@@ -77,7 +83,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response)
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: 'Validation error', details: error.issues }, { status: 400 })
-    if (error instanceof Error && error.message.startsWith('PVT_')) return NextResponse.json({ error: error.message === 'PVT_REQUIRED' ? 'Complete the required Focus test before submitting.' : 'Focus test could not be verified. Reopen the question and save the test first.' }, { status: 400 })
+    if (error instanceof Error && error.message.startsWith('PVT_')) return NextResponse.json({ focusQuestionId: error.message === 'PVT_REPEAT_REQUIRED' && typeof error.cause === 'string' ? error.cause : undefined, error: error.message === 'PVT_REQUIRED' ? 'Complete the required Focus test before submitting.' : error.message === 'PVT_REPEAT_REQUIRED' ? 'Repeat the Focus test: this attempt did not meet the completion rules.' : 'Focus test could not be verified. Reopen the question and save the test first.' }, { status: 400 })
     console.error('Survey submission failed', error instanceof Error ? error.name : 'UnknownError')
     return NextResponse.json({ error: 'Failed to submit response' }, { status: 500 })
   }

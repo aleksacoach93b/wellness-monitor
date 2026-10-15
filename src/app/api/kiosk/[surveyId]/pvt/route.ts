@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 type RouteContext = { params: Promise<{ surveyId: string }> }
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
-const startSchema = z.object({ action: z.literal('start'), protocolVersion: z.enum(PVT_START_VERSIONS), playerId: z.string().min(1).max(100), password: z.string().max(100).optional(), questionId: z.string().min(1), practice: z.boolean(), context: contextSchema })
+const startSchema = z.object({ action: z.literal('start'), protocolVersion: z.string().max(100), playerId: z.string().min(1).max(100), password: z.string().max(100).optional(), questionId: z.string().min(1), practice: z.boolean(), context: contextSchema })
 const authorizeSchema = z.object({ action: z.literal('authorize'), playerId: z.string().min(1).max(100), password: z.string().max(100) })
 const finishSchema = z.object({ action: z.literal('finish'), id: z.string().min(1).max(100), token: z.string().length(64), result: resultSchema })
 
@@ -40,18 +40,20 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       const session = await prisma.pvtSession.findFirst({ where: { id: body.id, surveyId } })
       if (!session || !equalSecret(hashToken(body.token), session.tokenHash)) return json({ error: 'Invalid test session.' }, 401)
       // A successful retry returns the first stored record; it can never overwrite it.
-      if (session.finishedAt) return json({ saved: true, summary: session.summary })
+      if (session.finishedAt) return json({ saved: true, summary: session.summary, status: session.status })
       const age = Date.now() - session.startedAt.getTime()
       if (age > 30 * 60_000) return json({ error: 'Session expired. Ask your coach before repeating.' }, 409)
       if (age + 1000 < body.result.elapsedMs || !validatePvtRecord(body.result, session.durationSeconds, session.protocolVersion)) return json({ error: 'Invalid timing record.' }, 400)
-      const summary = summarizePvt(body.result, session.durationSeconds)
+      const summary = summarizePvt(body.result, session.durationSeconds, session.protocolVersion)
+      const interrupted = body.result.interruption && !['early-limit', 'missed-signal'].includes(body.result.interruption)
       await prisma.pvtSession.updateMany({
         where: { id: session.id, finishedAt: null },
-        data: { status: body.result.interruption ? 'INTERRUPTED' : 'COMPLETED', finishedAt: new Date(), raw: body.result as unknown as Prisma.InputJsonValue, summary: summary as Prisma.InputJsonValue },
+        data: { status: summary.repeatRequired ? interrupted ? 'INTERRUPTED' : 'INVALID' : 'COMPLETED', finishedAt: new Date(), raw: body.result as unknown as Prisma.InputJsonValue, summary: summary as Prisma.InputJsonValue },
       })
-      const saved = await prisma.pvtSession.findUnique({ where: { id: session.id }, select: { summary: true } })
-      return json({ saved: true, summary: saved?.summary })
+      const saved = await prisma.pvtSession.findUnique({ where: { id: session.id }, select: { summary: true, status: true } })
+      return json({ saved: true, summary: saved?.summary, status: saved?.status })
     }
+    if (body.action === 'start' && !PVT_START_VERSIONS.some(version => version === body.protocolVersion)) return json({ error: 'Focus test has been updated. Reload this page before starting a new test.' }, 409)
     return await prisma.$transaction(async tx => {
       // Serialise official starts and coach setting changes for this survey.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${surveyId}))`

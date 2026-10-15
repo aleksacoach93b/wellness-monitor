@@ -13,13 +13,14 @@ if (!base || !database || new URL(base).hostname !== '127.0.0.1' || new URL(data
 const db = new PrismaClient({ datasourceUrl: database })
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pvt-integration-'))
 for (const file of ['protocol','engine']) fs.writeFileSync(path.join(dir,file+'.cjs'),ts.transpileModule(fs.readFileSync(new URL('../src/lib/pvt/'+file+'.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText.replace("require(\"./protocol\")","require(\"./protocol.cjs\")"))
+const {PVT_VERSION}=createRequire(import.meta.url)(path.join(dir,'protocol.cjs'))
 const {PvtEngine}=createRequire(import.meta.url)(path.join(dir,'engine.cjs'))
 let checks=0
 function check(value,message){assert.ok(value,message);checks++}
 const adminToken=await new SignJWT({email:'test@example.invalid',role:'TEAM_ADMIN',teamId:'test-team'}).setProtectedHeader({alg:'HS256'}).setSubject('test-admin').setIssuedAt().setExpirationTime('1h').sign(new TextEncoder().encode('pvt-local-test-only'))
 const cookie='wm_admin_session='+adminToken
 async function request(url,body,auth=false,headers={}){const response=await fetch(base+url,{method:body?'POST':'GET',headers:{...(body?{'Content-Type':'application/json'}:{}),...(auth?{Cookie:cookie}:{}),...headers},...(body?{body:JSON.stringify(body)}:{})});return {status:response.status,data:await response.json().catch(()=>({error:'Non-JSON response at '+url}))}}
-const start={action:'start',playerId:'test-player',password:'TP',practice:false,context:{posture:'seated',caffeine:false,minutesAwake:30,deviceId:'12345678-1234-4234-8234-123456789012'}}
+const start={action:'start',protocolVersion:PVT_VERSION,playerId:'test-player',password:'TP',practice:false,context:{posture:'seated',caffeine:false,minutesAwake:30,deviceId:'12345678-1234-4234-8234-123456789012'}}
 try {
   check((await db.team.findUnique({where:{id:'test-team'}}))?.name==='PVT Test Team','synthetic fixture required')
   check((await request('/api/pvt/admin')).status===401,'admin auth required')
@@ -28,17 +29,18 @@ try {
   check(admin.data.surveys.length===1 && admin.data.surveys[0].id==='test-survey','team scoping')
   check(!JSON.stringify(admin.data).includes('tokenHash'),'tokens never appear in coach response')
   check((await request('/api/pvt/admin',{surveyId:'other-survey',enabled:true,durationSeconds:60},true)).status===404,'cross-team settings rejected')
-  check((await request('/api/pvt/admin',{surveyId:'test-survey',enabled:true,durationSeconds:90},true)).status===200,'coach can select 90s')
+  check((await request('/api/pvt/admin',{surveyId:'test-survey',enabled:true,durationSeconds:30},true)).status===200,'coach can select 30s')
   check((await request('/api/pvt/admin',{surveyId:'test-survey',enabled:true,durationSeconds:60},true)).status===200,'coach can select 60s')
-  check((await request('/api/pvt/admin',{surveyId:'test-survey',enabled:true,durationSeconds:30},true)).status===400,'unsupported duration rejected')
+  check((await request('/api/pvt/admin',{surveyId:'test-survey',enabled:true,durationSeconds:90},true)).status===400,'unsupported duration rejected')
   const p='/api/kiosk/test-survey/pvt'
   check((await request(p)).data.duration===60,'player receives coach duration')
   check((await request(p,{...start,password:'WRONG'})).status===401,'wrong access code rejected')
   check((await request(p,{...start,playerId:'other-player',password:'OP'})).status===401,'cross-team player rejected')
+  check((await request(p,{...start,protocolVersion:'handheld-pvt-v1'})).status===400,'outdated clients cannot mix visual protocols')
   check((await request(p,start,false,{Origin:'https://untrusted.invalid'})).status===403,'cross-origin mutation rejected')
   const session=await request(p,start)
   check(session.status===200 && session.data.token.length===64,'server authorises an attempt')
-  check((await request('/api/pvt/admin',{surveyId:'test-survey',enabled:true,durationSeconds:180},true)).status===409,'daily protocol locked after first official start')
+  check((await request('/api/pvt/admin',{surveyId:'test-survey',enabled:true,durationSeconds:30},true)).status===409,'daily protocol locked after first official start')
   const e=new PvtEngine(60000,()=>.5)
   for(let n=0;n<=60000;n+=10){e.tick(n);if(e.onset!==null&&n-e.onset>=250)e.press(n)}
   const finish={action:'finish',id:session.data.id,token:session.data.token,result:e.result()}
@@ -52,7 +54,7 @@ try {
   check(duplicate.status===200 && duplicate.data.summary.quality==='OK','retry cannot overwrite first result')
   check(await db.pvtSession.count({where:{id:session.data.id}})===1,'idempotency retains one record')
   const practice=await request(p,{...start,practice:true})
-  check(practice.status===200,'practice separately authorises')
+  check(practice.status===200 && practice.data.duration===30,'practice separately authorises a 30s attempt')
   const interrupted=await request(p,{action:'finish',id:practice.data.id,token:practice.data.token,result:{trials:[],elapsedMs:0,maxFrameGapMs:0,interruption:'cancelled'}})
   check(interrupted.status===200,'interruption saved without losing official attempt')
   const practiceRow=await db.pvtSession.findUnique({where:{id:practice.data.id}})
@@ -70,10 +72,10 @@ try {
   await db.pvtConfig.create({data:{surveyId:'race-survey',teamId:'test-team',enabled:true,durationSeconds:60}})
   const [racedStart,racedSetting]=await Promise.all([
     request('/api/kiosk/race-survey/pvt',start,false,{Origin:base}),
-    request('/api/pvt/admin',{surveyId:'race-survey',enabled:true,durationSeconds:90},true,{Origin:base}),
+    request('/api/pvt/admin',{surveyId:'race-survey',enabled:true,durationSeconds:30},true,{Origin:base}),
   ])
   check(racedStart.status===200,'same-origin browser start succeeds')
-  check((racedSetting.status===200 && racedStart.data.duration===90) || (racedSetting.status===409 && racedStart.data.duration===60),'concurrent start/configuration cannot split the daily protocol')
+  check((racedSetting.status===200 && racedStart.data.duration===30) || (racedSetting.status===409 && racedStart.data.duration===60),'concurrent start/configuration cannot split the daily protocol')
   fs.writeFileSync('/tmp/pvt-test-admin-cookie',cookie,{mode:0o600})
   console.log(`PASS: ${checks} integration assertions against isolated loopback fixture`)
 } finally {await db.$disconnect();fs.rmSync(dir,{recursive:true,force:true})}

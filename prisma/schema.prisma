@@ -387,7 +387,7 @@ model PvtConfig {
   surveyId String @unique
   teamId String
   enabled Boolean @default(false)
-  durationSeconds Int @default(180)
+  durationSeconds Int @default(30)
   updatedAt DateTime @updatedAt
   survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)

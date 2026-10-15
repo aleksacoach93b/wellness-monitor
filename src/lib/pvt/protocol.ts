@@ -1,7 +1,10 @@
 /** Handheld adaptation. Timing must be bench-validated before clinical/selection use. */
-export const PVT_VERSION = 'handheld-pvt-v1'
-export const PVT_DURATIONS = [60, 90, 180] as const
+export const PVT_VERSION = 'handheld-pvt-v2'
+export const PVT_DURATIONS = [30, 60] as const
 export type PvtDuration = (typeof PVT_DURATIONS)[number]
+export function isPvtDuration(value: number): value is PvtDuration {
+  return PVT_DURATIONS.some(duration => duration === value)
+}
 export const SLOW_RESPONSE_MS = 355
 export const RESPONSE_TIMEOUT_MS = 30_000
 export type PvtTrial = {
@@ -52,8 +55,10 @@ export function randomWaitMs(random: number): number {
   return 1000 + Math.floor(random * 3001)
 }
 /** Validate the raw record on the server; never accept client-calculated scores. */
-export function validatePvtRecord(result: PvtResult, duration: number): boolean {
-  if (!PVT_DURATIONS.includes(duration as PvtDuration)) return false
+export function validatePvtRecord(result: PvtResult, duration: number, version = PVT_VERSION): boolean {
+  // Let already-issued v1 attempts finish without offering legacy durations for new starts.
+  const allowed = version === 'handheld-pvt-v1' ? [60, 90, 180].includes(duration) : version === PVT_VERSION && isPvtDuration(duration)
+  if (!allowed) return false
   if (!Number.isFinite(result.elapsedMs) || result.elapsedMs < 0 || result.elapsedMs > duration * 1000 + 60_000) return false
   if (!Number.isFinite(result.maxFrameGapMs) || result.maxFrameGapMs < 0) return false
   let previous = -1

@@ -3,14 +3,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { PVT_VERSION, summarizePvt, validatePvtRecord } from '@/lib/pvt/protocol'
+import { PVT_VERSION, isPvtDuration, summarizePvt, validatePvtRecord } from '@/lib/pvt/protocol'
 import { contextSchema, equalSecret, hashToken, localDay, pvtEnabled, resultSchema, sameOrigin, surveyOpen } from '@/lib/pvt/server'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 type RouteContext = { params: Promise<{ surveyId: string }> }
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
-const startSchema = z.object({ action: z.literal('start'), playerId: z.string().min(1).max(100), password: z.string().max(100), practice: z.boolean(), context: contextSchema })
+const startSchema = z.object({ action: z.literal('start'), protocolVersion: z.literal(PVT_VERSION), playerId: z.string().min(1).max(100), password: z.string().max(100), practice: z.boolean(), context: contextSchema })
 const finishSchema = z.object({ action: z.literal('finish'), id: z.string().min(1).max(100), token: z.string().length(64), result: resultSchema })
 
 export async function GET(_request: NextRequest, { params }: RouteContext) {
@@ -18,7 +18,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
   try {
     const { surveyId } = await params
     const config = await prisma.pvtConfig.findUnique({ where: { surveyId }, include: { survey: true } })
-    if (!config?.enabled || !surveyOpen(config.survey)) return json({ enabled: false })
+    if (!config?.enabled || !surveyOpen(config.survey) || !isPvtDuration(config.durationSeconds)) return json({ enabled: false })
     return json({ enabled: true, duration: config.durationSeconds, version: PVT_VERSION })
   } catch {
     // Optional module must not break existing surveys before its migration is applied.
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       if (session.finishedAt) return json({ saved: true, summary: session.summary })
       const age = Date.now() - session.startedAt.getTime()
       if (age > 30 * 60_000) return json({ error: 'Session expired. Ask your coach before repeating.' }, 409)
-      if (age + 1000 < body.result.elapsedMs || !validatePvtRecord(body.result, session.durationSeconds)) return json({ error: 'Invalid timing record.' }, 400)
+      if (age + 1000 < body.result.elapsedMs || !validatePvtRecord(body.result, session.durationSeconds, session.protocolVersion)) return json({ error: 'Invalid timing record.' }, 400)
       const summary = summarizePvt(body.result, session.durationSeconds)
       await prisma.pvtSession.updateMany({
         where: { id: session.id, finishedAt: null },
@@ -55,6 +55,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${surveyId}))`
       const config = await tx.pvtConfig.findUnique({ where: { surveyId }, include: { survey: true } })
       if (!config?.enabled || !surveyOpen(config.survey)) return json({ error: 'Testing is not open.' }, 403)
+      if (!isPvtDuration(config.durationSeconds)) return json({ error: 'Your coach needs to choose a 30 or 60 second protocol.' }, 409)
       const now = Date.now()
       const window = Math.floor(now / 600_000)
       const rate = await tx.pvtAuthWindow.upsert({
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       const token = randomBytes(32).toString('hex')
       const session = await tx.pvtSession.create({ data: {
         teamId: config.teamId, surveyId, playerId: player.id, tokenHash: hashToken(token),
-        durationSeconds: body.practice ? 60 : config.durationSeconds, protocolVersion: PVT_VERSION, practice: body.practice,
+        durationSeconds: body.practice ? 30 : config.durationSeconds, protocolVersion: PVT_VERSION, practice: body.practice,
         localDate: localDay(new Date(), config.survey.timezone), deviceId: body.context.deviceId,
         userAgent: (request.headers.get('user-agent') || '').slice(0, 500), context: body.context,
       } })

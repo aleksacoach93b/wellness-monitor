@@ -28,12 +28,12 @@ test('random waits stay in the protocol range and reject invalid randomness', ()
   assert.equal(randomWaitMs(0), 1000); assert.equal(randomWaitMs(.999999), 4000)
   for (const x of [-1, 1, NaN]) assert.throws(() => randomWaitMs(x))
 })
-for (const duration of [60, 90, 180]) test(`${duration}s produces valid timing records with a fixed latency`, () => {
+for (const duration of [30, 60]) test(`${duration}s produces valid timing records with a fixed latency`, () => {
   const result = run(duration)
   assert.equal(validatePvtRecord(result, duration), true)
   const summary = summarizePvt(result, duration)
   assert.equal(summary.medianRT, 250); assert.equal(summary.slowResponses, 0)
-  assert.equal(summary.quality, 'OK'); assert.ok(summary.responses > 10)
+  assert.equal(summary.quality, 'OK'); assert.ok(summary.responses >= 10)
 })
 test('touch cannot create an unseen stimulus before a frame paints it', () => {
   const e = new PvtEngine(60000, () => 0)
@@ -71,7 +71,7 @@ test('server rejects malformed, overlapping or impossible response timing', () =
   }
 })
 function row(day, patch = {}) {
-  return { id: day, playerId: 'p', surveyId: 's', localDate: day, startedAt: day + 'T08:00:00Z', finishedAt: day + 'T08:03:00Z', durationSeconds: 180, protocolVersion: 'v1', practice: false, status: 'COMPLETED', deviceId: 'device', userAgent: 'browser', context: { posture: 'seated', caffeine: false }, summary: { quality: 'OK', medianRT: 250 }, player: { firstName: 'Test', lastName: 'Player' }, ...patch }
+  return { id: day, playerId: 'p', surveyId: 's', localDate: day, startedAt: day + 'T08:00:00Z', finishedAt: day + 'T08:03:00Z', durationSeconds: 60, protocolVersion: 'v1', practice: false, status: 'COMPLETED', deviceId: 'device', userAgent: 'browser', context: { posture: 'seated', caffeine: false }, summary: { quality: 'OK', medianRT: 250 }, player: { firstName: 'Test', lastName: 'Player' }, ...patch }
 }
 test('baseline requires seven distinct prior eligible days, not seven repeats', () => {
   const current = row('2026-10-15')
@@ -83,7 +83,7 @@ test('baseline requires seven distinct prior eligible days, not seven repeats', 
 })
 test('practice, wrong device/duration/posture, future or bad-quality results cannot build the reference', () => {
   const current = row('2026-10-15')
-  const wrong = [row('2026-10-01', {practice:true}), row('2026-10-02', {durationSeconds:60}), row('2026-10-03', {deviceId:'other'}), row('2026-10-04', {context:{posture:'lying', caffeine:false}}), row('2026-10-05', {summary:{quality:'REVIEW', medianRT:250}}), row('2026-10-16')]
+  const wrong = [row('2026-10-01', {practice:true}), row('2026-10-02', {durationSeconds:30}), row('2026-10-03', {deviceId:'other'}), row('2026-10-04', {context:{posture:'lying', caffeine:false}}), row('2026-10-05', {summary:{quality:'REVIEW', medianRT:250}}), row('2026-10-16')]
   assert.equal(baselineFor(current, wrong).days, 0)
 })
 test('schedule uses the survey timezone, date range and overnight windows', () => {
@@ -111,4 +111,11 @@ test('PVT migration is additive and atomic', () => {
 test('Vercel build cannot push or reset a database schema', () => {
   const command = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8')).scripts['vercel-build']
   assert.doesNotMatch(command, /db push|migrate|reset|accept-data-loss/)
+})
+
+test('legacy attempts may finish, while current protocol accepts only 30/60 seconds', () => {
+  const result = run(90)
+  assert.equal(validatePvtRecord(result, 90), false)
+  assert.equal(validatePvtRecord(result, 90, 'handheld-pvt-v1'), true)
+  assert.equal(validatePvtRecord(run(30), 30), true)
 })

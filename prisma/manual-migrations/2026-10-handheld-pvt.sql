@@ -7,7 +7,7 @@ CREATE TABLE "public"."pvt_configs" (
     "surveyId" TEXT NOT NULL,
     "teamId" TEXT NOT NULL,
     "enabled" BOOLEAN NOT NULL DEFAULT false,
-    "durationSeconds" INTEGER NOT NULL DEFAULT 180,
+    "durationSeconds" INTEGER NOT NULL DEFAULT 30,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "pvt_configs_pkey" PRIMARY KEY ("id")

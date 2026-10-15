@@ -36,7 +36,7 @@ export function surveyOpen(survey: {
   if (!start || !end) return survey.isActive
   return start <= end ? time >= start && time <= end : time >= start || time <= end
 }
-export const durationSchema = z.union([z.literal(60), z.literal(90), z.literal(180)])
+export const durationSchema = z.union([z.literal(30), z.literal(60)])
 export const contextSchema = z.object({
   posture: z.enum(['seated', 'reclined', 'lying']),
   caffeine: z.boolean(),

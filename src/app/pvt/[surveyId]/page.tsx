@@ -1,7 +1,11 @@
 import { Suspense } from 'react'
+import type { Metadata } from 'next'
 import PvtPlayer from '@/components/pvt/PvtPlayer'
+import '../pvt.css'
+
+export const metadata: Metadata = { title: 'Focus check · Wellness', description: 'Your daily moment of focus.' }
 
 export default async function PvtPage({ params }: { params: Promise<{ surveyId: string }> }) {
   const { surveyId } = await params
-  return <main className="min-h-svh bg-[#0b1220] px-5 py-6 text-white"><div className="mx-auto max-w-md"><Suspense fallback={<p>Loading…</p>}><PvtPlayer surveyId={surveyId} /></Suspense></div></main>
+  return <main className="pvt-page"><Suspense fallback={<p className="pvt-loading">Getting your session ready…</p>}><PvtPlayer surveyId={surveyId} /></Suspense></main>
 }

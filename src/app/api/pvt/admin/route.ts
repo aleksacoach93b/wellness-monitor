@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       return reply({ saved: true, config: { surveyId: config.surveyId, enabled: config.enabled, durationSeconds: config.durationSeconds } })
     }, { timeout: 10_000 })
   } catch (error) {
-    if (error instanceof z.ZodError) return reply({ error: 'Choose 60, 90 or 180 seconds.' }, 400)
+    if (error instanceof z.ZodError) return reply({ error: 'Choose 30 or 60 seconds.' }, 400)
     return reply({ error: 'PVT settings could not be saved.' }, 503)
   }
 }

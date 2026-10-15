@@ -4,24 +4,25 @@ This is an opt-in handheld adaptation of brief PVT, not an independently validat
 
 The PVT player and coach interfaces are English-only, including links opened with a legacy language query.
 
-## Player protocol v1
+## Player protocol v2
 
-- A coach selects one official duration per survey: 60, 90 or 180 seconds. The 60/90-second modes are experimental adaptations, not validated equivalents. Duration cannot change after an official attempt starts that survey-local day.
-- Familiarisation: complete a separate 60-second practice attempt before regular monitoring. Practice never contributes to the personal reference. Do not practice before every daily measurement.
+- A coach selects one official duration per survey: 30 or 60 seconds. Both modes are experimental adaptations, not validated equivalents. Duration cannot change after an official attempt starts that survey-local day.
+- Familiarisation: complete a separate 30-second practice attempt before regular monitoring. Practice never contributes to the personal reference. Do not practice before every daily measurement.
 - Use the same phone/browser, hand/thumb and posture daily. Hold the device in portrait orientation. Seated, reclined and lying are recorded separately; posture equivalence is not claimed. No stand required. Record minutes awake and whether caffeine has already been consumed. Choose a consistent daily measurement context with the coach.
 - Enable Do Not Disturb. Watch the fixed counter area and tap the fixed response button as soon as numbers appear. Do not anticipate. Practice and official attempts use identical instructions.
 - Cryptographically sampled independent uniform integer waits: 1000–4000 ms after the preceding response/timeout. Response feedback lasts 1000 ms and is included in that wait. No fixed sequence or moving targets. Every player gets the same stimulus rules/distribution, not a memorisable schedule.
+- The v2 interface uses a fixed circular counter, a fixed response pad, immediate stimulus onset, and no moving targets, distractor colours or colour-choice instructions. The counter’s yellow background is visual styling only. Protocol version v2 keeps its personal references separate from v1. Existing v1 records remain readable and authorised in-flight v1 attempts may finish. New starts require an up-to-date client and a coach-selected 30/60-second duration. Retired 90/180-second configs must be explicitly changed by the coach; they are not silently shortened.
 - Response is recorded on primary pointer-down, not click. Keyboard Space/Enter is supported for accessibility, but should not be mixed with touch in a monitoring series. Negative/invalid timing is rejected. Responses <100 ms and taps without an active stimulus count as false starts.
 - A response timeout is recorded after 30 seconds. The test ends at its fixed duration; any outstanding stimulus is retained as censored, not silently converted into an ordinary response. A censored response already ≥355 ms flags the attempt for review. This fixed-end behaviour is an adaptation and is explicitly versioned.
 - Hiding the page, losing focus, changing orientation, navigating away or cancelling interrupts the attempt. Browser events are best-effort: mobile OS termination may leave a STARTED attempt without raw data. The original attempt is retained either way. Gaps >100 ms between animation frames flag timing quality for review; this cannot measure actual panel/touch latency.
 
 ## Measures and interpretation
 
-Save all raw trials; recalculate summaries on the server. Report sample count, median response time, mean reciprocal response time (1/s), early taps, slow-response count/rate, and quality flags. The ≥355 ms brief-PVT reference is exploratory in this handheld implementation and especially in 60/90-second adaptations. It is not a clinical/fatigue threshold. Frame lag, unfinished response, few samples, interruption or excessive early taps require review.
+Save all raw trials; recalculate summaries on the server. Report sample count, median response time, mean reciprocal response time (1/s), early taps, slow-response count/rate, and quality flags. The ≥355 ms brief-PVT reference is exploratory in this handheld implementation and especially in 30/60-second adaptations. It is not a clinical/fatigue threshold. Frame lag, unfinished response, few samples, interruption or excessive early taps require review.
 
 The descriptive personal reference requires 7 distinct previous eligible days (up to the most recent 14 in the fetched 28-day history). Use the first completed quality-OK non-practice attempt per day with matching player, survey, protocol version, duration, device ID, browser user agent, posture and caffeine context. Minutes awake remain visible for staff interpretation; they are not statistically adjusted. No significance, smallest worthwhile change or reliable-change threshold is inferred from seven days. Positive percentage change means slower median RT, not percentage fatigue. Cross-phone raw RT rankings are not supported. Browser storage deletion or device/browser changes can require rebuilding the reference.
 
-Sources: Basner et al. (2011), https://pubmed.ncbi.nlm.nih.gov/22025811/ ; Grant et al. (2017), https://pubmed.ncbi.nlm.nih.gov/27325169/ ; Jones et al. (2018), https://pubmed.ncbi.nlm.nih.gov/29384434/ . These studies do not validate this implementation.
+Sources: Basner et al. (2011), https://pubmed.ncbi.nlm.nih.gov/22025811/ ; Grant et al. (2017), https://pubmed.ncbi.nlm.nih.gov/27325169/ ; Jones et al. (2018), https://pubmed.ncbi.nlm.nih.gov/29384434/ . For a 30-second smartphone adaptation, see Perzl et al. (2024), https://pubmed.ncbi.nlm.nih.gov/38097924/ . These studies do not validate this implementation or establish equivalence between durations in footballers.
 
 ## Integration
 

@@ -18,3 +18,12 @@ Limits before production:
 - Actual iPhone/Android timing, OS interruption behaviour, handheld posture repeatability, supported browser/device list, and comparison to a reference PVT instrument remain unvalidated.
 - Vercel production/preview branch and database environment scoping remain unconfirmed. Production migration and activation are intentionally not performed.
 - Player identity uses the existing access-code system. The legacy kiosk exposes code material in its public payload; the new server check is not identity-proof and does not repair that existing design.
+
+## v2 design and duration update
+
+- Only 30 and 60 seconds are offered for new sessions, in both the demo and coach settings. Practice is 30 seconds. Old duration configs fail closed until a coach explicitly changes them; historical attempts are retained.
+- The task remains simple visual PVT: a randomly starting fixed counter and one response pad. No colour discrimination, distractor stimuli, choice reaction task or extra cognitive test was added.
+- New preparation, running and completion screens use scoped CSS. The run screen has no stimulus animation or fade. v2 is separated from v1 personal references because visual geometry/styling changed. Old in-flight attempts can still finish; outdated clients cannot start a v2-labelled attempt.
+- Passed: 16 unit tests, 30 API integration assertions, TypeScript, targeted ESLint and optimized production build.
+- Passed: full 30-second demo on a 390×844 mobile viewport (12 responses), 60-second selection/cancellation, 320×568 thumb-pad fit, English-only UI and LAN HTTP access. No browser exceptions. Desktop/mobile screenshots were inspected.
+- All verification remains local with synthetic data. No GitHub push or Vercel deployment performed.

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PVT_DURATIONS, isPvtDuration } from '@/lib/pvt/protocol'
 import { baselineFor, type PvtSessionRow } from '@/lib/pvt/baseline'
 
 type Survey = { id: string; title: string; timezone: string }
@@ -11,7 +12,7 @@ export default function PvtAdmin() {
   const lastSurvey = useRef('')
   const [data, setData] = useState<Data | null>(null)
   const [surveyId, setSurveyId] = useState('')
-  const [duration, setDuration] = useState(180)
+  const [duration, setDuration] = useState(30)
   const [enabled, setEnabled] = useState(false)
   const [date, setDate] = useState('')
   const [error, setError] = useState('')
@@ -26,7 +27,7 @@ export default function PvtAdmin() {
   useEffect(() => { void load().then(d => setSurveyId(d.surveys[0]?.id || '')).catch(e => setError(e.message)) }, [])
   useEffect(() => {
     const config = data?.configs.find(c => c.surveyId === surveyId)
-    setEnabled(config?.enabled || false); setDuration(config?.durationSeconds || 180)
+    setEnabled(config?.enabled || false); setDuration(config && isPvtDuration(config.durationSeconds) ? config.durationSeconds : 30)
     const timezone = data?.surveys.find(s => s.id === surveyId)?.timezone || 'Europe/Belgrade'
     if (lastSurvey.current !== surveyId) {
       setDate(new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()))
@@ -55,15 +56,16 @@ export default function PvtAdmin() {
     <header><p className="admin-kicker">PLAYER MONITORING</p><h1 className="admin-title">Handheld PVT</h1><p className="admin-sub">Vigilance & attention</p></header>
     <div className="admin-panel space-y-3 p-5 text-sm text-slate-700">
       <p><strong>Same task, unpredictable timing.</strong> Hold the phone upright, use the same thumb, posture and device. Respond to the fixed visual counter after a random 1–4 s wait. No camera or microphone.</p>
-      <p>60/90 s are experimental; 180 s adapts brief PVT. This implementation requires timing validation. Results are not a diagnosis, injury predictor or overall readiness score. A ≥355 ms response is an exploratory brief-PVT reference, not a fatigue cutoff.</p>
+      <p>30/60 s are experimental short checks. This implementation requires timing validation. Results are not a diagnosis, injury predictor or overall readiness score. A ≥355 ms response is an exploratory brief-PVT reference, not a fatigue cutoff.</p>
       <p>Practice is separate. All attempts remain in history. Prior reference uses the first eligible attempt per day, at least 7 prior days in the loaded 28-day history, matching player, survey, duration, version, device/browser, posture and caffeine. It is descriptive and does not establish meaningful-change thresholds.</p>
       <a className="font-bold text-teal-700 underline" href="/pvt/demo" target="_blank" rel="noreferrer">Open isolated player demo (no data saved)</a>
     </div>
     {error && <p role="alert" className="rounded-xl bg-amber-50 p-4 text-amber-900">{error}</p>}
+    {data?.configs.some(c => c.surveyId === surveyId && !isPvtDuration(c.durationSeconds)) && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">This survey uses a retired duration. Choose 30 or 60 seconds and save before new attempts can start. Historical results are retained.</p>}
     {data && !data.ready && <div className="admin-panel p-5"><strong>Module is inactive.</strong><p>{data.enabled ? data.error : 'PVT_ENABLED is off. Existing wellness flows are unchanged. Enable only on an isolated preview database after reviewing the additive migration.'}</p></div>}
     <section className="admin-panel flex flex-wrap items-end gap-4 p-5">
       <label className="flex flex-col gap-1 text-sm">Survey<select className={control} value={surveyId} onChange={e => setSurveyId(e.target.value)}>{data?.surveys.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</select></label>
-      <label className="flex flex-col gap-1 text-sm">Official duration<select className={control} value={duration} onChange={e => setDuration(Number(e.target.value))}>{[60, 90, 180].map(d => <option key={d} value={d}>{d} seconds{d < 180 ? ' · experimental' : ''}</option>)}</select></label>
+      <label className="flex flex-col gap-1 text-sm">Official duration<select className={control} value={duration} onChange={e => setDuration(Number(e.target.value))}>{PVT_DURATIONS.map(d => <option key={d} value={d}>{d} seconds · experimental</option>)}</select></label>
       <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />Add PVT after this survey</label>
       <button className="admin-btn admin-btn-primary" disabled={!data?.ready || busy || !surveyId} onClick={() => void save()}>{busy ? 'Saving…' : 'Save settings'}</button>
     </section>

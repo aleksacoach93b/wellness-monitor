@@ -81,6 +81,11 @@
 .pvt-kicker { display:inline-flex; align-items:center; gap:.45rem; font-size:.57rem; letter-spacing:.16em; font-weight:650; color:var(--pvt-accent); }
 .pvt-success-halo { width:150px; height:150px; margin:1rem auto .8rem; border:1px solid rgba(var(--pvt-rgb),.1); border-radius:50%; display:grid; place-items:center; background:radial-gradient(circle,rgba(var(--pvt-rgb),.14),transparent 70%); }
 .pvt-success-icon { width:88px; height:88px; display:grid; place-items:center; border-radius:27px; color:var(--pvt-accent); border:1px solid rgba(var(--pvt-rgb),.4); background:linear-gradient(145deg,rgba(var(--pvt-rgb),.2),rgba(var(--pvt-rgb),.025)); box-shadow:0 0 0 12px rgba(var(--pvt-rgb),.025),inset 0 1px 0 #ffffff16; }
+.pvt-completion-median { display:flex; flex-direction:column; align-items:center; gap:.55rem; max-width:20rem; margin:.75rem auto 1.25rem; padding:1rem; border:1px solid rgba(var(--pvt-rgb),.3); border-radius:18px; background:linear-gradient(140deg,rgba(var(--pvt-rgb),.12),rgba(var(--pvt-rgb),.025)); box-shadow:inset 0 1px 0 #ffffff0c; }
+.pvt-completion-median>span { color:#cbd5e1; font-size:.72rem; font-weight:550; }
+.pvt-completion-median strong { display:flex; align-items:baseline; justify-content:center; gap:.45rem; color:var(--pvt-accent); font-family:var(--font-geist-mono),monospace; font-variant-numeric:tabular-nums; font-size:2.8rem; font-weight:600; line-height:1; letter-spacing:0; }
+.pvt-completion-median small { font-family:var(--font-geist-sans),sans-serif; font-size:.95rem; font-weight:500; }
+.pvt-completion-median p { color:#94a3b8; font-size:.62rem; line-height:1.4; }
 .pvt-result-panel h2 { font-size:2rem; letter-spacing:-.05em; font-weight:650; }
 .pvt-result-copy { max-width:22rem; margin:.9rem auto 1.5rem; font-size:.8rem; line-height:1.8; color:#94a3b8; }
 .pvt-saved-receipt { display:flex; gap:.6rem; align-items:center; justify-content:center; border:1px solid rgba(var(--pvt-rgb),.22); border-radius:12px; padding:.9rem .5rem; margin-bottom:1.25rem; background:rgba(var(--pvt-rgb),.05); font-size:.7rem; color:var(--pvt-accent); }

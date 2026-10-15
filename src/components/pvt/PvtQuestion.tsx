@@ -12,7 +12,7 @@ const AWAKE_PRESETS = [30, 60, 90, 120, 180, 240] as const
 const POSITIONS = [{ value: 'seated', label: 'Seated', icon: Armchair }, { value: 'standing', label: 'Standing', icon: PersonStanding }, { value: 'reclined', label: 'Reclined', icon: Sofa }, { value: 'lying', label: 'Lying down', icon: BedDouble }] as const
 
 type Attempt = { id: string; token: string; duration: number; version: string }
-type Pending = { attempt: Attempt; result: PvtResult; practice: boolean }
+type Pending = { attempt: Attempt; result: PvtResult; practice: boolean; summary?: ReturnType<typeof summarizePvt> }
 export default function PvtQuestion({ surveyId, question, playerId, theme = 'dark', value, onChange, demo = false, password: suppliedPassword }: {
   surveyId: string; question: { id: string; options?: string | null }; playerId: string; theme?: SurveyAppearanceTheme; value: string; onChange: (value: string) => void; demo?: boolean; password?: string
 }) {
@@ -36,6 +36,7 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
   const completed = parsePvtAnswer(value)
   const duration = pvtDuration(question.options)
   const stage = attempt ? 'run' : pending || saved ? 'result' : 'setup'
+  const savedSummary = saved ? saved.summary ?? summarizePvt(saved.result, saved.attempt.duration) : null
   useLayoutEffect(() => {
     // The setup can scroll on a phone; every new stage must start at its top.
     dialog.current?.scrollTo({ top: 0 })
@@ -54,12 +55,14 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
   const send = async (record: Pending) => {
     setBusy(true); setError('')
     try {
+      let summary = summarizePvt(record.result, record.attempt.duration)
       if (!demo) {
         const response = await fetch(`/api/kiosk/${encodeURIComponent(surveyId)}/pvt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'finish', id: record.attempt.id, token: record.attempt.token, result: record.result }), signal: AbortSignal.timeout(15000) })
         const data = await response.json()
         if (!response.ok) throw new Error(data.error || 'Unable to save. Retry this result.')
+        summary = data.summary ?? summary
       }
-      setSaved(record); setPending(null)
+      setSaved({ ...record, summary }); setPending(null)
 
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save. Retry this result.') }
     finally { setBusy(false) }
@@ -111,6 +114,11 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
           {pending || saved ? <div className="pvt-result-panel">
             <span className="pvt-kicker">{pending ? 'SAVING YOUR SESSION' : saved?.result.interruption ? 'SESSION PAUSED' : 'SESSION COMPLETE'}</span>
             <div className="pvt-success-halo"><div className="pvt-success-icon">{busy ? <Loader2 size={38} className="animate-spin" /> : saved?.result.interruption ? <RotateCcw size={38} /> : <CheckCircle2 size={38} />}</div></div>
+            {saved && !saved.result.interruption && savedSummary && <div className="pvt-completion-median" data-testid="pvt-completion-median">
+              <span>Median reaction time</span>
+              <strong><span data-testid="pvt-completion-median-value">{savedSummary.medianRT == null ? '—' : Math.round(savedSummary.medianRT)}</span>{savedSummary.medianRT != null && <small>ms</small>}</strong>
+              <p>{savedSummary.medianRT == null ? 'No valid responses recorded' : `${savedSummary.responses} recorded ${savedSummary.responses === 1 ? 'response' : 'responses'}`}</p>
+            </div>}
             <h2>{pending ? 'Saving your test…' : saved?.result.interruption ? 'Attempt stopped' : saved?.practice ? 'Practice complete' : 'You’re all set.'}</h2>
             <p className="pvt-result-copy">{pending ? 'Keep this screen open. Your result will be saved for your coach.' : saved?.result.interruption ? 'Your coach can see this attempt. Return to the question to complete a full test.' : saved?.practice ? 'Practice is saved separately. Complete the assigned test to finish this question.' : 'Your test is complete and your result is saved. Continue with your wellness questionnaire.'}</p>
             {saved && <div className="pvt-saved-receipt"><ShieldCheck size={18} /><span>{saved.attempt.duration} seconds · {demo ? 'Demo session' : 'Saved for your coach'}</span><Check size={16} /></div>}

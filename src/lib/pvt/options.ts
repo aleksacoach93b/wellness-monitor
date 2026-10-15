@@ -1,4 +1,4 @@
-import { PVT_VERSION } from './protocol'
+import { PVT_VERSION, PVT_START_VERSIONS } from './protocol'
 export function pvtDuration(raw?: string | null): 30 | 60 {
   try { return JSON.parse(raw || '{}').durationSeconds === 60 ? 60 : 30 } catch { return 30 }
 }
@@ -13,5 +13,5 @@ export function pvtAnswerText(value: string) {
 }
 export function validPvtOptions(raw: unknown): boolean {
   if (typeof raw !== 'string') return false
-  try { const x = JSON.parse(raw); return (x.durationSeconds === 30 || x.durationSeconds === 60) && x.protocolVersion === PVT_VERSION } catch { return false }
+  try { const x = JSON.parse(raw); return (x.durationSeconds === 30 || x.durationSeconds === 60) && PVT_START_VERSIONS.some(version => version === x.protocolVersion) } catch { return false }
 }

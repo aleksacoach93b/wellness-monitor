@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { PVT_VERSION, summarizePvt, validatePvtRecord } from '@/lib/pvt/protocol'
+import { PVT_VERSION, PVT_START_VERSIONS, summarizePvt, validatePvtRecord } from '@/lib/pvt/protocol'
 import { pvtDuration } from '@/lib/pvt/options'
 import { hasPlayerGrant, playerGrant, PVT_PLAYER_COOKIE } from '@/lib/pvt/playerAuth'
 import { contextSchema, equalSecret, hashToken, localDay, pvtEnabled, resultSchema, sameOrigin, surveyOpen } from '@/lib/pvt/server'
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 type RouteContext = { params: Promise<{ surveyId: string }> }
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
-const startSchema = z.object({ action: z.literal('start'), protocolVersion: z.literal(PVT_VERSION), playerId: z.string().min(1).max(100), password: z.string().max(100).optional(), questionId: z.string().min(1), practice: z.boolean(), context: contextSchema })
+const startSchema = z.object({ action: z.literal('start'), protocolVersion: z.enum(PVT_START_VERSIONS), playerId: z.string().min(1).max(100), password: z.string().max(100).optional(), questionId: z.string().min(1), practice: z.boolean(), context: contextSchema })
 const authorizeSchema = z.object({ action: z.literal('authorize'), playerId: z.string().min(1).max(100), password: z.string().max(100) })
 const finishSchema = z.object({ action: z.literal('finish'), id: z.string().min(1).max(100), token: z.string().length(64), result: resultSchema })
 
@@ -82,11 +82,11 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       const token = randomBytes(32).toString('hex')
       const session = await tx.pvtSession.create({ data: {
         questionId: question.id, questionLabel: question.text, teamId: survey.teamId, surveyId, playerId: player.id, tokenHash: hashToken(token),
-        durationSeconds: body.practice ? 30 : duration, protocolVersion: PVT_VERSION, practice: body.practice,
+        durationSeconds: body.practice ? 30 : duration, protocolVersion: body.protocolVersion, practice: body.practice,
         localDate, deviceId: body.context.deviceId,
         userAgent: (request.headers.get('user-agent') || '').slice(0, 500), context: body.context,
       } })
-      return json({ id: session.id, token, duration: session.durationSeconds, version: PVT_VERSION })
+      return json({ id: session.id, token, duration: session.durationSeconds, version: session.protocolVersion })
     }, { timeout: 10_000 })
   } catch (error) {
     if (error instanceof z.ZodError || error instanceof SyntaxError) return json({ error: 'Invalid request.' }, 400)

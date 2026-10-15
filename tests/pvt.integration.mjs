@@ -53,6 +53,7 @@ try {
   check(authResponse.ok && playerCookie?.startsWith('wm_pvt_player='),'kiosk login issues server-verified player grant')
   const session=await request(p,{...start,password:undefined,context:{...start.context,posture:'standing',minutesAwake:75}},false,{Cookie:playerCookie})
   check(session.status===200 && session.data.duration===30 && session.data.token.length===64,'grant starts assigned test without second password')
+  check(session.data.version===PVT_VERSION && (await db.pvtSession.findUnique({where:{id:session.data.id}})).protocolVersion===PVT_VERSION,'new donut attempts retain their actual visual version')
   const e=new PvtEngine(30000,()=>.5)
   for(let n=0;n<=30000;n+=10){e.tick(n);if(e.onset!==null&&n-e.onset>=250)e.press(n)}
   const finish={action:'finish',id:session.data.id,token:session.data.token,result:e.result()}
@@ -144,6 +145,17 @@ try {
   check((raceUpdate.status===200&&raceStart.data.duration===60)||(raceUpdate.status===409&&raceStart.data.duration===30),'concurrent editor/start cannot split assigned duration')
   await db.survey.create({data:{id:'sixty-survey',teamId:'test-team',title:'60-second Wellness',createdBy:'test-admin',questions:{create:{id:'sixty-focus',text:'Focus test',type:'PVT',options:JSON.stringify({durationSeconds:60,protocolVersion:PVT_VERSION})}}}})
   check((await request('/api/kiosk/sixty-survey/pvt',{...start,questionId:'sixty-focus'})).data.duration===60,'native question assigns 60 seconds')
+  await db.pvtAuthWindow.deleteMany({})
+  const oldPage=await request(p,{...start,protocolVersion:'handheld-pvt-v3'})
+  check(oldPage.status===200 && oldPage.data.version==='handheld-pvt-v3','cached square page can still start its correctly labelled protocol during deployment')
+  await db.pvtSession.update({where:{id:oldPage.data.id},data:{startedAt:new Date(Date.now()-31000)}})
+  const oldFinished=await request(p,{...finish,id:oldPage.data.id,token:oldPage.data.token})
+  check(oldFinished.status===200 && oldFinished.data.summary.medianRT===250,'in-flight square session can finish after the donut release')
+  const oldReceipt={...wellness,answers:[{questionId:'focus-question',value:JSON.stringify({kind:'PVT',attemptId:oldPage.data.id,token:oldPage.data.token,durationSeconds:30})}]}
+  const oldResponse=await request('/api/responses',oldReceipt)
+  check(oldResponse.status===200 && JSON.parse(oldResponse.data.answers[0].value).protocolVersion==='handheld-pvt-v3','old receipt retains version when submitted with wellness')
+  const mixedCsv=parseCsv(await fetch(base+'/api/surveys/test-survey/export/csv').then(r=>r.text()))
+  check(mixedCsv.rows.some(r=>r['Focus test - Protocol']==='handheld-pvt-v3'),'CSV keeps historical visual versions without relabelling')
   fs.writeFileSync('/tmp/pvt-test-admin-cookie',cookie,{mode:0o600})
   console.log(`PASS: ${checks} native integration assertions against isolated loopback fixture`)
 } finally {await db.$disconnect();fs.rmSync(dir,{recursive:true,force:true})}

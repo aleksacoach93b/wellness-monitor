@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { Focus, Hand, X } from 'lucide-react'
 import { getSurveyUiTokens, getSurveyShellClasses, type SurveyAppearanceTheme } from '@/lib/surveyFormAppearance'
 import './pvt-run.css'
+import './pvt-focus.css'
 import { PvtEngine } from '@/lib/pvt/engine'
 import type { PvtResult } from '@/lib/pvt/protocol'
 
@@ -73,12 +74,12 @@ export default function PvtRun({ duration, theme = 'dark', onFinish }: { duratio
     engine.current?.press(performance.now() - start.current)
     if ((engine.current?.trials.length ?? 0) >= 1900) stop.current('too-many-inputs')
   }
-  return <section className={`pvt-run ${shell.root}`} aria-label="Focus check in progress">
+  return <section data-pvt-theme={theme} className={`pvt-ui pvt-run ${shell.root}`} aria-label="Focus check in progress">
     <div className="pvt-run-inner">
-      <header className="pvt-run-header"><div className="flex items-center gap-3 text-lg font-semibold"><Focus size={23} className={ui.selectedValueText} />Focus test</div><div className="pvt-run-clock"><span>TIME LEFT</span><strong ref={timer}>{duration === 60 ? '01:00' : '00:30'}</strong></div></header>
+      <header className="pvt-run-header"><div className="pvt-wordmark"><span className="pvt-brand-mark"><Focus size={23} /></span><div><span>Focus test</span><small>STAY IN THE MOMENT</small></div></div><div className="pvt-run-clock"><span>TIME LEFT</span><strong ref={timer}>{duration === 60 ? '01:00' : '00:30'}</strong></div></header>
       <div className="pvt-time-track"><div ref={progress} /></div>
       <div className="pvt-stimulus-stage">
-        <p ref={state} className="pvt-run-state">WAIT FOR THE SIGNAL</p>
+        <div className="pvt-signal-status"><span /><p ref={state} className="pvt-run-state">WAIT FOR THE SIGNAL</p></div>
         <div className="pvt-orbit"><div ref={signal} data-testid="pvt-signal" data-active="false" className="pvt-orb" aria-label="Visual stimulus"><div ref={counter} className="pvt-counter">WAIT</div></div></div>
         <p className="pvt-run-hint">Watch the counter.<br /><span>Tap the pad as soon as the counter starts.</span></p>
       </div>
@@ -86,7 +87,7 @@ export default function PvtRun({ duration, theme = 'dark', onFinish }: { duratio
         <button type="button" data-testid="pvt-response" className={`pvt-tap-pad ${ui.primaryCtaButton} ${ui.focusVisibleRing}`}
           onContextMenu={e => e.preventDefault()} onPointerDown={e => { e.preventDefault(); if (e.isPrimary && e.button === 0) press() }}
           onKeyDown={e => { if (!e.repeat && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); press() } }}>
-          <Hand size={25} strokeWidth={1.5} /><span>TAP</span><span className="pvt-pad-dot" />
+          <span className="pvt-tap-icon"><Hand size={25} strokeWidth={1.5} /></span><span>TAP</span><span className="pvt-pad-dot" />
         </button>
         <p>One tap per signal. Keep your thumb close.</p>
         <button type="button" className="pvt-stop" onClick={() => stop.current('cancelled')}><X size={14} />End attempt</button>

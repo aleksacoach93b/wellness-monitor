@@ -14,7 +14,7 @@ fs.symlinkSync(path.join(__dirname, '../node_modules'), path.join(dir, 'node_mod
 const { PvtEngine } = require(path.join(dir, 'engine.js'))
 const { randomWaitMs, summarizePvt, validatePvtRecord } = require(path.join(dir, 'protocol.js'))
 const { baselineFor } = require(path.join(dir, 'baseline.js'))
-const { surveyOpen, localDay, sameOrigin } = require(path.join(dir, 'server.js'))
+const { surveyOpen, localDay, sameOrigin, contextSchema } = require(path.join(dir, 'server.js'))
 after(() => fs.rmSync(dir, { recursive: true, force: true }))
 function run(duration, latency = 250) {
   const engine = new PvtEngine(duration * 1000, () => .5)
@@ -118,4 +118,12 @@ test('legacy attempts may finish, while current protocol accepts only 30/60 seco
   assert.equal(validatePvtRecord(result, 90), false)
   assert.equal(validatePvtRecord(result, 90, 'handheld-pvt-v1'), true)
   assert.equal(validatePvtRecord(run(30), 30), true)
+})
+
+test('context accepts standing and arbitrary valid awake minutes without changing test duration', () => {
+  const context = {posture: 'standing', caffeine: false, minutesAwake: 75, deviceId: '12345678-1234-4234-8234-123456789012'}
+  assert.equal(contextSchema.safeParse(context).success, true)
+  for (const minutesAwake of [0, 30, 60, 90, 120, 180, 240, 1440]) assert.equal(contextSchema.safeParse({...context, minutesAwake}).success, true)
+  for (const minutesAwake of [-1, 1441, 3.5]) assert.equal(contextSchema.safeParse({...context, minutesAwake}).success, false)
+  assert.equal(contextSchema.safeParse({...context, posture: 'unsupported'}).success, false)
 })

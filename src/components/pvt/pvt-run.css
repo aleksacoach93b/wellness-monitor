@@ -21,3 +21,24 @@
 .pvt-tap-area>p { color:#94a3b8; font-size:.7rem; margin-top:.8rem; }
 .pvt-stop { display:inline-flex; align-items:center; gap:.4rem; padding:1rem; font-size:.7rem; color:#cbd5e1; }
 @media(max-height:680px) { .pvt-orbit { width:180px; height:180px; } .pvt-stimulus-stage { gap:.8rem; padding:1rem 0; } .pvt-tap-pad { height:76px; } }
+/* Static instrument chrome. The measured counter, its contrast and its size above stay unchanged. */
+.pvt-run { position:relative; isolation:isolate; }
+.pvt-run::before { content:""; pointer-events:none; position:absolute; inset:0; z-index:-1; background:radial-gradient(ellipse at 50% 0%,rgba(var(--pvt-rgb),.1),transparent 60%); }
+.pvt-run-clock { padding:.6rem .85rem; border:1px solid rgba(var(--pvt-rgb),.16); border-radius:14px; background:rgba(var(--pvt-rgb),.045); }
+.pvt-run-clock>span { font-size:.53rem; letter-spacing:.14em; color:#94a3b8; }
+.pvt-run-clock strong { font-size:1.4rem; letter-spacing:-.045em; }
+.pvt-time-track { height:4px; background:rgba(var(--pvt-rgb),.1); }
+.pvt-time-track>div { background:linear-gradient(90deg,rgba(var(--pvt-rgb),.4),var(--pvt-accent)); }
+.pvt-signal-status { display:flex; align-items:center; justify-content:center; gap:.6rem; padding:.55rem .8rem; border:1px solid rgba(var(--pvt-rgb),.12); border-radius:99px; background:rgba(var(--pvt-rgb),.035); }
+.pvt-signal-status>span { width:5px; height:5px; background:var(--pvt-accent); border-radius:50%; }
+.pvt-run-state { font-size:.6rem; letter-spacing:.14em; }
+.pvt-orbit { position:relative; margin:1rem 0; }
+.pvt-orbit::before { content:""; pointer-events:none; position:absolute; inset:-13px; border:1px solid rgba(var(--pvt-rgb),.15); border-radius:45px; box-shadow:0 0 0 7px rgba(var(--pvt-rgb),.018); }
+.pvt-run-hint { font-weight:550; letter-spacing:-.01em; }
+.pvt-run-hint>span { font-weight:400; }
+.pvt-tap-pad { position:relative; background:linear-gradient(115deg,rgba(var(--pvt-rgb),.16),transparent 75%),var(--pvt-strong); box-shadow:inset 0 1px 0 #ffffff20,0 8px 28px #00000020; border:1px solid rgba(var(--pvt-rgb),.45); }
+.pvt-tap-icon { width:46px; height:46px; display:grid; place-items:center; border-radius:14px; background:#ffffff0c; border:1px solid #ffffff12; }
+.pvt-pad-dot { display:block; width:5px; height:5px; border-radius:50%; background:#ffffff60; position:absolute; right:24px; }
+.pvt-stop { color:#94a3b8; }
+@media(max-width:380px) { .pvt-run .pvt-wordmark small { display:none; } .pvt-run-clock>span { display:none; } }
+@media(max-height:680px) { .pvt-run .pvt-brand-mark { height:36px; width:36px; border-radius:11px; } .pvt-run .pvt-wordmark small { display:none; } .pvt-run-clock { padding:.4rem .6rem; } .pvt-stimulus-stage { gap:.65rem; padding:.85rem 0; } .pvt-orbit { margin:.75rem 0; } }

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Survey, Question, Player } from '@prisma/client'
 import { CheckCircle, WifiOff } from 'lucide-react'
+import PvtQuestion from '@/components/pvt/PvtQuestion'
 import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
@@ -21,6 +22,8 @@ import {
   surveyQuestionFingerprint,
 } from '@/lib/surveyFormAppearance'
 import {
+  countCompleteBodyMapAreas,
+  filterCompleteBodyMapAreas,
   parseBodyMapAnswerValue,
   type BodyMapAreaStored,
   type BodyMapLocationId,
@@ -96,15 +99,6 @@ export default function SurveyForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [savedOffline, setSavedOffline] = useState(false)
-  const [pvtAvailable, setPvtAvailable] = useState(false)
-  useEffect(() => {
-    let cancelled = false
-    fetch(`/api/kiosk/${encodeURIComponent(survey.id)}/pvt`, { cache: 'no-store', signal: AbortSignal.timeout(3000) })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (!cancelled) setPvtAvailable(data?.enabled === true) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [survey.id])
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [playerData, setPlayerData] = useState<{firstName: string, lastName: string, email?: string | null, image?: string | null} | null>(null)
@@ -383,13 +377,14 @@ export default function SurveyForm({
     const answers = survey.questions.map((question) => {
       const value = formData[question.id]
       if (isBodyMapQuestion(question)) {
-        const questionBodyMapData = bodyMapData[question.id] || {}
-        if (Object.keys(questionBodyMapData).length > 0) {
+        const complete = filterCompleteBodyMapAreas(bodyMapData[question.id])
+        if (Object.keys(complete).length > 0) {
           return {
             questionId: question.id,
-            value: JSON.stringify(questionBodyMapData),
+            value: JSON.stringify(complete),
           }
         }
+        return { questionId: question.id, value: 'No' }
       }
       const v = Array.isArray(value) ? JSON.stringify(value) : String(value ?? '')
       return { questionId: question.id, value: v }
@@ -416,9 +411,7 @@ export default function SurveyForm({
       if (playerId && typeof window !== 'undefined') {
         const flag = offline ? 'queued=1' : 'submitted=1'
         window.setTimeout(() => {
-          window.location.href = !offline && pvtAvailable
-            ? `/pvt/${encodeURIComponent(survey.id)}?playerId=${encodeURIComponent(playerId)}&lang=en`
-            : `/kiosk/${survey.id}?${flag}`
+          window.location.href = `/kiosk/${survey.id}?${flag}`
         }, offline ? 1600 : 1200)
       }
     }
@@ -859,6 +852,8 @@ export default function SurveyForm({
               </div>
             )}
 
+        {question.type === 'PVT' && <PvtQuestion surveyId={survey.id} question={question} playerId={playerId || player?.id || ''} theme={appearance} value={String(formData[question.id] || '')} onChange={value => handleInputChange(question.id, value)} />}
+
         {(question.type === 'BOOLEAN' || question.type === 'BODY_MAP') && (
           <div className={`${question.type === 'BODY_MAP' ? 'mt-4 sm:mt-6' : 'mt-3 sm:mt-4'}`}>
             <div className="flex justify-center gap-2 sm:gap-3">
@@ -934,6 +929,11 @@ export default function SurveyForm({
                         </div>
                         
                       </button>
+                      {countCompleteBodyMapAreas(bodyMapData[question.id]) === 0 ? (
+                        <p className="mt-3 text-center text-xs sm:text-sm text-amber-200/90">
+                          {t(locale, 'bodyMapNeedComplete')}
+                        </p>
+                      ) : null}
                     </div>
                   )}
               </div>
@@ -1433,6 +1433,15 @@ export default function SurveyForm({
               }
             }}
             onClose={() => {
+              const qid = currentBodyMapQuestionId
+              if (qid && countCompleteBodyMapAreas(bodyMapData[qid]) === 0) {
+                setFormData((prev) => ({ ...prev, [qid]: 'No' }))
+                setBodyMapData((prev) => {
+                  const next = { ...prev }
+                  delete next[qid]
+                  return next
+                })
+              }
               setShowBodyMap(false)
               setCurrentBodyMapQuestionId(null)
               // Exit fullscreen when closing body map

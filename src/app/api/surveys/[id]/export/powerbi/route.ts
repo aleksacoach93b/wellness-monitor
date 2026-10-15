@@ -1,3 +1,4 @@
+import { pvtExportValues } from '@/lib/pvt/export'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
@@ -205,6 +206,9 @@ export async function GET(
         response.answers.map(answer => {
           const question = survey.questions.find(q => q.id === answer.questionId)
           
+          if (question?.type === 'PVT') return Object.entries(pvtExportValues(answer.value)).map(([field, value]) => ({
+            responseId: response.id, playerName: response.playerName, playerEmail: response.playerEmail, submittedAt: response.submittedAt.toISOString(), questionText: `${question.text} - ${field}`, questionType: 'PVT', answerValue: value, surveyTitle: survey.title, sessionType: response.sessionType ?? null, matchDay: response.matchDay ?? null,
+          }))
           // For Body Map questions, create separate rows for each body part
           if (question?.type === 'BODY_MAP' && answer.value && answer.value !== 'No') {
             try {

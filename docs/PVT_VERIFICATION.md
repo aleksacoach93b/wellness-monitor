@@ -1,29 +1,24 @@
-# Local verification — 15 October 2026
+# Focus integration verification — 15 October 2026
 
-Implementation branch: codex/handheld-pvt, based on GitHub main 11a0c7b. The original checkout's uncommitted work was left unchanged. No remote push, Vercel deployment, production database access or production migration was performed.
+Branch: `codex/handheld-pvt`, based on `11a0c7b`. The original checkout remains untouched. Its 12 existing tracked local changes were preserved in the integration worktree before updating the survey form, Coach Mode and Live Ops.
 
 Passed:
-- 16 deterministic automated tests (all three durations, random wait bounds, false starts, unseen-stimulus prevention, timeouts, interruptions, incomplete final stimulus, server record validation, personal references, timezone/schedule, reverse-proxy origin handling, additive migration and non-mutating Vercel build).
-- 29 API integration assertions against a fresh isolated in-memory PostgreSQL-compatible fixture. Includes authentication, team scoping, all supported coach durations, rejected unsupported duration, same-day protocol lock, simultaneous start/config update consistency, origin checks, result token, server-side score calculation, idempotency, practice/interruption retention, persistent rate limiting, and existing wellness submission preserving test history.
-- TypeScript no-emit check and targeted ESLint checks for the new module and integration fixture.
-- Optimized Next.js production build.
-- Chromium mobile viewport: complete real-time 60-second run saved 21 responses and received quality OK; its median RT was 285 ms. These are browser automation results, not athlete data or physical timing validation.
-- Browser demo controls for 60/90/180 seconds and cancellation; authenticated coach table and downloaded CSV; no browser exceptions.
-- Existing mobile wellness form submission redirected the identified synthetic player to the optional PVT screen.
-- A separate server with PVT_ENABLED=false and an intentionally unavailable database returned enabled:false from the optional PVT endpoint without requiring any new tables.
-- Visual inspection of the mobile preparation/run screens and desktop coach dashboard.
+- 16 deterministic tests for both supported durations, unpredictable waits, response timing, anticipations, timeouts, interruption/censoring, record validation, personal reference, timezone/origin handling and additive build safety.
+- 38 native API integration assertions using a separate loopback PGlite fixture with synthetic teams and players. Covers native question configuration, server player grant, wrong codes/team/question, protocol version, origin, result-token validation, server recomputation, idempotency, required-question enforcement, forged receipts, numeric CSV/Power BI output, retention/relinking on daily wellness replacement, practice/interruption exclusion, authenticated team-scoped raw trials, persistent rate limiting, legacy wellness submission, simultaneous editor/start consistency and assigned 60-second duration.
+- Actual additive migration applied in memory to the pinned pre-feature schema: old answer data retained; new PVT question insertion succeeds.
+- TypeScript no-emit check and targeted ESLint for the Focus module and fixture scripts.
+- Optimized local Next build and Vercel production-target build with domain promotion deferred for verification.
+- Chromium mobile 390×844: full real-time 30-second native test, saved completion, explicit Done, return to the same questionnaire with Completed, successful whole-survey submission and interrupted-attempt behavior. No browser exceptions.
+- Mobile screenshots of all five survey appearance themes, preparation, running, completion and the completed native question. No horizontal overflow in preview themes.
 
-Limits before production:
-- Test database is PGlite via a loopback socket, not the hosted production PostgreSQL service.
-- Actual iPhone/Android timing, OS interruption behaviour, handheld posture repeatability, supported browser/device list, and comparison to a reference PVT instrument remain unvalidated.
-- Vercel production/preview branch and database environment scoping remain unconfirmed. Production migration and activation are intentionally not performed.
-- Player identity uses the existing access-code system. The legacy kiosk exposes code material in its public payload; the new server check is not identity-proof and does not repair that existing design.
+Production safeguards:
+- A private, permission-restricted consistent JSON snapshot of all 15 public data tables was saved before migration (41,538 rows, about 6.45 MB).
+- The production-target deployment was initially built with `--skip-domain`; the canonical domain remained on `dpl_6ZefzH6ffJGxTWyGmKUXudJGCY7A` during staging.
+- Existing survey requirements are not automatically changed. Coaches add Focus through the editor.
+- Builds never run schema push or destructive migration commands. Roll back application code by promoting the previous deployment while retaining additive data tables.
 
-## v2 design and duration update
-
-- Only 30 and 60 seconds are offered for new sessions, in both the demo and coach settings. Practice is 30 seconds. Old duration configs fail closed until a coach explicitly changes them; historical attempts are retained.
-- The task remains simple visual PVT: a randomly starting fixed counter and one response pad. No colour discrimination, distractor stimuli, choice reaction task or extra cognitive test was added.
-- New preparation, running and completion screens use scoped CSS. The run screen has no stimulus animation or fade. v2 is separated from v1 personal references because visual geometry/styling changed. Old in-flight attempts can still finish; outdated clients cannot start a v2-labelled attempt.
-- Passed: 16 unit tests, 30 API integration assertions, TypeScript, targeted ESLint and optimized production build.
-- Passed: full 30-second demo on a 390×844 mobile viewport (12 responses), 60-second selection/cancellation, 320×568 thumb-pad fit, English-only UI and LAN HTTP access. No browser exceptions. Desktop/mobile screenshots were inspected.
-- All verification remains local with synthetic data. No GitHub push or Vercel deployment performed.
+Limits:
+- Automated browser and PGlite tests establish software behavior, not physical reaction-time accuracy.
+- Actual iPhone/Safari touch/panel latency, OS interruption edge cases, repeatability and agreement with a reference instrument require device validation.
+- Player identification continues to use the app's legacy access-code system; the existing public kiosk payload exposes code material. Server receipt verification does not make that legacy identity system identity-proof.
+- Thirty- and sixty-second monitoring, exploratory slow-response metrics and personal-reference deltas are not validated fatigue percentages, diagnosis or training-clearance rules.

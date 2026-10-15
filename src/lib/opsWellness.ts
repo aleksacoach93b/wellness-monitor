@@ -23,6 +23,19 @@ export type WellnessMetricKey =
   | 'stress'
   | 'readiness'
 
+export type ZoneTrailDay = {
+  date: string
+  rating: number | null
+}
+
+export type RepeatZone = {
+  areaId: string
+  muscle: string
+  streak: number
+  trail: ZoneTrailDay[]
+  side: 'front' | 'back'
+}
+
 export type BodyMapZoneDetail = {
   areaId: string
   muscle: string
@@ -31,6 +44,8 @@ export type BodyMapZoneDetail = {
   when: string[]
   whenSummary: string | null
   side: 'front' | 'back'
+  streak?: number
+  trail?: ZoneTrailDay[]
 }
 
 export type BodyMapSummary = {
@@ -87,6 +102,7 @@ export type PlayerWellness = {
     sourceText: string
   }
   flipMode: 'none' | 'pain' | 'soreness' | 'both'
+  repeatZones: RepeatZone[]
 }
 
 export type TeamWellnessSummary = {
@@ -487,7 +503,18 @@ export function layerBodyMapSummary(
       areas[canonical] = stored
     }
   }
-  return summarizeBodyMap(areas, kind)
+  const layered = summarizeBodyMap(areas, kind)
+  const byId = new Map(
+    summary.details.map((d) => [getJointsAreaZone(d.areaId)?.id ?? d.areaId, d]),
+  )
+  return {
+    ...layered,
+    details: layered.details.map((d) => {
+      const src = byId.get(getJointsAreaZone(d.areaId)?.id ?? d.areaId)
+      if (!src) return d
+      return { ...d, streak: src.streak, trail: src.trail }
+    }),
+  }
 }
 
 function mean(values: number[]) {
@@ -540,6 +567,90 @@ function metricRow(
   }
 }
 
+const REPEAT_TRAIL_DAYS = 7
+
+function canonicalOpsAreaId(areaId: string) {
+  return getJointsAreaZone(areaId)?.id ?? areaId
+}
+
+function shiftDayKey(key: string, delta: number) {
+  const [y, m, d] = key.split('-').map(Number)
+  const dt = new Date(y, (m ?? 1) - 1, d ?? 1)
+  dt.setDate(dt.getDate() + delta)
+  const yy = dt.getFullYear()
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
+function ratingsByArea(metrics: DayMetrics | undefined | null) {
+  const out = new Map<string, number>()
+  if (!metrics) return out
+  for (const [areaId, stored] of [
+    ...Object.entries(metrics.painAreas),
+    ...Object.entries(metrics.sorenessAreas),
+  ]) {
+    const rating = getBodyMapRating(stored)
+    if (rating <= 0) continue
+    const id = canonicalOpsAreaId(areaId)
+    out.set(id, Math.max(out.get(id) ?? 0, rating))
+  }
+  return out
+}
+
+function buildRepeatZones(
+  today: DayMetrics,
+  dayByDate: Map<string, DayMetrics>,
+  selectedDate: string,
+): RepeatZone[] {
+  const todayRatings = ratingsByArea(today)
+  if (todayRatings.size === 0) return []
+
+  const trailDates: string[] = []
+  for (let i = REPEAT_TRAIL_DAYS - 1; i >= 0; i -= 1) {
+    trailDates.push(shiftDayKey(selectedDate, -i))
+  }
+  const dayRatings = trailDates.map((date) => ({
+    date,
+    ratings: ratingsByArea(
+      dayByDate.get(date) ?? (date === selectedDate ? today : undefined),
+    ),
+  }))
+
+  const zones: RepeatZone[] = []
+  for (const [areaId] of todayRatings) {
+    const trail: ZoneTrailDay[] = dayRatings.map(({ date, ratings }) => ({
+      date,
+      rating: ratings.get(areaId) ?? null,
+    }))
+    let streak = 0
+    for (let i = trail.length - 1; i >= 0; i -= 1) {
+      if (trail[i].rating == null) break
+      streak += 1
+    }
+    zones.push({
+      areaId,
+      muscle: getMuscleName(areaId),
+      streak: Math.max(streak, 1),
+      trail,
+      side: isFrontArea(areaId) ? 'front' : 'back',
+    })
+  }
+  return zones.sort((a, b) => b.streak - a.streak || a.muscle.localeCompare(b.muscle))
+}
+
+function attachRepeatToSummary(summary: BodyMapSummary, repeats: RepeatZone[]): BodyMapSummary {
+  const byId = new Map(repeats.map((z) => [z.areaId, z]))
+  return {
+    ...summary,
+    details: summary.details.map((d) => {
+      const hit = byId.get(canonicalOpsAreaId(d.areaId))
+      if (!hit) return d
+      return { ...d, streak: hit.streak, trail: hit.trail }
+    }),
+  }
+}
+
 export function buildPlayerWellness(args: {
   today: DayMetrics
   prevFatigue: number | null
@@ -557,8 +668,14 @@ export function buildPlayerWellness(args: {
     mood: number[]
     stress: number[]
   }
+  selectedDate?: string
+  recentDays?: Map<string, DayMetrics>
 }): PlayerWellness {
-  const { today, prevFatigue, avg3, teamToday } = args
+  const { today, prevFatigue, avg3, teamToday, selectedDate, recentDays } = args
+  const allRepeats = selectedDate
+    ? buildRepeatZones(today, recentDays ?? new Map(), selectedDate)
+    : []
+  const repeatZones = allRepeats.filter((z) => z.streak >= 2)
   const readiness = today.readiness
   const readinessPct = readiness == null ? 0 : Math.round(clamp(readiness * 10, 0, 100))
   const readinessCol = readinessColor(readiness)
@@ -577,8 +694,11 @@ export function buildPlayerWellness(args: {
   const stressRiskZ = Math.max(0, -(stressZ ?? 0))
   const riskLoad = fatigueRiskZ + sorenessRiskZ + sleepRiskZ + moodRiskZ + stressRiskZ
 
-  const pain = summarizeBodyMap(today.painAreas, 'pain')
-  const sorenessMap = summarizeBodyMap(today.sorenessAreas, 'soreness')
+  const pain = attachRepeatToSummary(summarizeBodyMap(today.painAreas, 'pain'), allRepeats)
+  const sorenessMap = attachRepeatToSummary(
+    summarizeBodyMap(today.sorenessAreas, 'soreness'),
+    allRepeats,
+  )
 
   let statusText: PlayerWellness['statusText'] = 'NO DATA'
   if (readiness != null && readiness > 0) {
@@ -657,6 +777,7 @@ export function buildPlayerWellness(args: {
       sourceText: sourceCount === 0 ? 'NO ACTIVE SOURCE' : `${sourceCount} ACTIVE`,
     },
     flipMode,
+    repeatZones,
   }
 }
 

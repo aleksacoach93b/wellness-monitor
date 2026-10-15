@@ -10,6 +10,7 @@ import {
   type BodyMapAreaStored,
   type BodyMapLocationId,
   type PainWhenId,
+  countCompleteBodyMapAreas,
   getBodyMapLocationId,
   getBodyMapLocationLabel,
   getBodyMapRating,
@@ -2490,6 +2491,8 @@ export default function BodyMap({
   )
 
   const selectedCount = Object.keys(selectedAreas).length
+  const completeCount = countCompleteBodyMapAreas(selectedAreas)
+  const canFinishMap = completeCount > 0
   const ratingTargetName = ratingTarget ? tx(locale, getMuscleName(ratingTarget)) : ''
   const ratingTargetValue =
     pendingRating ?? (ratingTarget ? getBodyMapRating(selectedAreas[ratingTarget]) : 0)
@@ -2717,7 +2720,8 @@ export default function BodyMap({
             <button
               type="button"
               onClick={onContinue}
-              className={`${t.continueBtn} min-h-11 py-2 px-4 sm:px-5 text-sm font-semibold touch-manipulation`}
+              disabled={!canFinishMap}
+              className={`${t.continueBtn} min-h-11 py-2 px-4 sm:px-5 text-sm font-semibold touch-manipulation disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               {i18n(locale, 'bodyMapDone')}
             </button>
@@ -2773,7 +2777,11 @@ export default function BodyMap({
           </div>
           
           <p className={`text-xs sm:text-sm ${t.hint} text-center`}>
-            {mapMode === 'joints' ? i18n(locale, 'bodyMapHintJoints') : i18n(locale, 'bodyMapHint')}
+            {canFinishMap
+              ? mapMode === 'joints'
+                ? i18n(locale, 'bodyMapHintJoints')
+                : i18n(locale, 'bodyMapHint')
+              : i18n(locale, 'bodyMapNeedComplete')}
           </p>
         </div>
         

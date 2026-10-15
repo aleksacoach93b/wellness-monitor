@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Save, Eye, ChevronUp, ChevronDown, Clock } from 'lucide-react'
 import { QuestionType, Survey, Question } from '@prisma/client'
+import { pvtOptions, pvtDuration } from '@/lib/pvt/options'
 import HomeButton from '@/components/HomeButton'
 import { parseSliderOptions, serializeSliderLabels, type SliderLabelsState } from '@/lib/sliderOptions'
 
@@ -14,6 +15,7 @@ interface QuestionFormState {
   options: string[]
   required: boolean
   order: number
+  pvtDuration?: number
   sliderLabels?: SliderLabelsState
 }
 
@@ -61,6 +63,7 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
               ...q,
               options: parsedOptions,
               sliderLabels,
+              pvtDuration: pvtDuration(q.options),
             }
           }))
         }
@@ -186,7 +189,7 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
           text: q.text,
           type: q.type,
           options:
-            q.type === 'SLIDER'
+            q.type === 'PVT' ? pvtOptions(q.pvtDuration ?? 30) : q.type === 'SLIDER'
               ? serializeSliderLabels(q.sliderLabels)
               : q.options.length > 0
                 ? JSON.stringify(q.options)
@@ -432,6 +435,7 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
                         <option value="MULTIPLE_SELECT">Multiple Choice</option>
                         <option value="BODY_MAP">Body Map</option>
                         <option value="TIME">Time (24h format)</option>
+                          <option value="PVT">Focus test (PVT)</option>
                       </select>
                     </div>
                   </div>
@@ -488,7 +492,14 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
                     </div>
                   )}
 
-                  {question.type === 'SLIDER' && (
+                  {question.type === 'PVT' && <div className="my-4 rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4">
+                        <label className="block text-sm font-medium mb-2">Standard protocol duration</label>
+                        <select className="bg-slate-800 text-white border border-slate-600 rounded-lg p-2" value={question.pvtDuration ?? 30} onChange={e => updateQuestion(question.id, { pvtDuration: Number(e.target.value) })}>
+                          <option value={30}>30 seconds</option><option value={60}>60 seconds</option>
+                        </select>
+                        <p className="text-xs text-slate-400 mt-2">One visual signal, one tap. The same duration applies to every player. Duration is locked once testing starts for the day. Interrupted attempts do not complete this question.</p>
+                      </div>}
+                      {question.type === 'SLIDER' && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Slider Labels (Optional)

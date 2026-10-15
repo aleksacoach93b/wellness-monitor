@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { PVT_DURATIONS, type PvtResult } from './protocol'
 
 // Two gates: server feature flag AND a coach's per-survey opt-in.
-export const pvtEnabled = () => process.env.PVT_ENABLED === 'true'
+export const pvtEnabled = () => process.env.PVT_ENABLED !== 'false'
 export const hashToken = (value: string) => createHash('sha256').update(value).digest('hex')
 export function sameOrigin(request: Request) {
   const origin = request.headers.get('origin')

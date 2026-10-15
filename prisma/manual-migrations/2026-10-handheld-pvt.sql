@@ -1,4 +1,5 @@
 -- Apply explicitly to the reviewed target database; builds never execute this file.
+ALTER TYPE "public"."QuestionType" ADD VALUE IF NOT EXISTS 'PVT';
 BEGIN;
 
 -- CreateTable
@@ -19,6 +20,9 @@ CREATE TABLE "public"."pvt_sessions" (
     "teamId" TEXT NOT NULL,
     "surveyId" TEXT NOT NULL,
     "playerId" TEXT NOT NULL,
+    "questionId" TEXT,
+    "questionLabel" TEXT,
+    "responseId" TEXT,
     "tokenHash" TEXT NOT NULL,
     "durationSeconds" INTEGER NOT NULL,
     "protocolVersion" TEXT NOT NULL,
@@ -76,4 +80,8 @@ ALTER TABLE "public"."pvt_sessions" ADD CONSTRAINT "pvt_sessions_surveyId_fkey" 
 ALTER TABLE "public"."pvt_sessions" ADD CONSTRAINT "pvt_sessions_playerId_fkey" FOREIGN KEY ("playerId") REFERENCES "public"."players"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 
+CREATE INDEX "pvt_sessions_questionId_localDate_idx" ON "public"."pvt_sessions"("questionId", "localDate");
+CREATE INDEX "pvt_sessions_responseId_idx" ON "public"."pvt_sessions"("responseId");
+ALTER TABLE "public"."pvt_sessions" ADD CONSTRAINT "pvt_sessions_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "public"."questions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "public"."pvt_sessions" ADD CONSTRAINT "pvt_sessions_responseId_fkey" FOREIGN KEY ("responseId") REFERENCES "public"."responses"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 COMMIT;

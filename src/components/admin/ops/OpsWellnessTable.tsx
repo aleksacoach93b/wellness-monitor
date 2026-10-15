@@ -131,6 +131,8 @@ function renderCell(id: OpsColumnId, p: OpsPlayerCard) {
           </div>
         </td>
       )
+    case 'focus':
+      return <td key={id}><a href={`/admin/pvt?playerId=${p.id}`} className="text-teal-600 hover:underline">{p.focus ? <><strong>{p.focus.medianRT == null ? '—' : `${Math.round(p.focus.medianRT)} ms`}</strong><div className="text-xs">{p.focus.duration}s · {p.focus.quality}</div><div className="text-xs">{p.focus.deltaPercent == null ? `${p.focus.baselineDays}/7 reference days` : `${p.focus.deltaPercent > 0 ? '+' : ''}${p.focus.deltaPercent.toFixed(1)}% vs reference`}{p.focus.count > 1 ? ` · ${p.focus.count} tests` : ''}</div></> : 'Pending'}</a></td>
     case 'performance':
       return <td key={id}>{statusBadge(w, pending)}</td>
     case 'submitted':

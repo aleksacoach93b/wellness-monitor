@@ -1,5 +1,5 @@
 /** Handheld adaptation. Timing must be bench-validated before clinical/selection use. */
-export const PVT_VERSION = 'handheld-pvt-v2'
+export const PVT_VERSION = 'handheld-pvt-v3'
 export const PVT_DURATIONS = [30, 60] as const
 export type PvtDuration = (typeof PVT_DURATIONS)[number]
 export function isPvtDuration(value: number): value is PvtDuration {

@@ -274,6 +274,7 @@ model Question {
 
   survey  Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
   answers Answer[]
+  pvtSessions PvtSession[]
 
   @@map("questions")
 }
@@ -293,6 +294,8 @@ model Response {
   survey  Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
   player  Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
   answers Answer[]
+
+  pvtSessions PvtSession[]
 
   @@index([surveyId, submittedAt])
   @@index([surveyId, playerId, submittedAt])
@@ -378,6 +381,7 @@ enum QuestionType {
   RPE
   SLIDER
   TIME
+  PVT
 }
 
 
@@ -400,6 +404,9 @@ model PvtSession {
   teamId String
   surveyId String
   playerId String
+  questionId String?
+  questionLabel String?
+  responseId String?
   tokenHash String
   durationSeconds Int
   protocolVersion String
@@ -416,6 +423,10 @@ model PvtSession {
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  question Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  response Response? @relation(fields: [responseId], references: [id], onDelete: SetNull)
+  @@index([questionId, localDate])
+  @@index([responseId])
   @@index([teamId, localDate])
   @@index([playerId, surveyId, startedAt])
   @@map("pvt_sessions")

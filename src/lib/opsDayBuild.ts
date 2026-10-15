@@ -135,6 +135,32 @@ export function mergeBodyMapsIntoDay(args: {
   }
 }
 
+/** Attach the latest body-map payload for each player+day onto that day's metrics. */
+export function mergeBodyMapsIntoDays(args: {
+  latestByPlayerDay: Map<
+    string,
+    Map<string, { submittedAt: Date; metrics: ReturnType<typeof parseDayMetrics> }>
+  >
+  bodyRows: OpsResponseRow[]
+}) {
+  const seen = new Set<string>()
+  const ordered = [...args.bodyRows].sort(
+    (a, b) => b.submittedAt.getTime() - a.submittedAt.getTime(),
+  )
+  for (const r of ordered) {
+    if (!r.playerId || !r.answers.length) continue
+    const key = dayKey(r.submittedAt)
+    const stamp = `${r.playerId}|${key}`
+    if (seen.has(stamp)) continue
+    seen.add(stamp)
+    const hit = args.latestByPlayerDay.get(r.playerId)?.get(key)
+    if (!hit) continue
+    const maps = parseDayMetrics(r.answers)
+    hit.metrics.painAreas = maps.painAreas
+    hit.metrics.sorenessAreas = maps.sorenessAreas
+  }
+}
+
 export function buildOpsDayPayload(args: {
   players: OpsPlayerBase[]
   byPlayerDay: Map<string, Map<string, ReturnType<typeof parseDayMetrics>>>
@@ -197,6 +223,8 @@ export function buildOpsDayPayload(args: {
           mood: teamMood,
           stress: teamStress,
         },
+        selectedDate,
+        recentDays: dayMap,
       })
     }
 

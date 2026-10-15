@@ -1,3 +1,5 @@
+import { pvtDuration, validPvtOptions } from '@/lib/pvt/options'
+import { localDay } from '@/lib/pvt/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
@@ -8,7 +10,7 @@ const createSurveySchema = z.object({
   description: z.string().nullable().optional(),
   questions: z.array(z.object({
     text: z.string().min(1, 'Question text is required'),
-    type: z.enum(['TEXT', 'NUMBER', 'EMAIL', 'SELECT', 'MULTIPLE_SELECT', 'SCALE', 'BOOLEAN', 'BODY_MAP', 'RATING_SCALE', 'RPE', 'SLIDER', 'TIME']),
+    type: z.enum(['TEXT', 'NUMBER', 'EMAIL', 'SELECT', 'MULTIPLE_SELECT', 'SCALE', 'BOOLEAN', 'BODY_MAP', 'RATING_SCALE', 'RPE', 'SLIDER', 'TIME', 'PVT']),
     options: z.union([z.array(z.string()), z.string()]).optional(),
     required: z.boolean().default(true),
     order: z.number().default(0),
@@ -33,6 +35,7 @@ export async function POST(request: NextRequest) {
     console.log('Raw request body:', JSON.stringify(body, null, 2))
     
     const validatedData = createSurveySchema.parse(body)
+    if (validatedData.questions.some(q => q.type === 'PVT' && !validPvtOptions(q.options))) return NextResponse.json({ error: 'Focus test requires a 30 or 60 second standard protocol.' }, { status: 400 })
     console.log('Validated data:', JSON.stringify(validatedData, null, 2))
 
     const survey = await prisma.survey.create({

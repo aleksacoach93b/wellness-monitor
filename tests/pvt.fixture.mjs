@@ -15,6 +15,7 @@ await db.exec(schema)
 await db.exec(`INSERT INTO teams (id,name,"createdAt","updatedAt") VALUES ('test-team','PVT Test Team',now(),now()), ('other-team','Other Test Team',now(),now());
 INSERT INTO players (id,"teamId","firstName","lastName",password,"createdAt","updatedAt") VALUES ('test-player','test-team','Test','Player','TP',now(),now()), ('other-player','other-team','Other','Player','OP',now(),now());
 INSERT INTO surveys (id,"teamId",title,"createdBy","createdAt","updatedAt") VALUES ('test-survey','test-team','Test Wellness','test-admin',now(),now()),('other-survey','other-team','Other Wellness','other-admin',now(),now());
+INSERT INTO questions (id,"surveyId",text,type,options,required,"order","createdAt") VALUES ('focus-question','test-survey','Focus test','PVT','{"durationSeconds":30,"protocolVersion":"handheld-pvt-v3"}',true,0,now()),('sleep-question','test-survey','Sleep quality','SLIDER','[]',false,1,now()),('pain-question','test-survey','Painful areas?','BODY_MAP',NULL,false,2,now());
 INSERT INTO pvt_configs (id,"teamId","surveyId",enabled,"durationSeconds","updatedAt") VALUES ('test-config','test-team','test-survey',true,60,now());`)
 const server = new PGLiteSocketServer({ db, port: 55439, host: '127.0.0.1', maxConnections: 10 })
 await server.start()

@@ -1,3 +1,5 @@
+import { PVT_EXPORT_FIELDS, pvtExportValues } from '@/lib/pvt/export'
+import { pvtAnswerText } from '@/lib/pvt/options'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
@@ -283,6 +285,11 @@ export async function GET(
         const answer = response.answers.find((a) => a.questionId === question.id)
         const raw = (answer?.value ?? '').trim()
 
+        if (question.type === 'PVT') {
+          row[question.text] = pvtAnswerText(raw)
+          for (const [field, value] of Object.entries(pvtExportValues(raw))) row[`${question.text} - ${field}`] = value
+          return
+        }
         if (question.type !== 'BODY_MAP') {
           row[question.text] = answer?.value || ''
           return
@@ -353,6 +360,7 @@ export async function GET(
     ]
     survey.questions.forEach((question) => {
       headers.push(question.text)
+      if (question.type === 'PVT') headers.push(...PVT_EXPORT_FIELDS.map(field => `${question.text} - ${field}`))
       if (question.type === 'BODY_MAP') {
         headers.push(
           ...buildBodyMapColumnsForQuestion(question.text, getMuscleName, exportMode)

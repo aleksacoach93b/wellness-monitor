@@ -96,6 +96,15 @@ export default function SurveyForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [savedOffline, setSavedOffline] = useState(false)
+  const [pvtAvailable, setPvtAvailable] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/kiosk/${encodeURIComponent(survey.id)}/pvt`, { cache: 'no-store', signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled) setPvtAvailable(data?.enabled === true) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [survey.id])
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [playerData, setPlayerData] = useState<{firstName: string, lastName: string, email?: string | null, image?: string | null} | null>(null)
@@ -407,7 +416,9 @@ export default function SurveyForm({
       if (playerId && typeof window !== 'undefined') {
         const flag = offline ? 'queued=1' : 'submitted=1'
         window.setTimeout(() => {
-          window.location.href = `/kiosk/${survey.id}?${flag}`
+          window.location.href = !offline && pvtAvailable
+            ? `/pvt/${encodeURIComponent(survey.id)}?playerId=${encodeURIComponent(playerId)}&lang=${locale}`
+            : `/kiosk/${survey.id}?${flag}`
         }, offline ? 1600 : 1200)
       }
     }

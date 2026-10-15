@@ -32,6 +32,8 @@ model Team {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  pvtConfigs          PvtConfig[]
+  pvtSessions         PvtSession[]
   players             Player[]
   surveys             Survey[]
   tags                Tag[]
@@ -221,6 +223,7 @@ model Player {
 
   team      Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   responses Response[]
+  pvtSessions PvtSession[]
 
   @@unique([teamId, email])
   @@index([teamId])
@@ -250,6 +253,8 @@ model Survey {
   trackMatchDay    Boolean @default(false)
 
   team      Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  pvtConfig PvtConfig?
+  pvtSessions PvtSession[]
   questions Question[]
   responses Response[]
 
@@ -373,4 +378,53 @@ enum QuestionType {
   RPE
   SLIDER
   TIME
+}
+
+
+// Additive PVT module. Never auto-created by request handlers.
+model PvtConfig {
+  id String @id @default(cuid())
+  surveyId String @unique
+  teamId String
+  enabled Boolean @default(false)
+  durationSeconds Int @default(180)
+  updatedAt DateTime @updatedAt
+  survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  @@index([teamId])
+  @@map("pvt_configs")
+}
+
+model PvtSession {
+  id String @id @default(cuid())
+  teamId String
+  surveyId String
+  playerId String
+  tokenHash String
+  durationSeconds Int
+  protocolVersion String
+  practice Boolean @default(false)
+  status String @default("STARTED")
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+  localDate String
+  deviceId String
+  userAgent String
+  context Json
+  raw Json?
+  summary Json?
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  @@index([teamId, localDate])
+  @@index([playerId, surveyId, startedAt])
+  @@map("pvt_sessions")
+}
+
+model PvtAuthWindow {
+  key String @id
+  attempts Int @default(1)
+  expiresAt DateTime
+  @@index([expiresAt])
+  @@map("pvt_auth_windows")
 }

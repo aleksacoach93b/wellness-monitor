@@ -51,6 +51,6 @@ export const resultSchema = z.object({
   })).max(2000),
   elapsedMs: finite,
   maxFrameGapMs: finite,
-  interruption: z.enum(['hidden', 'blur', 'orientation', 'cancelled', 'too-many-inputs']).nullable(),
+  interruption: z.enum(['hidden', 'blur', 'orientation', 'cancelled', 'too-many-inputs', 'early-limit', 'missed-signal']).nullable(),
 }) satisfies z.ZodType<PvtResult>
 export { PVT_DURATIONS }

@@ -46,7 +46,7 @@ try {
   check((await request(p,{...start,password:'WRONG'})).status===401,'wrong access code rejected')
   check((await request(p,{...start,playerId:'other-player',password:'OP'})).status===401,'cross-team player rejected')
   check((await request(p,{...start,questionId:'sleep-question'})).status===404,'cannot run against ordinary question')
-  check((await request(p,{...start,protocolVersion:'handheld-pvt-v2'})).status===400,'old visual protocol rejected for new starts')
+  check((await request(p,{...start,protocolVersion:'handheld-pvt-v2'})).status===409,'old visual protocol rejected for new starts')
   check((await request(p,start,false,{Origin:'https://untrusted.invalid'})).status===403,'cross-origin mutation rejected')
   const authResponse=await fetch(base+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'authorize',playerId:'test-player',password:'TP'})})
   const playerCookie=authResponse.headers.get('set-cookie')?.split(';')[0]
@@ -146,9 +146,11 @@ try {
   await db.survey.create({data:{id:'sixty-survey',teamId:'test-team',title:'60-second Wellness',createdBy:'test-admin',questions:{create:{id:'sixty-focus',text:'Focus test',type:'PVT',options:JSON.stringify({durationSeconds:60,protocolVersion:PVT_VERSION})}}}})
   check((await request('/api/kiosk/sixty-survey/pvt',{...start,questionId:'sixty-focus'})).data.duration===60,'native question assigns 60 seconds')
   await db.pvtAuthWindow.deleteMany({})
-  const oldPage=await request(p,{...start,protocolVersion:'handheld-pvt-v3'})
-  check(oldPage.status===200 && oldPage.data.version==='handheld-pvt-v3','cached square page can still start its correctly labelled protocol during deployment')
-  await db.pvtSession.update({where:{id:oldPage.data.id},data:{startedAt:new Date(Date.now()-31000)}})
+  check((await request(p,{...start,protocolVersion:'handheld-pvt-v3'})).status===409,'cached square clients must reload before starting')
+  check((await request(p,{...start,protocolVersion:'handheld-pvt-v4'})).status===409,'cached donut clients must reload for integrity rules')
+  // Simulate an already-issued pre-deployment session, not a new legacy start.
+  const oldPage={data:(await request(p,start)).data}
+  await db.pvtSession.update({where:{id:oldPage.data.id},data:{protocolVersion:'handheld-pvt-v3',startedAt:new Date(Date.now()-31000)}})
   const oldFinished=await request(p,{...finish,id:oldPage.data.id,token:oldPage.data.token})
   check(oldFinished.status===200 && oldFinished.data.summary.medianRT===250,'in-flight square session can finish after the donut release')
   const oldReceipt={...wellness,answers:[{questionId:'focus-question',value:JSON.stringify({kind:'PVT',attemptId:oldPage.data.id,token:oldPage.data.token,durationSeconds:30})}]}
@@ -156,6 +158,51 @@ try {
   check(oldResponse.status===200 && JSON.parse(oldResponse.data.answers[0].value).protocolVersion==='handheld-pvt-v3','old receipt retains version when submitted with wellness')
   const mixedCsv=parseCsv(await fetch(base+'/api/surveys/test-survey/export/csv').then(r=>r.text()))
   check(mixedCsv.rows.some(r=>r['Focus test - Protocol']==='handheld-pvt-v3'),'CSV keeps historical visual versions without relabelling')
+
+  await db.pvtAuthWindow.deleteMany({})
+  const existingResponse=await db.response.findFirst({where:{surveyId:'test-survey',playerId:'test-player'}})
+  async function saveAttack(result, message) {
+    const attempt=await request(p,start)
+    check(attempt.status===200,message+' starts')
+    await db.pvtSession.update({where:{id:attempt.data.id},data:{startedAt:new Date(Date.now()-31000)}})
+    const body={action:'finish',id:attempt.data.id,token:attempt.data.token,result,summary:{medianRT:150,quality:'OK',repeatRequired:false}}
+    const saved=await request(p,body)
+    check(saved.status===200 && saved.data.status==='INVALID' && saved.data.summary.repeatRequired && saved.data.summary.quality==='INVALID',message+' is saved as invalid by the server')
+    const retry=await request(p,{...body,result:e.result()})
+    check(retry.data.status==='INVALID' && retry.data.summary.repeatRequired,message+' cannot be overwritten by a retry')
+    const receipt=JSON.stringify({kind:'PVT',attemptId:attempt.data.id,token:attempt.data.token,durationSeconds:30,medianRT:150,quality:'OK'})
+    const rejected=await request('/api/responses',{...wellness,answers:[{questionId:'focus-question',value:receipt}]})
+    check(rejected.status===400 && rejected.data.error.includes('Repeat') && rejected.data.focusQuestionId==='focus-question',message+' cannot complete a wellness question')
+    check((await db.response.findUnique({where:{id:existingResponse.id}}))?.id===existingResponse.id,message+' cannot replace existing wellness data')
+    return attempt
+  }
+  const spam=new PvtEngine(30000,()=>0);spam.press(10);spam.press(20);spam.press(30)
+  const spamAttempt=await saveAttack(spam.result(),'Three early taps')
+  const idle=new PvtEngine(30000,()=>0)
+  for(let n=0;n<=30000;n+=10){idle.tick(n);if(idle.trials.filter(t=>t.kind==='response').length<2 && idle.onset!==null&&n-idle.onset>=250)idle.press(n)}
+  await saveAttack(idle.result(),'Two responses followed by idling')
+  const prefix={...e.result(),trials:e.result().trials.slice(0,3)}
+  await saveAttack(prefix,'A short prefix labelled as a full 30-second test')
+  const gapped={...e.result(),trials:e.result().trials.slice(0,5)}
+  await saveAttack(gapped,'Five good responses missing the final test window')
+  // Even a receipt from an old COMPLETED session is rechecked before a new submission.
+  await db.pvtSession.update({where:{id:spamAttempt.data.id},data:{status:'COMPLETED',protocolVersion:'handheld-pvt-v4',summary:{medianRT:150,responses:5,quality:'OK',flags:[]}}})
+  const stale=await request('/api/responses',{...wellness,answers:[{questionId:'focus-question',value:JSON.stringify({kind:'PVT',attemptId:spamAttempt.data.id,token:spamAttempt.data.token})}]})
+  check(stale.status===400 && stale.data.error.includes('Repeat'),'an old successful status cannot bypass raw-record revalidation')
+  await db.pvtSession.update({where:{id:spamAttempt.data.id},data:{status:'INVALID'}})
+  const afterAttacks=parseCsv(await fetch(base+'/api/surveys/test-survey/export/csv').then(r=>r.text()))
+  check(afterAttacks.rows.length===1 && afterAttacks.rows[0].responseId===existingResponse.id && afterAttacks.rows[0]['Focus test - Median RT ms']==='250','invalid attempts never enter the main wellness CSV or overwrite its linked median')
+  await db.pvtAuthWindow.deleteMany({})
+  const sixty=await request('/api/kiosk/sixty-survey/pvt',{...start,questionId:'sixty-focus'})
+  await db.pvtSession.update({where:{id:sixty.data.id},data:{startedAt:new Date(Date.now()-61000)}})
+  const long=new PvtEngine(60000,()=>.5)
+  for(let n=0;n<=60000;n+=10){long.tick(n);if(long.onset!==null&&n-long.onset>=150)long.press(n)}
+  const sixtyFinish=await request('/api/kiosk/sixty-survey/pvt',{action:'finish',id:sixty.data.id,token:sixty.data.token,result:long.result()})
+  check(sixtyFinish.status===200 && sixtyFinish.data.status==='COMPLETED' && !sixtyFinish.data.summary.repeatRequired && sixtyFinish.data.summary.medianRT===150,'a full legitimate 60-second 150ms test is accepted')
+  const shortSixty=await request('/api/kiosk/sixty-survey/pvt',{...start,questionId:'sixty-focus'})
+  await db.pvtSession.update({where:{id:shortSixty.data.id},data:{startedAt:new Date(Date.now()-61000)}})
+  const fewSixty=await request('/api/kiosk/sixty-survey/pvt',{action:'finish',id:shortSixty.data.id,token:shortSixty.data.token,result:{...long.result(),trials:long.result().trials.slice(0,9)}})
+  check(fewSixty.status===200 && fewSixty.data.summary.repeatReasons.includes('few-responses') && fewSixty.data.status==='INVALID','60-second attempts independently require ten responses')
   fs.writeFileSync('/tmp/pvt-test-admin-cookie',cookie,{mode:0o600})
   console.log(`PASS: ${checks} native integration assertions against isolated loopback fixture`)
 } finally {await db.$disconnect();fs.rmSync(dir,{recursive:true,force:true})}

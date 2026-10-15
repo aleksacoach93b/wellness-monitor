@@ -12,7 +12,7 @@ for (const name of ['protocol', 'engine', 'baseline', 'server', 'options', 'expo
 // Only server.ts needs a package import from the repository.
 fs.symlinkSync(path.join(__dirname, '../node_modules'), path.join(dir, 'node_modules'), 'dir')
 const { PvtEngine } = require(path.join(dir, 'engine.js'))
-const { randomWaitMs, summarizePvt, validatePvtRecord } = require(path.join(dir, 'protocol.js'))
+const { PVT_VERSION, randomWaitMs, summarizePvt, validatePvtRecord, pvtRepeatReasons } = require(path.join(dir, 'protocol.js'))
 const { baselineFor } = require(path.join(dir, 'baseline.js'))
 const { surveyOpen, localDay, sameOrigin, contextSchema } = require(path.join(dir, 'server.js'))
 after(() => fs.rmSync(dir, { recursive: true, force: true }))
@@ -39,30 +39,34 @@ test('touch cannot create an unseen stimulus before a frame paints it', () => {
   const e = new PvtEngine(60000, () => 0)
   e.tick(990); e.press(1001)
   assert.equal(e.trials[0].kind, 'false-start'); assert.equal(e.onset, null)
-  e.tick(1010); e.press(1260)
+  assert.equal(e.due, 2001)
+  e.tick(2010); e.press(2260)
   assert.equal(e.trials[1].rtMs, 250)
 })
 test('anticipations and sub-100ms responses are counted as early taps', () => {
   const e = new PvtEngine(60000, () => 0)
-  e.press(400); e.tick(1000); e.press(1050)
+  e.press(400); e.tick(1400); e.press(1450)
   assert.equal(e.trials.filter(x => x.kind === 'false-start').length, 2)
 })
 test('sleeping through a signal produces a timeout, not a fast result', () => {
   const e = new PvtEngine(60000, () => 0)
   for (let n = 0; n <= 31000; n += 10) e.tick(n)
-  assert.equal(e.trials[0].kind, 'timeout'); assert.equal(e.trials[0].rtMs, 30000)
+  assert.equal(e.trials[0].kind, 'timeout'); assert.equal(e.trials[0].rtMs, 3000)
+  assert.equal(e.interruption, 'missed-signal'); assert.equal(e.phase, 'done')
+  assert.equal(summarizePvt(e.result(), 60).repeatRequired, true)
 })
 test('interruptions and frame stalls require review', () => {
   const e = new PvtEngine(60000, () => 0)
   e.tick(10); e.tick(500); e.abort(1000, 'hidden')
   assert.equal(e.phase, 'done'); assert.equal(validatePvtRecord(e.result(), 60), true)
-  assert.deepEqual(summarizePvt(e.result(), 60).flags, ['hidden', 'too-short', 'frame-delay', 'few-responses'])
+  assert.equal(summarizePvt(e.result(), 60).repeatRequired, true)
+  assert.ok(summarizePvt(e.result(), 60).flags.includes('frame-delay'))
 })
-test('an unfinished long final signal is retained and requires review', () => {
-  const e = new PvtEngine(60000, () => 0)
-  for (let n = 0; n <= 60000; n += 10) e.tick(n)
-  assert.equal(e.trials.at(-1).kind, 'censored')
-  assert.ok(summarizePvt(e.result(), 60).flags.includes('unfinished-response'))
+test('a natural final signal shorter than the deadline is censored without forcing a repeat', () => {
+  const result = run(30, 500)
+  assert.equal(result.trials.at(-1).kind, 'censored')
+  assert.ok(summarizePvt(result, 30).flags.includes('unfinished-response'))
+  assert.equal(summarizePvt(result, 30).repeatRequired, false)
 })
 test('server rejects malformed, overlapping or impossible response timing', () => {
   const original = run(60)
@@ -192,4 +196,86 @@ test('old square sessions remain valid and cannot enter the new donut reference'
   assert.equal(validatePvtRecord(run(30), 30, 'unknown'), false)
   const {validPvtOptions}=require(path.join(dir, 'options.js'))
   assert.equal(validPvtOptions(JSON.stringify({durationSeconds:30,protocolVersion:'handheld-pvt-v3'})),true)
+})
+
+
+test('the third early tap ends immediately, and further taps cannot improve the result', () => {
+  const e = new PvtEngine(30000, () => 0)
+  e.press(10); assert.equal(e.due, 1010)
+  e.press(20); assert.equal(e.due, 1020)
+  e.press(30)
+  assert.equal(e.phase, 'done'); assert.equal(e.interruption, 'early-limit')
+  assert.equal(e.trials.length, 3)
+  for (let now = 40; now <= 30000; now += 10) { e.tick(now); e.press(now) }
+  assert.equal(e.trials.length, 3)
+  assert.equal(validatePvtRecord(e.result(), 30), true)
+  assert.ok(pvtRepeatReasons(e.result(), 30).includes('early-limit'))
+})
+
+test('signal anticipations and waiting taps share one three-strike limit', () => {
+  const e = new PvtEngine(30000, () => 0)
+  e.press(100); e.tick(1100); e.press(1150); e.press(1200)
+  assert.equal(e.falseStarts, 3); assert.equal(e.interruption, 'early-limit')
+})
+
+test('a response at the deadline cannot bypass the timeout between frames or at the test horizon', () => {
+  for (const at of [4000, 30000, 32000]) {
+    const e = new PvtEngine(30000, () => 0); e.tick(1000); e.press(at)
+    assert.equal(e.trials[0].kind, 'timeout'); assert.equal(e.interruption, 'missed-signal')
+    assert.equal(validatePvtRecord(e.result(),30),true)
+    assert.equal(summarizePvt(e.result(), 30).repeatRequired, true)
+  }
+})
+
+test('two good responses followed by idling stop without a usable completion', () => {
+  const e = new PvtEngine(30000, () => 0)
+  for (let now=0; now<=30000; now+=10) {
+    e.tick(now)
+    if (e.trials.filter(t=>t.kind==='response').length < 2 && e.onset!==null && now-e.onset>=250) e.press(now)
+  }
+  const summary=summarizePvt(e.result(),30)
+  assert.equal(summary.repeatRequired,true); assert.equal(summary.responses,3)
+  assert.ok(summary.repeatReasons.includes('missed-signal'))
+  assert.ok(summary.repeatReasons.includes('few-responses'))
+})
+
+test('server completion rules reject a forged full-duration prefix and arbitrary gaps', () => {
+  const good=run(30)
+  const short={...good,trials:good.trials.slice(0,3)}
+  assert.equal(validatePvtRecord(short,30),true)
+  assert.ok(pvtRepeatReasons(short,30).includes('few-responses'))
+  assert.ok(pvtRepeatReasons(short,30).includes('incomplete-record'))
+  const gaps={...good,trials:good.trials.slice(0,5)}
+  assert.ok(pvtRepeatReasons(gaps,30).includes('incomplete-record'))
+  const forged=structuredClone(good);forged.trials[3].waitMs=1000
+  assert.equal(validatePvtRecord(forged,30),true)
+  assert.ok(pvtRepeatReasons(forged,30).includes('incomplete-record'))
+})
+
+test('server counts early taps itself, including legacy records with falsely successful summaries', () => {
+  const raw=run(30)
+  raw.trials.unshift(...[10,20,30].map(atMs=>({kind:'false-start',atMs,onsetMs:null,rtMs:null,waitMs:null})))
+  for (const version of [PVT_VERSION,'handheld-pvt-v4','handheld-pvt-v3']) {
+    assert.equal(validatePvtRecord(raw,30,version),true)
+    assert.ok(pvtRepeatReasons(raw,30,version).includes('early-limit'))
+    assert.equal(summarizePvt(raw,30,version).quality,'INVALID')
+  }
+})
+
+test('legitimate 150ms reactions, slower reactions and up to two early taps are accepted with full participation', () => {
+  for (const duration of [30,60]) for (const latency of [150,720]) {
+    const result=run(duration,latency)
+    assert.equal(summarizePvt(result,duration).repeatRequired,false)
+    assert.equal(summarizePvt(result,duration).medianRT,latency)
+  }
+  const e=new PvtEngine(30000,()=>0);e.press(100);e.press(200)
+  for(let now=200;now<=30000;now+=10){e.tick(now);if(e.onset!==null&&now-e.onset>=250)e.press(now)}
+  assert.equal(summarizePvt(e.result(),30).repeatRequired,false)
+})
+
+test('60-second attempts require ten responses and invalid records never build a reference', () => {
+  const result=run(60); result.trials=result.trials.slice(0,9)
+  assert.ok(pvtRepeatReasons(result,60).includes('few-responses'))
+  const current=row('2026-10-15')
+  assert.equal(baselineFor(current,[row('2026-10-01',{summary:{quality:'OK',medianRT:150,repeatRequired:true}})]).days,0)
 })

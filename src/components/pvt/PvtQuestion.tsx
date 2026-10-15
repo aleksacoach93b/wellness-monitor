@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { Armchair, ArrowRight, BedDouble, Check, CheckCircle2, Clock3, Coffee, Focus, Hand, Loader2, PersonStanding, Play, RotateCcw, ShieldCheck, Smartphone, Sofa, X } from 'lucide-react'
 import { getSurveyBodyMapTokens, getSurveyShellClasses, getSurveyUiTokens, type SurveyAppearanceTheme } from '@/lib/surveyFormAppearance'
 import { pvtDuration, parsePvtAnswer } from '@/lib/pvt/options'
-import { PVT_VERSION, summarizePvt, type PvtResult } from '@/lib/pvt/protocol'
+import { PVT_VERSION, minimumResponses, pvtRepeatMessage, summarizePvt, type PvtResult } from '@/lib/pvt/protocol'
 import PvtRun from './PvtRun'
 import './pvt-focus.css'
 
@@ -36,7 +36,10 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
   const completed = parsePvtAnswer(value)
   const duration = pvtDuration(question.options)
   const stage = attempt ? 'run' : pending || saved ? 'result' : 'setup'
-  const savedSummary = saved ? saved.summary ?? summarizePvt(saved.result, saved.attempt.duration) : null
+  const savedSummary = saved ? saved.summary ?? summarizePvt(saved.result, saved.attempt.duration, saved.attempt.version) : null
+  const repeatRequired = !!saved && (!savedSummary || savedSummary.repeatRequired || !!saved.result.interruption)
+  const repeatReasons = savedSummary?.repeatReasons ?? []
+  const repeatReason = repeatReasons.find(reason => ['early-limit', 'missed-signal'].includes(reason)) ?? repeatReasons[0] ?? 'incomplete-window'
   useLayoutEffect(() => {
     // The setup can scroll on a phone; every new stage must start at its top.
     dialog.current?.scrollTo({ top: 0 })
@@ -55,12 +58,12 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
   const send = async (record: Pending) => {
     setBusy(true); setError('')
     try {
-      let summary = summarizePvt(record.result, record.attempt.duration)
+      let summary = summarizePvt(record.result, record.attempt.duration, record.attempt.version)
       if (!demo) {
         const response = await fetch(`/api/kiosk/${encodeURIComponent(surveyId)}/pvt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'finish', id: record.attempt.id, token: record.attempt.token, result: record.result }), signal: AbortSignal.timeout(15000) })
         const data = await response.json()
         if (!response.ok) throw new Error(data.error || 'Unable to save. Retry this result.')
-        summary = data.summary ?? summary
+        summary = { ...summary, ...data.summary, repeatRequired: summary.repeatRequired || data.summary?.repeatRequired || data.status !== 'COMPLETED' }
       }
       setSaved({ ...record, summary }); setPending(null)
 
@@ -92,7 +95,7 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
   const close = () => { setOpen(false); setSaved(null); setError('') }
   const done = () => {
     if (!saved) return
-    if (!saved.practice && !saved.result.interruption) onChange(JSON.stringify({ kind: 'PVT', attemptId: saved.attempt.id, token: saved.attempt.token, durationSeconds: saved.attempt.duration, ...summarizePvt(saved.result, saved.attempt.duration) }))
+    if (!saved.practice && !repeatRequired) onChange(JSON.stringify({ kind: 'PVT', attemptId: saved.attempt.id, token: saved.attempt.token, durationSeconds: saved.attempt.duration, ...summarizePvt(saved.result, saved.attempt.duration, saved.attempt.version) }))
     try { sessionStorage.removeItem(storageKey) } catch { /* optional browser storage */ }
     close()
   }
@@ -112,19 +115,21 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
         <div className="pvt-glass-panel">
           <header className="pvt-dialog-header"><div className="pvt-wordmark"><span className="pvt-brand-mark"><Focus size={23} /></span><div><span>Focus test</span><small>DAILY CHECK-IN</small></div></div><div className="pvt-header-controls">{!pending && !saved && <><span className="pvt-protocol-pill"><Clock3 size={14} />{practice ? 30 : duration}s · {practice ? 'Practice' : 'Standard'}</span><button type="button" aria-label="Close Focus test" className={`pvt-close ${ui.closeButton}`} onClick={close}><X size={18} /></button></>}</div></header>
           {pending || saved ? <div className="pvt-result-panel">
-            <span className="pvt-kicker">{pending ? 'SAVING YOUR SESSION' : saved?.result.interruption ? 'SESSION PAUSED' : 'SESSION COMPLETE'}</span>
-            <div className="pvt-success-halo"><div className="pvt-success-icon">{busy ? <Loader2 size={38} className="animate-spin" /> : saved?.result.interruption ? <RotateCcw size={38} /> : <CheckCircle2 size={38} />}</div></div>
-            {saved && !saved.result.interruption && savedSummary && <div className="pvt-completion-median" data-testid="pvt-completion-median">
+            <span className="pvt-kicker">{pending ? 'SAVING YOUR SESSION' : repeatRequired ? 'REPEAT REQUIRED' : 'SESSION COMPLETE'}</span>
+            <div className="pvt-success-halo"><div className="pvt-success-icon">{busy ? <Loader2 size={38} className="animate-spin" /> : repeatRequired ? <RotateCcw size={38} /> : <CheckCircle2 size={38} />}</div></div>
+            {saved && !repeatRequired && savedSummary && <div className="pvt-completion-median" data-testid="pvt-completion-median">
               <span>Median reaction time</span>
               <strong><span data-testid="pvt-completion-median-value">{savedSummary.medianRT == null ? '—' : Math.round(savedSummary.medianRT)}</span>{savedSummary.medianRT != null && <small>ms</small>}</strong>
               <p>{savedSummary.medianRT == null ? 'No valid responses recorded' : `${savedSummary.responses} recorded ${savedSummary.responses === 1 ? 'response' : 'responses'}`}</p>
             </div>}
-            <h2>{pending ? 'Saving your test…' : saved?.result.interruption ? 'Attempt stopped' : saved?.practice ? 'Practice complete' : 'You’re all set.'}</h2>
-            <p className="pvt-result-copy">{pending ? 'Keep this screen open. Your result will be saved for your coach.' : saved?.result.interruption ? 'Your coach can see this attempt. Return to the question to complete a full test.' : saved?.practice ? 'Practice is saved separately. Complete the assigned test to finish this question.' : 'Your test is complete and your result is saved. Continue with your wellness questionnaire.'}</p>
-            {saved && <div className="pvt-saved-receipt"><ShieldCheck size={18} /><span>{saved.attempt.duration} seconds · {demo ? 'Demo session' : 'Saved for your coach'}</span><Check size={16} /></div>}
+            <h2>{pending ? 'Saving your test…' : repeatRequired ? 'Repeat test' : saved?.practice ? 'Practice complete' : 'You’re all set.'}</h2>
+            <p className="pvt-result-copy">{pending ? 'Keep this screen open. Your result will be saved for your coach.' : repeatRequired ? pvtRepeatMessage(repeatReason) : saved?.practice ? 'Practice is saved separately. Complete the assigned test to finish this question.' : 'Your test is complete and your result is saved. Continue with your wellness questionnaire.'}</p>
+            {saved && <div className="pvt-saved-receipt"><ShieldCheck size={18} /><span>{saved.attempt.duration} seconds · {repeatRequired ? 'Attempt not accepted' : demo ? 'Demo session' : 'Saved for your coach'}</span><Check size={16} /></div>}
             {error && <p role="alert" className="pvt-alert">{error}</p>}
             {pending && !busy && <button type="button" className={`pvt-action ${button}`} onClick={() => void send(pending)}>Retry save<RotateCcw size={18} /></button>}
-            {saved && <button type="button" data-testid="pvt-done" className={`pvt-action ${button}`} onClick={done}>Done<ArrowRight size={20} /></button>}
+            {saved && repeatRequired && <button type="button" data-testid="pvt-repeat" className={`pvt-action ${button}`} onClick={() => { setSaved(null); setError(''); try { sessionStorage.removeItem(storageKey) } catch { /* optional browser storage */ } }}><span>Repeat test</span><RotateCcw size={20} /></button>}
+            {saved && repeatRequired && <button type="button" className="pvt-stop" onClick={done}>Back to questionnaire</button>}
+            {saved && !repeatRequired && <button type="button" data-testid="pvt-done" className={`pvt-action ${button}`} onClick={done}>Done<ArrowRight size={20} /></button>}
           </div> : <div className="pvt-setup-panel">
             <h2>Find your <span>focus.</span></h2>
             <ol className="pvt-instruction-grid">
@@ -132,6 +137,7 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
               <li><span className="pvt-instruction-icon"><Focus size={23} /></span><span>Wait for<br />the counter</span></li>
               <li><span className="pvt-instruction-icon"><Hand size={23} /></span><span>Tap once<br />when it appears</span></li>
             </ol>
+            <p className="pvt-consistency-note" data-testid="pvt-completion-rules"><ShieldCheck size={16} /><span>Complete all {practice ? 30 : duration} seconds with at least {minimumResponses(practice ? 30 : duration)} responses. Three early taps or one unanswered signal (3 seconds) means repeat. Each early tap restarts the wait.</span></p>
             <div className="pvt-session-context">
             <div className="pvt-context-divider"><span>Session context</span><span>Keep it consistent</span></div>
             <fieldset className="pvt-position-field"><legend>Position</legend><div className="pvt-position-options">{POSITIONS.map(({ value: position, label, icon: Icon }) => <button type="button" key={position} aria-label={`Position: ${label}`} aria-pressed={posture === position} className={`pvt-position-choice ${ui.focusVisibleRing}`} onClick={() => setPosture(position)}><Icon size={20} /><span>{label}</span><span className="pvt-selection-check">{posture === position && <Check size={10} strokeWidth={3} />}</span></button>)}</div></fieldset>

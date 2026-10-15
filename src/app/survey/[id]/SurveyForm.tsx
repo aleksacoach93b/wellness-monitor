@@ -451,6 +451,7 @@ export default function SurveyForm({
         let errorMessage = `HTTP ${response.status}`
         try {
           const errorData = await response.json()
+          if (typeof errorData.focusQuestionId === 'string' && survey.questions.some(q => q.id === errorData.focusQuestionId && q.type === 'PVT')) handleInputChange(errorData.focusQuestionId, '')
           if (errorData.error) errorMessage = errorData.error
           else if (errorData.details) errorMessage = `Validation error: ${JSON.stringify(errorData.details)}`
         } catch {

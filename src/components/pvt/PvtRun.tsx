@@ -15,6 +15,7 @@ export default function PvtRun({ duration, theme = 'dark', onFinish }: { duratio
   const counter = useRef<HTMLDivElement>(null)
   const ring = useRef<SVGCircleElement>(null)
   const state = useRef<HTMLParagraphElement>(null)
+  const earlyCount = useRef<HTMLSpanElement>(null)
   const timer = useRef<HTMLSpanElement>(null)
   const progress = useRef<HTMLDivElement>(null)
   const engine = useRef<PvtEngine | null>(null)
@@ -40,6 +41,7 @@ export default function PvtRun({ duration, theme = 'dark', onFinish }: { duratio
       const now = performance.now() - start.current
       test.tick(now)
       if (test.phase === 'done') { end(); return }
+      if (earlyCount.current) earlyCount.current.textContent = `${test.falseStarts}/3 early taps`
       const active = test.phase === 'signal'
       if (signal.current) signal.current.dataset.active = String(active)
       const visual = pvtVisualFrame(active, active ? now - test.onset! : 0, test.feedback, now < test.feedbackUntil)
@@ -101,7 +103,7 @@ export default function PvtRun({ duration, theme = 'dark', onFinish }: { duratio
           onKeyDown={e => { if (!e.repeat && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); press() } }}>
           <span className="pvt-tap-icon"><Hand size={25} strokeWidth={1.5} /></span><span>TAP</span><span className="pvt-pad-dot" />
         </button>
-        <p>One tap per signal. Keep your thumb close.</p>
+        <p><span ref={earlyCount}>0/3 early taps</span> · Respond to every signal.</p>
         <button type="button" className="pvt-stop" onClick={() => stop.current('cancelled')}><X size={14} />End attempt</button>
       </div>
     </div>

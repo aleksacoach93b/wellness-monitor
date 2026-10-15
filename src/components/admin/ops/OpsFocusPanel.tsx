@@ -28,7 +28,7 @@ export default function OpsFocusPanel({ survey, date, players, available }: Prop
         <div className="ops-focus-scroll"><table><thead><tr>{['Player', 'Median RT', 'Quality / status', 'Personal reference', 'Context', 'Wellness CSV'].map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>
           {players.map(p => <tr key={p.id}><td><a href={href(p)}>{p.firstName} {p.lastName}<ArrowUpRight size={13} /></a></td>
             <td>{p.focus?.medianRT == null ? '—' : `${Math.round(p.focus.medianRT)} ms`}<small>{p.focus ? `${p.focus.duration} s · ${p.focus.count} completed today` : ''}</small></td>
-            <td>{p.focus?.quality || (p.focusState === 'INTERRUPTED' ? 'Interrupted' : p.focusState === 'STARTED' ? 'Not completed' : 'Pending')}<small>{p.focus?.flags.join(' · ')}</small></td>
+            <td>{p.focus?.quality || (p.focusState === 'INVALID' ? 'Repeat required' : p.focusState === 'INTERRUPTED' ? 'Interrupted · repeat required' : p.focusState === 'STARTED' ? 'Not completed' : 'Pending')}<small>{p.focus?.flags.join(' · ')}</small></td>
             <td>{p.focus ? p.focus.deltaPercent == null ? `${p.focus.baselineDays}/7 eligible days` : `${p.focus.deltaPercent > 0 ? '+' : ''}${p.focus.deltaPercent.toFixed(1)}% median RT` : '—'}</td>
             <td>{p.focus?.posture || '—'}<small>{p.focus ? `${p.focus.minutesAwake ?? '—'} min awake · Caffeine ${p.focus.caffeine === undefined ? '—' : p.focus.caffeine ? 'yes' : 'no'}` : ''}</small></td>
             <td>{p.focus ? p.focus.linked ? 'Included' : 'Awaiting wellness submission' : 'No submitted result'}</td></tr>)}

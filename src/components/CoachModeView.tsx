@@ -337,6 +337,7 @@ export default function CoachModeView({
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
+        if (typeof err.focusQuestionId === 'string' && survey.questions.some(q => q.id === err.focusQuestionId && q.type === 'PVT')) setAnswer(playerId, err.focusQuestionId, '')
         throw new Error(err.error || `HTTP ${res.status}`)
       }
       setSubmitted((s) => ({ ...s, [playerId]: true }))

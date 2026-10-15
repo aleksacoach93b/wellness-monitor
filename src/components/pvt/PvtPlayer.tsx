@@ -12,7 +12,6 @@ const field = 'min-h-12 w-full rounded-xl border border-slate-600 bg-slate-800 p
 
 export default function PvtPlayer({ surveyId }: { surveyId: string }) {
   const query = useSearchParams()
-  const sr = query.get('lang') === 'sr'
   const playerId = query.get('playerId') || ''
   const demo = surveyId === 'demo'
   const key = `pvt-pending:${surveyId}:${playerId}`
@@ -63,7 +62,7 @@ export default function PvtPlayer({ surveyId }: { surveyId: string }) {
     setBusy(true); setError('')
     try {
       if (demo) { setAttempt({ id: 'demo', token: '', duration: practice ? 60 : duration, version: PVT_VERSION }); return }
-      if (!storageOK) throw new Error(sr ? 'Omogući čuvanje podataka u pregledaču.' : 'Enable browser storage before testing.')
+      if (!storageOK) throw new Error('Enable browser storage before testing.')
       let deviceId = localStorage.getItem('pvt-device-id')
       if (!deviceId) { deviceId = crypto.randomUUID(); localStorage.setItem('pvt-device-id', deviceId) }
       const response = await fetch(`/api/kiosk/${encodeURIComponent(surveyId)}/pvt`, {
@@ -85,35 +84,35 @@ export default function PvtPlayer({ surveyId }: { surveyId: string }) {
     setAttempt(null)
     if (demo) { setDone(true); return }
     setPending(record)
-    try { sessionStorage.setItem(key, JSON.stringify(record)) } catch { setError(sr ? 'Ne zatvaraj stranicu dok se rezultat ne pošalje.' : 'Keep this page open until your result is saved.') }
+    try { sessionStorage.setItem(key, JSON.stringify(record)) } catch { setError('Keep this page open until your result is saved.') }
     void send(record)
   }
-  if (attempt) return <PvtRun duration={attempt.duration} sr={sr} onFinish={finish} />
+  if (attempt) return <PvtRun duration={attempt.duration} onFinish={finish} />
   const summary = result ? summarizePvt(result, resultDuration) : null
   if (result || pending) return <section className="space-y-5 py-8">
     <p className="text-sm font-bold text-teal-300">{demo ? 'DEMO · NOTHING SAVED' : 'PVT'}</p>
-    <h1 className="text-3xl font-bold">{done ? (sr ? 'Pokušaj završen' : 'Attempt finished') : (sr ? 'Slanje rezultata…' : 'Saving result…')}</h1>
-    <p>{summary?.flags.length ? (sr ? 'Pokušaj zahteva proveru kvaliteta.' : 'This attempt needs a quality review.') : (sr ? 'Hvala. Stručni štab će pregledati rezultat.' : 'Thank you. Your coaching staff will review the result.')}</p>
-    <p className="text-sm text-slate-400">{sr ? 'Ovo nije ocena ukupne spremnosti za trening.' : 'This is not an overall training-readiness score.'}</p>
+    <h1 className="text-3xl font-bold">{done ? ('Attempt finished') : ('Saving result…')}</h1>
+    <p>{summary?.flags.length ? ('This attempt needs a quality review.') : ('Thank you. Your coaching staff will review the result.')}</p>
+    <p className="text-sm text-slate-400">{'This is not an overall training-readiness score.'}</p>
     {error && <p role="alert" className="text-amber-300">{error}</p>}
-    {pending && <><p className="text-sm">{sr ? 'Ne ponavljaj test. Ostani na ovoj stranici i pokušaj slanje ponovo.' : 'Do not repeat the test. Keep this page open and retry saving.'}</p><button disabled={busy} className={button} onClick={() => void send(pending)}>{sr ? 'Ponovi slanje' : 'Retry save'}</button></>}
-    {done && (demo ? <button className={button} onClick={() => { setResult(null); setDone(false) }}>Try another duration</button> : <a className={`${button} block text-center`} href={`/kiosk/${encodeURIComponent(surveyId)}${sr ? '?lang=sr' : ''}`}>{sr ? 'Završi / sledeći igrač' : 'Finish / next player'}</a>)}
+    {pending && <><p className="text-sm">{'Do not repeat the test. Keep this page open and retry saving.'}</p><button disabled={busy} className={button} onClick={() => void send(pending)}>{'Retry save'}</button></>}
+    {done && (demo ? <button className={button} onClick={() => { setResult(null); setDone(false) }}>Try another duration</button> : <a className={`${button} block text-center`} href={`/kiosk/${encodeURIComponent(surveyId)}`}>{'Finish / next player'}</a>)}
   </section>
   if (available === null) return <p>Loading…</p>
-  if (!available || (!demo && !playerId)) return <section className="space-y-5 py-8"><h1 className="text-2xl font-bold">{sr ? 'Test trenutno nije dostupan' : 'Testing is not available'}</h1><p>{sr ? 'Otvori test kroz svoj wellness profil. Ako je upitnik već poslat, on ostaje sačuvan.' : 'Open this test through your wellness profile. Any submitted wellness answers remain saved.'}</p><a className="underline" href={`/kiosk/${encodeURIComponent(surveyId)}`}>Kiosk</a></section>
+  if (!available || (!demo && !playerId)) return <section className="space-y-5 py-8"><h1 className="text-2xl font-bold">{'Testing is not available'}</h1><p>{'Open this test through your wellness profile. Any submitted wellness answers remain saved.'}</p><a className="underline" href={`/kiosk/${encodeURIComponent(surveyId)}`}>Kiosk</a></section>
   return <section className="space-y-5 py-4">
     <p className="text-xs font-bold tracking-widest text-teal-300">{demo ? 'ISOLATED DEMO · NO PLAYER DATA' : 'DAILY CHECK-IN · PVT'}</p>
-    <h1 className="text-3xl font-bold">{sr ? 'Budnost i pažnja' : 'Vigilance & attention'}</h1>
-    <p className="text-slate-300">{sr ? 'Drži telefon uspravno. Gledaj isto polje i dodirni dugme palcem čim se pojave brojevi. Ne pogađaj trenutak signala.' : 'Hold your phone upright. Watch the fixed box and tap the button with your thumb as soon as numbers appear. Do not anticipate the signal.'}</p>
-    <p className="text-sm text-slate-400">{sr ? 'Koristi isti telefon, položaj i palac svakog dana. Uključi Ne uznemiravaj. Promena ekrana ili orijentacije prekida pokušaj. Probni pokušaj odradi pri prvom upoznavanju, pre redovnog praćenja.' : 'Use the same phone, posture and thumb each day. Enable Do Not Disturb. Switching away or rotating interrupts the attempt. Complete a practice attempt during familiarisation before regular monitoring.'}</p>
+    <h1 className="text-3xl font-bold">{'Vigilance & attention'}</h1>
+    <p className="text-slate-300">{'Hold your phone upright. Watch the fixed box and tap the button with your thumb as soon as numbers appear. Do not anticipate the signal.'}</p>
+    <p className="text-sm text-slate-400">{'Use the same phone, posture and thumb each day. Enable Do Not Disturb. Switching away or rotating interrupts the attempt. Complete a practice attempt during familiarisation before regular monitoring.'}</p>
     {demo && <label className="block">Duration<select className={field} value={duration} onChange={e => setDuration(Number(e.target.value))}>{[60, 90, 180].map(d => <option key={d} value={d}>{d} seconds</option>)}</select></label>}
-    <div className="rounded-xl border border-slate-700 p-4"><strong>{practice ? 60 : duration} {sr ? 'sekundi' : 'seconds'}</strong><p className="mt-1 text-sm text-slate-400">{duration < 180 || practice ? (sr ? 'Eksperimentalna kratka verzija.' : 'Experimental short version.') : (sr ? 'Adaptacija kratkog PVT protokola. Preciznost ove aplikacije još nije nezavisno validirana.' : 'Adaptation of brief PVT. Timing of this app has not yet been independently validated.')}</p></div>
-    {!demo && <label className="block">{sr ? 'Tvoja igračka lozinka' : 'Your player access code'}<input className={field} type="password" autoComplete="off" maxLength={100} value={password} onChange={e => setPassword(e.target.value)} /></label>}
-    <label className="block">{sr ? 'Položaj' : 'Posture'}<select className={field} value={posture} onChange={e => setPosture(e.target.value)}><option value="seated">{sr ? 'Sedeći' : 'Seated'}</option><option value="reclined">{sr ? 'Polusedeći / oslonjen' : 'Reclined / supported'}</option><option value="lying">{sr ? 'Ležeći' : 'Lying down'}</option></select></label>
-    <label className="block">{sr ? 'Minuta od buđenja' : 'Minutes since waking'}<input className={field} type="number" min="0" max="1440" required value={minutesAwake} onChange={e => setMinutesAwake(e.target.value)} /></label>
-    <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={caffeine} onChange={e => setCaffeine(e.target.checked)} />{sr ? 'Već sam uneo kofein' : 'I have already had caffeine'}</label>
-    <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={practice} onChange={e => setPractice(e.target.checked)} />{sr ? 'Probni pokušaj · 60 s · ne ulazi u referencu' : 'Practice · 60 s · excluded from baseline'}</label>
+    <div className="rounded-xl border border-slate-700 p-4"><strong>{practice ? 60 : duration} {'seconds'}</strong><p className="mt-1 text-sm text-slate-400">{duration < 180 || practice ? ('Experimental short version.') : ('Adaptation of brief PVT. Timing of this app has not yet been independently validated.')}</p></div>
+    {!demo && <label className="block">{'Your player access code'}<input className={field} type="password" autoComplete="off" maxLength={100} value={password} onChange={e => setPassword(e.target.value)} /></label>}
+    <label className="block">{'Posture'}<select className={field} value={posture} onChange={e => setPosture(e.target.value)}><option value="seated">{'Seated'}</option><option value="reclined">{'Reclined / supported'}</option><option value="lying">{'Lying down'}</option></select></label>
+    <label className="block">{'Minutes since waking'}<input className={field} type="number" min="0" max="1440" required value={minutesAwake} onChange={e => setMinutesAwake(e.target.value)} /></label>
+    <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={caffeine} onChange={e => setCaffeine(e.target.checked)} />{'I have already had caffeine'}</label>
+    <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={practice} onChange={e => setPractice(e.target.checked)} />{'Practice · 60 s · excluded from baseline'}</label>
     {error && <p role="alert" className="text-amber-300">{error}</p>}
-    <button className={button} disabled={busy || (!demo && !password) || minutesAwake === '' || !Number.isInteger(Number(minutesAwake)) || Number(minutesAwake) < 0 || Number(minutesAwake) > 1440} onClick={() => void begin()}>{busy ? '…' : (sr ? 'Počni test' : 'Start test')}</button>
+    <button className={button} disabled={busy || (!demo && !password) || minutesAwake === '' || !Number.isInteger(Number(minutesAwake)) || Number(minutesAwake) < 0 || Number(minutesAwake) > 1440} onClick={() => void begin()}>{busy ? '…' : ('Start test')}</button>
   </section>
 }

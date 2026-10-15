@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { PvtEngine } from '@/lib/pvt/engine'
 import type { PvtResult } from '@/lib/pvt/protocol'
 
-export default function PvtRun({ duration, sr, onFinish }: { duration: number; sr: boolean; onFinish: (result: PvtResult) => void }) {
+export default function PvtRun({ duration, onFinish }: { duration: number; onFinish: (result: PvtResult) => void }) {
   const signal = useRef<HTMLDivElement>(null)
   const timer = useRef<HTMLSpanElement>(null)
   const engine = useRef<PvtEngine | null>(null)
@@ -36,7 +36,7 @@ export default function PvtRun({ duration, sr, onFinish }: { duration: number; s
         signal.current.style.background = active ? '#14b8a6' : '#172033'
         signal.current.style.color = active ? '#042f2e' : '#cbd5e1'
         signal.current.textContent = active ? String(Math.floor(now - test.onset!)).padStart(3, '0') :
-          now < test.feedbackUntil ? (test.feedback === 'TOO EARLY' ? (sr ? 'PRERANO' : 'TOO EARLY') : test.feedback) : (sr ? 'SAČEKAJ' : 'WAIT')
+          now < test.feedbackUntil ? (test.feedback === 'TOO EARLY' ? ('TOO EARLY') : test.feedback) : ('WAIT')
       }
       if (timer.current) timer.current.textContent = `${Math.ceil(Math.max(0, duration - now / 1000))} s`
       frame = requestAnimationFrame(tick)
@@ -63,20 +63,20 @@ export default function PvtRun({ duration, sr, onFinish }: { duration: number; s
       window.removeEventListener('popstate', blur)
       void wake?.release().catch(() => {})
     }
-  }, [duration, sr])
+  }, [duration])
   const press = () => {
     engine.current?.press(performance.now() - start.current)
     if ((engine.current?.trials.length ?? 0) >= 1900) stop.current('too-many-inputs')
   }
   return <section className="flex min-h-[80svh] flex-col gap-5 py-4 select-none">
     <div className="flex items-center justify-between text-sm text-slate-300"><span>PVT · {duration} s</span><span ref={timer}>{duration} s</span></div>
-    <p className="text-center text-sm text-slate-300">{sr ? 'Gledaj polje. Dodirni dugme čim se pojave brojevi.' : 'Watch the box. Tap the button as soon as numbers appear.'}</p>
-    <div ref={signal} data-testid="pvt-signal" data-active="false" className="my-auto flex h-40 items-center justify-center rounded-3xl bg-slate-800 font-mono text-5xl font-bold tabular-nums" aria-label={sr ? 'Vizuelni signal' : 'Visual stimulus'}>WAIT</div>
+    <p className="text-center text-sm text-slate-300">{'Watch the box. Tap the button as soon as numbers appear.'}</p>
+    <div ref={signal} data-testid="pvt-signal" data-active="false" className="my-auto flex h-40 items-center justify-center rounded-3xl bg-slate-800 font-mono text-5xl font-bold tabular-nums" aria-label={'Visual stimulus'}>WAIT</div>
     <button type="button" data-testid="pvt-response" className="h-32 w-full touch-none rounded-3xl border-2 border-slate-500 bg-slate-800 text-2xl font-bold active:bg-slate-700"
       onContextMenu={e => e.preventDefault()} onPointerDown={e => { e.preventDefault(); if (e.isPrimary && e.button === 0) press() }}
       onKeyDown={e => { if (!e.repeat && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); press() } }}>
-      {sr ? 'DODIRNI' : 'TAP'}
+      {'TAP'}
     </button>
-    <button className="min-h-11 text-sm text-slate-400 underline" onClick={() => stop.current('cancelled')}>{sr ? 'Prekini pokušaj' : 'End attempt'}</button>
+    <button className="min-h-11 text-sm text-slate-400 underline" onClick={() => stop.current('cancelled')}>{'End attempt'}</button>
   </section>
 }

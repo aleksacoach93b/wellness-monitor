@@ -417,7 +417,7 @@ export default function SurveyForm({
         const flag = offline ? 'queued=1' : 'submitted=1'
         window.setTimeout(() => {
           window.location.href = !offline && pvtAvailable
-            ? `/pvt/${encodeURIComponent(survey.id)}?playerId=${encodeURIComponent(playerId)}&lang=${locale}`
+            ? `/pvt/${encodeURIComponent(survey.id)}?playerId=${encodeURIComponent(playerId)}&lang=en`
             : `/kiosk/${survey.id}?${flag}`
         }, offline ? 1600 : 1200)
       }

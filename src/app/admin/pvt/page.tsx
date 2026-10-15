@@ -52,7 +52,7 @@ export default function PvtAdmin() {
     const a = document.createElement('a'); a.href = url; a.download = `pvt-${date}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
   return <div className="space-y-6">
-    <header><p className="admin-kicker">PLAYER MONITORING</p><h1 className="admin-title">Handheld PVT</h1><p className="admin-sub">Budnost i pažnja · Vigilance & attention</p></header>
+    <header><p className="admin-kicker">PLAYER MONITORING</p><h1 className="admin-title">Handheld PVT</h1><p className="admin-sub">Vigilance & attention</p></header>
     <div className="admin-panel space-y-3 p-5 text-sm text-slate-700">
       <p><strong>Same task, unpredictable timing.</strong> Hold the phone upright, use the same thumb, posture and device. Respond to the fixed visual counter after a random 1–4 s wait. No camera or microphone.</p>
       <p>60/90 s are experimental; 180 s adapts brief PVT. This implementation requires timing validation. Results are not a diagnosis, injury predictor or overall readiness score. A ≥355 ms response is an exploratory brief-PVT reference, not a fatigue cutoff.</p>

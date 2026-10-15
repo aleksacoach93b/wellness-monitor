@@ -2,6 +2,8 @@
 
 This is an opt-in handheld adaptation of brief PVT, not an independently validated instrument or a measure of overall fatigue, injury risk, match decision-making or training clearance. No camera/microphone code or permission requests are included.
 
+The PVT player and coach interfaces are English-only, including links opened with a legacy language query.
+
 ## Player protocol v1
 
 - A coach selects one official duration per survey: 60, 90 or 180 seconds. The 60/90-second modes are experimental adaptations, not validated equivalents. Duration cannot change after an official attempt starts that survey-local day.
@@ -23,7 +25,7 @@ Sources: Basner et al. (2011), https://pubmed.ncbi.nlm.nih.gov/22025811/ ; Grant
 
 ## Integration
 
-Existing wellness response submission is unchanged. The optional PVT-status request fails closed: disabled or unavailable means the existing return to kiosk. For an online successful wellness submission, an enabled PVT config redirects the identified player to /pvt/[surveyId]?playerId=...&lang=sr|en. The player confirms their existing access code again because the legacy kiosk client-side check is not a server identity session. Coaches can use the same route to repeat a test without replacing wellness answers. The player identity comes from the server-verified code/team combination, never from a posted score.
+Existing wellness response submission is unchanged. The optional PVT-status request fails closed: disabled or unavailable means the existing return to kiosk. For an online successful wellness submission, an enabled PVT config redirects the identified player to /pvt/[surveyId]?playerId=...&lang=en. The player confirms their existing access code again because the legacy kiosk client-side check is not a server identity session. Coaches can use the same route to repeat a test without replacing wellness answers. The player identity comes from the server-verified code/team combination, never from a posted score.
 
 PVT persists in new pvt_configs, pvt_sessions and pvt_auth_windows tables. Existing tables/columns are not altered. All attempts are append-only at start; completion is a one-time conditional update authorised with a random 256-bit per-attempt token stored hashed. Retries are idempotent, never replace the first stored result and expire after 30 minutes. Pending finished records are retained in the same tab's sessionStorage for retry; this is not an offline-first application. Do not promise recovery after closing the tab. Unfinished STARTED sessions remain visible. No automatic best-of selection or forced retest after poor performance.
 

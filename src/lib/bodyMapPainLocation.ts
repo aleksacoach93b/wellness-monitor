@@ -192,3 +192,30 @@ export function parseBodyMapAnswerValue(
   }
   return out
 }
+
+export function isCompleteBodyMapArea(
+  value: BodyMapAreaStored | undefined | null
+): boolean {
+  return (
+    getBodyMapRating(value) > 0 &&
+    getBodyMapLocationId(value) != null &&
+    getBodyMapWhenIds(value).length > 0
+  )
+}
+
+export function filterCompleteBodyMapAreas(
+  areas: Record<string, BodyMapAreaStored> | undefined | null
+): Record<string, BodyMapAreaStored> {
+  const out: Record<string, BodyMapAreaStored> = {}
+  if (!areas) return out
+  for (const [areaId, value] of Object.entries(areas)) {
+    if (isCompleteBodyMapArea(value)) out[areaId] = value
+  }
+  return out
+}
+
+export function countCompleteBodyMapAreas(
+  areas: Record<string, BodyMapAreaStored> | undefined | null
+): number {
+  return Object.keys(filterCompleteBodyMapAreas(areas)).length
+}

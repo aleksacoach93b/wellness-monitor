@@ -4,6 +4,7 @@
 
 export type OpsColumnId =
   | 'athlete'
+  | 'focus'
   | 'performance'
   | 'submitted'
   | 'bed'
@@ -56,6 +57,7 @@ export type OpsSurveyQuestion = {
 }
 
 export const OPS_COLUMN_CATALOG: OpsColumnMeta[] = [
+  { id: 'focus', label: 'Focus test', group: 'Identity & status', description: 'Median reaction time, test quality and personal reference; no readiness weighting' },
   {
     id: 'athlete',
     label: 'Athlete',
@@ -150,6 +152,7 @@ export const OPS_COLUMN_CATALOG: OpsColumnMeta[] = [
 export const DEFAULT_OPS_COLUMNS: OpsColumnConfig[] = [
   { id: 'athlete', enabled: true },
   { id: 'performance', enabled: true },
+  { id: 'focus', enabled: false },
   { id: 'submitted', enabled: true },
   { id: 'bed', enabled: true },
   { id: 'wake', enabled: true },

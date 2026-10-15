@@ -1,7 +1,29 @@
 'use client'
 
 import BodyMap from '@/components/BodyMap'
-import type { BodyMapSummary } from '@/lib/opsWellness'
+import type { BodyMapSummary, ZoneTrailDay } from '@/lib/opsWellness'
+
+export function OpsZoneTrail({
+  trail,
+  compact = false,
+}: {
+  trail?: ZoneTrailDay[]
+  compact?: boolean
+}) {
+  if (!trail?.length) return null
+  return (
+    <span className={`sg7-trail${compact ? ' is-compact' : ''}`} title="Last 7 days" aria-hidden>
+      {trail.map((d) => (
+        <i
+          key={d.date}
+          className={
+            d.rating == null ? '' : d.rating >= 7 ? 'is-hi' : d.rating >= 4 ? 'is-md' : 'is-lo'
+          }
+        />
+      ))}
+    </span>
+  )
+}
 
 type Props = {
   kind: 'pain' | 'soreness'
@@ -104,7 +126,11 @@ export default function OpsBodyMapFace({
               ) : (
                 <span className="sg7-zone-location muted">Spot not set</span>
               )}
+              {top.streak && top.streak >= 2 ? (
+                <span className="sg7-zone-repeat">{top.streak} days in a row</span>
+              ) : null}
             </div>
+            <OpsZoneTrail trail={top.trail} />
             {top.when.length > 0 ? (
               <div className="sg7-when-tags">
                 {top.when.map((w) => (

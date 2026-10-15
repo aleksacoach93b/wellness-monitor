@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { layerBodyMapSummary, type PlayerWellness } from '@/lib/opsWellness'
-import OpsBodyMapFace from '@/components/admin/ops/OpsBodyMapFace'
+import OpsBodyMapFace, { OpsZoneTrail } from '@/components/admin/ops/OpsBodyMapFace'
 
 export type OpsDerivedCell = {
   key: string
@@ -21,6 +21,7 @@ export type OpsPlayerCard = {
   submittedAt: string | null
   rank: number | null
   wellness: PlayerWellness | null
+  focus?: { medianRT: number | null; quality: string; duration: number; deltaPercent: number | null; baselineDays: number; count: number } | null
   derived?: OpsDerivedCell[]
 }
 
@@ -211,6 +212,20 @@ export default function WellnessFlipCard({ player }: { player: OpsPlayerCard }) 
                   {w.pain.flagText}
                 </span>
               </div>
+              {(w.repeatZones ?? []).length > 0 ? (
+                <div className="sg7-repeat">
+                  {w.repeatZones.slice(0, 2).map((z) => (
+                    <div key={z.areaId} className="sg7-repeat-row">
+                      <b>{z.muscle}</b>
+                      <em>{z.streak}d</em>
+                      <OpsZoneTrail trail={z.trail} compact />
+                    </div>
+                  ))}
+                  {w.repeatZones.length > 2 ? (
+                    <small>+{w.repeatZones.length - 2} more repeat</small>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             <div className="sg7-gauge-block">

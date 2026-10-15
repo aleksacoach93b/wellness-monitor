@@ -5,11 +5,17 @@ import { Survey, Question } from '@prisma/client'
 import { CheckCircle, AlertTriangle, Send, ArrowDownAZ, ArrowUpZA } from 'lucide-react'
 import Image from 'next/image'
 import BodyMap from '@/components/BodyMap'
+import PvtQuestion from '@/components/pvt/PvtQuestion'
 import { createPortal } from 'react-dom'
 import type { KioskTheme } from '@/lib/kioskThemes'
 import { kioskThemes, kioskTextTokens } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
-import type { BodyMapAreaStored, BodyMapLocationId, PainWhenId } from '@/lib/bodyMapPainLocation'
+import {
+  filterCompleteBodyMapAreas,
+  type BodyMapAreaStored,
+  type BodyMapLocationId,
+  type PainWhenId,
+} from '@/lib/bodyMapPainLocation'
 import { RPE_LABELS_I18N, t, tx, type KioskLocale } from '@/lib/i18n'
 
 interface PlayerWithStatus {
@@ -297,11 +303,11 @@ export default function CoachModeView({
 
     const answers = survey.questions.map((question) => {
       if (question.type === 'BODY_MAP') {
-        const bmData = pd.bodyMapData[question.id] || {}
-        if (Object.keys(bmData).length > 0) {
-          return { questionId: question.id, value: JSON.stringify(bmData) }
+        const complete = filterCompleteBodyMapAreas(pd.bodyMapData[question.id])
+        if (Object.keys(complete).length > 0) {
+          return { questionId: question.id, value: JSON.stringify(complete) }
         }
-        return { questionId: question.id, value: pd.answers[question.id] ?? 'No' }
+        return { questionId: question.id, value: 'No' }
       }
       return {
         questionId: question.id,
@@ -438,6 +444,10 @@ export default function CoachModeView({
         )
       },
     },
+    ...survey.questions.filter(q => q.type === 'PVT').map(q => ({
+      id: q.id, label: q.text, width: '320px',
+      cell: (player: PlayerWithStatus) => submitted[player.id] ? <span className="text-sm text-emerald-300">Submitted</span> : <PvtQuestion surveyId={survey.id} question={q} playerId={player.id} theme={bodyMapAppearance} value={String(playerData[player.id]?.answers[q.id] || '')} onChange={value => setAnswer(player.id, q.id, value)} password={player.password || `${player.firstName.charAt(0)}${player.lastName.charAt(0)}`} />,
+    })),
     ...scaleQuestions.map((q) => ({
       id: q.id,
       label: tx(locale, q.text),

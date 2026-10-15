@@ -342,6 +342,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       return
     }
 
+    try {
+      const auth = await fetch(`/api/kiosk/${encodeURIComponent(surveyId)}/pvt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'authorize', playerId: selectedPlayer.id, password: playerPassword }) })
+      if (auth.status === 401 || auth.status === 429) { setPlayerAuthError(t(locale, 'incorrectPassword')); return }
+    } catch { /* Existing offline wellness flow remains available. */ }
     setPlayerAuthError(null)
 
     if (selectedPlayer.hasResponded) {

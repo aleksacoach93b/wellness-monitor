@@ -1,3 +1,4 @@
+import { baselineFor, type PvtSessionRow } from '@/lib/pvt/baseline'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAdminSessionFromRequest } from '@/lib/auth/adminSession'
@@ -5,7 +6,7 @@ import {
   buildOpsDayPayload,
   dayKey,
   indexResponsesByPlayerDay,
-  mergeBodyMapsIntoDay,
+  mergeBodyMapsIntoDays,
   pickDefaultSurvey,
   sortSurveysForOps,
 } from '@/lib/opsDayBuild'
@@ -75,6 +76,8 @@ export async function GET(request: NextRequest) {
     // 28d history for ACWR / EWMA / rolling stats on derived metrics.
     const historyStart = new Date(dayStart)
     historyStart.setDate(historyStart.getDate() - 28)
+    const mapStart = new Date(dayStart)
+    mapStart.setDate(mapStart.getDate() - 6)
 
     try {
       await ensureOpsSchema()
@@ -134,7 +137,7 @@ export async function GET(request: NextRequest) {
             where: {
               surveyId: survey.id,
               survey: { teamId },
-              submittedAt: { gte: dayStart, lt: dayEnd },
+              submittedAt: { gte: mapStart, lt: dayEnd },
               playerId: { not: null },
             },
             select: {
@@ -158,16 +161,7 @@ export async function GET(request: NextRequest) {
       questionMappings,
     })
 
-    // Attach body maps onto selected-day metrics before building cards.
-    const latestToday = new Map<
-      string,
-      { submittedAt: Date; metrics: ReturnType<typeof import('@/lib/opsWellness').parseDayMetrics> }
-    >()
-    for (const [playerId, dayMap] of latestByPlayerDay) {
-      const hit = dayMap.get(selectedDate)
-      if (hit) latestToday.set(playerId, hit)
-    }
-    mergeBodyMapsIntoDay({ latestToday, bodyRows: todayBodyMaps })
+    mergeBodyMapsIntoDays({ latestByPlayerDay, bodyRows: todayBodyMaps })
 
     const day = buildOpsDayPayload({
       players,
@@ -195,6 +189,18 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
+    let focusSessions: PvtSessionRow[] = []
+    try {
+      if (survey) focusSessions = await prisma.pvtSession.findMany({ where: { teamId, surveyId: survey.id, startedAt: { gte: historyStart, lt: dayEnd } }, select: { id: true, questionId: true, playerId: true, surveyId: true, localDate: true, startedAt: true, finishedAt: true, durationSeconds: true, protocolVersion: true, practice: true, status: true, deviceId: true, userAgent: true, context: true, summary: true, player: { select: { firstName: true, lastName: true } } }, orderBy: { startedAt: 'asc' }, take: 10000 }).then(rows => JSON.parse(JSON.stringify(rows)))
+    } catch { /* Optional module must never prevent loading wellness. */ }
+    const withFocus = playersWithDerived.map(player => {
+      const attempts = focusSessions.filter(s => s.playerId === player.id && s.localDate === selectedDate && !s.practice && s.status === 'COMPLETED')
+      // The first completed attempt is shown; repeating cannot replace a poor first result.
+      const current = attempts[0]
+      const base = current ? baselineFor(current, focusSessions) : null
+      return { ...player, focus: current ? { medianRT: current.summary?.medianRT ?? null, quality: current.summary?.quality || 'REVIEW', duration: current.durationSeconds, deltaPercent: base?.deltaPercent ?? null, baselineDays: base?.days ?? 0, count: attempts.length } : null }
+    })
+
     return NextResponse.json(
       {
         team,
@@ -208,7 +214,7 @@ export async function GET(request: NextRequest) {
         selectedDate: day.selectedDate,
         stats: day.stats,
         wellnessSummary: day.wellnessSummary,
-        players: playersWithDerived,
+        players: withFocus,
         rules,
         interventions,
         metrics,

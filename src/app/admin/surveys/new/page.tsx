@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Save } from 'lucide-react'
 import { QuestionType } from '@prisma/client'
+import { pvtOptions, pvtDuration } from '@/lib/pvt/options'
 import HomeButton from '@/components/HomeButton'
 import { serializeSliderLabels } from '@/lib/sliderOptions'
 
@@ -14,6 +15,7 @@ interface Question {
   options: string[]
   required: boolean
   order: number
+  pvtDuration?: number
   /** Per-slider-value captions 1–10; keys "1"…"10" */
   sliderSteps?: Record<string, string>
 }
@@ -108,7 +110,7 @@ export default function NewSurveyPage() {
           text: q.text.trim(),
           type: q.type,
           options:
-            q.type === 'SLIDER'
+            q.type === 'PVT' ? pvtOptions(q.pvtDuration ?? 30) : q.type === 'SLIDER'
               ? serializeSliderLabels({
                   left: q.options[0],
                   center: q.options[1],
@@ -353,6 +355,7 @@ export default function NewSurveyPage() {
                           <option value="BOOLEAN">Yes/No</option>
                           <option value="BODY_MAP">Body Map (Pain/Injury)</option>
                           <option value="TIME">Time (24h format)</option>
+                          <option value="PVT">Focus test (PVT)</option>
                         </select>
                       </div>
 
@@ -392,6 +395,13 @@ export default function NewSurveyPage() {
                         </div>
                       )}
 
+                      {question.type === 'PVT' && <div className="my-4 rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4">
+                        <label className="block text-sm font-medium mb-2">Standard protocol duration</label>
+                        <select className="bg-slate-800 text-white border border-slate-600 rounded-lg p-2" value={question.pvtDuration ?? 30} onChange={e => updateQuestion(question.id, { pvtDuration: Number(e.target.value) })}>
+                          <option value={30}>30 seconds</option><option value={60}>60 seconds</option>
+                        </select>
+                        <p className="text-xs text-slate-400 mt-2">One visual signal, one tap. The same duration applies to every player. Duration is locked once testing starts for the day. Interrupted attempts do not complete this question.</p>
+                      </div>}
                       {question.type === 'SLIDER' && (
                         <div>
                           <label className="block text-sm font-medium text-slate-600">

@@ -1,0 +1,26 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { getAdminSessionFromRequest } from '@/lib/auth/adminSession'
+import { pvtEnabled } from '@/lib/pvt/server'
+
+export const dynamic = 'force-dynamic'
+const reply = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
+export async function GET(request: NextRequest) {
+  const admin = await getAdminSessionFromRequest(request)
+  if (!admin) return reply({ error: 'Unauthorized' }, 401)
+  const surveys = await prisma.survey.findMany({ where: { teamId: admin.teamId }, select: { id: true, title: true, timezone: true, questions: { where: { type: 'PVT' }, select: { id: true, text: true, options: true } } }, orderBy: { title: 'asc' } })
+  if (!pvtEnabled()) return reply({ enabled: false, ready: false, surveys, configs: [], sessions: [] })
+  try {
+    const [configs, sessions] = await Promise.all([
+      prisma.pvtConfig.findMany({ where: { teamId: admin.teamId }, select: { surveyId: true, enabled: true, durationSeconds: true } }),
+      prisma.pvtSession.findMany({
+        where: { teamId: admin.teamId, startedAt: { gte: new Date(Date.now() - 28 * 86400_000) } },
+        select: { id: true, questionId: true, questionLabel: true, responseId: true, surveyId: true, playerId: true, startedAt: true, localDate: true, finishedAt: true, durationSeconds: true, protocolVersion: true, practice: true, status: true, deviceId: true, userAgent: true, context: true, summary: true, player: { select: { firstName: true, lastName: true } } },
+        orderBy: { startedAt: 'desc' }, take: 10000,
+      }),
+    ])
+    return reply({ enabled: true, ready: true, surveys, configs, sessions: sessions.reverse(), truncated: sessions.length === 10000 })
+  } catch {
+    return reply({ enabled: true, ready: false, surveys, configs: [], sessions: [], error: 'Focus results could not be loaded. Try again or check the database migration.' })
+  }
+}

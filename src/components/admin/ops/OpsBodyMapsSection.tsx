@@ -25,6 +25,7 @@ type Report = {
   rating: number
   location: string | null
   side: 'front' | 'back'
+  streak: number
 }
 
 const noop = () => {}
@@ -84,6 +85,13 @@ function buildReports(players: OpsPlayerCard[], kind: Kind): Report[] {
     for (const [areaId, stored] of Object.entries(areas)) {
       const rating = getBodyMapRating(stored)
       if (rating <= 0) continue
+      const canonical = getJointsAreaZone(areaId)?.id ?? areaId
+      const streak =
+        p.wellness.repeatZones.find((z) => z.areaId === canonical)?.streak ??
+        (kind === 'pain' ? p.wellness.pain.details : p.wellness.sorenessMap.details).find(
+          (d) => (getJointsAreaZone(d.areaId)?.id ?? d.areaId) === canonical,
+        )?.streak ??
+        1
       rows.push({
         playerId: p.id,
         playerName: `${p.firstName} ${p.lastName}`.trim(),
@@ -92,6 +100,7 @@ function buildReports(players: OpsPlayerCard[], kind: Kind): Report[] {
         rating,
         location: getBodyMapLocationLabel(stored),
         side: bodyMapAreaSide(areaId),
+        streak,
       })
     }
   }
@@ -259,10 +268,16 @@ function AreaTable({
                   <td>{r.playerName}</td>
                   <td>
                     <div className="ops-area-part">
-                      <strong>{r.muscle}</strong>
+                      <strong>
+                        {r.muscle}
+                        {r.streak >= 2 ? (
+                          <span className="ops-repeat-badge">{r.streak}d</span>
+                        ) : null}
+                      </strong>
                       <small>
                         {r.side.toUpperCase()}
                         {r.location ? ` · ${r.location}` : ''}
+                        {r.streak >= 2 ? ` · ${r.streak} days in a row` : ''}
                       </small>
                     </div>
                   </td>

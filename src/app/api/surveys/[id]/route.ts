@@ -1,3 +1,5 @@
+import { pvtDuration, validPvtOptions } from '@/lib/pvt/options'
+import { localDay } from '@/lib/pvt/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
@@ -14,7 +16,7 @@ const updateSurveySchema = z.object({
   questions: z.array(z.object({
     id: z.string().optional(), // Allow undefined for new questions
     text: z.string().min(1),
-    type: z.enum(['TEXT', 'NUMBER', 'EMAIL', 'SELECT', 'MULTIPLE_SELECT', 'SCALE', 'BOOLEAN', 'BODY_MAP', 'RATING_SCALE', 'RPE', 'SLIDER', 'TIME']),
+    type: z.enum(['TEXT', 'NUMBER', 'EMAIL', 'SELECT', 'MULTIPLE_SELECT', 'SCALE', 'BOOLEAN', 'BODY_MAP', 'RATING_SCALE', 'RPE', 'SLIDER', 'TIME', 'PVT']),
     options: z.string().nullable().optional(),
     required: z.boolean(),
     order: z.number()
@@ -75,6 +77,7 @@ export async function PUT(
     console.log('Raw request body:', JSON.stringify(body, null, 2))
     
     const validatedData = updateSurveySchema.parse(body)
+    if (validatedData.questions.some(q => q.type === 'PVT' && !validPvtOptions(q.options))) return NextResponse.json({ error: 'Focus test requires a 30 or 60 second standard protocol.' }, { status: 400 })
     console.log('Validated data:', JSON.stringify(validatedData, null, 2))
 
     const payloadStableIds = validatedData.questions
@@ -109,6 +112,17 @@ export async function PUT(
      * only questions explicitly removed from the form.
      */
     const updatedSurvey = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${surveyId}))`
+      const currentSurvey = await tx.survey.findUniqueOrThrow({ where: { id: surveyId }, select: { timezone: true } })
+      const focusQuestions = await tx.question.findMany({ where: { surveyId, type: 'PVT' } })
+      for (const old of focusQuestions) {
+        const incoming = validatedData.questions.find(q => q.id === old.id)
+        if (incoming?.type === 'PVT' && pvtDuration(incoming.options) !== pvtDuration(old.options)) {
+          const started = await tx.pvtSession.count({ where: { questionId: old.id, localDate: localDay(new Date(), currentSurvey.timezone), practice: false } })
+          if (started) throw new Error('FOCUS_DURATION_LOCKED')
+        }
+      }
+
       const survey = await tx.survey.update({
         where: { id: surveyId },
         data: {
@@ -176,6 +190,7 @@ export async function PUT(
     return NextResponse.json(updatedSurvey)
   } catch (error) {
     console.error('=== SURVEY UPDATE ERROR ===')
+    if (error instanceof Error && error.message === 'FOCUS_DURATION_LOCKED') return NextResponse.json({ error: 'Focus duration is locked after the first official attempt today. Change it before testing starts on another day.' }, { status: 409 })
     console.error('Error updating survey:', error)
     
     if (error instanceof z.ZodError) {

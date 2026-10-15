@@ -52,9 +52,9 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
 
   let player = null
   if (playerId) {
-    player = await prisma.player.findUnique({
+    player = await prisma.player.findFirst({
       where: {
-        id: playerId,
+        id: playerId, teamId: survey.teamId, isActive: true,
       },
     })
   }

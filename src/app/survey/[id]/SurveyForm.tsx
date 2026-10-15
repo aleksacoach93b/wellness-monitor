@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Survey, Question, Player } from '@prisma/client'
 import { CheckCircle, WifiOff } from 'lucide-react'
+import PvtQuestion from '@/components/pvt/PvtQuestion'
 import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
@@ -21,6 +22,8 @@ import {
   surveyQuestionFingerprint,
 } from '@/lib/surveyFormAppearance'
 import {
+  countCompleteBodyMapAreas,
+  filterCompleteBodyMapAreas,
   parseBodyMapAnswerValue,
   type BodyMapAreaStored,
   type BodyMapLocationId,
@@ -374,13 +377,14 @@ export default function SurveyForm({
     const answers = survey.questions.map((question) => {
       const value = formData[question.id]
       if (isBodyMapQuestion(question)) {
-        const questionBodyMapData = bodyMapData[question.id] || {}
-        if (Object.keys(questionBodyMapData).length > 0) {
+        const complete = filterCompleteBodyMapAreas(bodyMapData[question.id])
+        if (Object.keys(complete).length > 0) {
           return {
             questionId: question.id,
-            value: JSON.stringify(questionBodyMapData),
+            value: JSON.stringify(complete),
           }
         }
+        return { questionId: question.id, value: 'No' }
       }
       const v = Array.isArray(value) ? JSON.stringify(value) : String(value ?? '')
       return { questionId: question.id, value: v }
@@ -848,6 +852,8 @@ export default function SurveyForm({
               </div>
             )}
 
+        {question.type === 'PVT' && <PvtQuestion surveyId={survey.id} question={question} playerId={playerId || player?.id || ''} theme={appearance} value={String(formData[question.id] || '')} onChange={value => handleInputChange(question.id, value)} />}
+
         {(question.type === 'BOOLEAN' || question.type === 'BODY_MAP') && (
           <div className={`${question.type === 'BODY_MAP' ? 'mt-4 sm:mt-6' : 'mt-3 sm:mt-4'}`}>
             <div className="flex justify-center gap-2 sm:gap-3">
@@ -923,6 +929,11 @@ export default function SurveyForm({
                         </div>
                         
                       </button>
+                      {countCompleteBodyMapAreas(bodyMapData[question.id]) === 0 ? (
+                        <p className="mt-3 text-center text-xs sm:text-sm text-amber-200/90">
+                          {t(locale, 'bodyMapNeedComplete')}
+                        </p>
+                      ) : null}
                     </div>
                   )}
               </div>
@@ -1422,6 +1433,15 @@ export default function SurveyForm({
               }
             }}
             onClose={() => {
+              const qid = currentBodyMapQuestionId
+              if (qid && countCompleteBodyMapAreas(bodyMapData[qid]) === 0) {
+                setFormData((prev) => ({ ...prev, [qid]: 'No' }))
+                setBodyMapData((prev) => {
+                  const next = { ...prev }
+                  delete next[qid]
+                  return next
+                })
+              }
               setShowBodyMap(false)
               setCurrentBodyMapQuestionId(null)
               // Exit fullscreen when closing body map

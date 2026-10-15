@@ -7,7 +7,7 @@ The player opens their normal wellness profile, starts the question, completes t
 ## Standard protocol v3
 
 - Official duration: 30 or 60 seconds, identical for all players assigned the same question. The first official start locks that question's duration for the survey-local calendar day. Editor updates and starts share a database advisory lock. Practice uses the same task for 30 seconds and is separate from reference data.
-- Use the same phone/browser, hand/thumb and posture each day. Hold the phone upright; seated, reclined and lying positions are recorded separately. Record minutes since waking and caffeine context. No stand, camera or microphone is used.
+- Use the same phone/browser, hand/thumb and posture each day. Hold the phone upright; seated, standing, reclined and lying positions are recorded separately. Record minutes since waking and caffeine context. No stand, camera or microphone is used.
 - Turn on Do Not Disturb. Watch the fixed counter area. Tap the fixed response pad once as soon as the counter appears; do not anticipate.
 - Independent cryptographic random waits: uniform integer 1000–4000 ms after each response/timeout. Feedback lasts 1000 ms within the wait. Every player has the same rules and timing distribution; the sequence is unpredictable.
 - The v3 stimulus is a fixed, high-contrast counter with immediate onset, no transition or animation. Stimulus contrast is identical across themes. Only surrounding chrome follows the survey theme. Versioning separates personal references from previous visual protocols.

@@ -38,7 +38,7 @@ export function surveyOpen(survey: {
 }
 export const durationSchema = z.union([z.literal(30), z.literal(60)])
 export const contextSchema = z.object({
-  posture: z.enum(['seated', 'reclined', 'lying']),
+  posture: z.enum(['seated', 'standing', 'reclined', 'lying']),
   caffeine: z.boolean(),
   minutesAwake: z.number().int().min(0).max(1440),
   deviceId: z.string().uuid(),

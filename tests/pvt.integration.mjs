@@ -42,7 +42,7 @@ try {
   const authResponse=await fetch(base+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'authorize',playerId:'test-player',password:'TP'})})
   const playerCookie=authResponse.headers.get('set-cookie')?.split(';')[0]
   check(authResponse.ok && playerCookie?.startsWith('wm_pvt_player='),'kiosk login issues server-verified player grant')
-  const session=await request(p,{...start,password:undefined},false,{Cookie:playerCookie})
+  const session=await request(p,{...start,password:undefined,context:{...start.context,posture:'standing',minutesAwake:75}},false,{Cookie:playerCookie})
   check(session.status===200 && session.data.duration===30 && session.data.token.length===64,'grant starts assigned test without second password')
   const e=new PvtEngine(30000,()=>.5)
   for(let n=0;n<=30000;n+=10){e.tick(n);if(e.onset!==null&&n-e.onset>=250)e.press(n)}
@@ -73,6 +73,7 @@ try {
   check(await db.response.count({where:{surveyId:'test-survey',playerId:'test-player'}})===1,'one daily response retained')
   const linked=await db.pvtSession.findUnique({where:{id:session.data.id}})
   check(linked.responseId===repeated.data.id && linked.summary.medianRT===250,'resubmit preserves attempt and updates link')
+  check(linked.context.posture==='standing' && linked.context.minutesAwake===75,'standing and manual waking minutes survive completion and wellness submission')
   const csv=await fetch(base+'/api/surveys/test-survey/export/csv',{headers:{Cookie:cookie}}).then(r=>r.text())
   check(csv.includes('Focus test - Median RT ms') && csv.includes('250'),'CSV exposes numeric Focus metrics')
   const powerbi=await request('/api/surveys/test-survey/export/powerbi',null,true)

@@ -1,17 +1,22 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, CheckCircle2, Clock3, Focus, Loader2, Play, X } from 'lucide-react'
+import { Armchair, ArrowRight, BedDouble, Check, CheckCircle2, Clock3, Coffee, Focus, Hand, Loader2, PersonStanding, Play, RotateCcw, ShieldCheck, Smartphone, Sofa, Sparkles, X } from 'lucide-react'
 import { getSurveyBodyMapTokens, getSurveyShellClasses, getSurveyUiTokens, type SurveyAppearanceTheme } from '@/lib/surveyFormAppearance'
 import { pvtDuration, parsePvtAnswer } from '@/lib/pvt/options'
 import { PVT_VERSION, summarizePvt, type PvtResult } from '@/lib/pvt/protocol'
 import PvtRun from './PvtRun'
+import './pvt-focus.css'
+
+const AWAKE_PRESETS = [30, 60, 90, 120, 180, 240] as const
+const POSITIONS = [{ value: 'seated', label: 'Seated', icon: Armchair }, { value: 'standing', label: 'Standing', icon: PersonStanding }, { value: 'reclined', label: 'Reclined', icon: Sofa }, { value: 'lying', label: 'Lying down', icon: BedDouble }] as const
 
 type Attempt = { id: string; token: string; duration: number; version: string }
 type Pending = { attempt: Attempt; result: PvtResult; practice: boolean }
 export default function PvtQuestion({ surveyId, question, playerId, theme = 'dark', value, onChange, demo = false, password: suppliedPassword }: {
   surveyId: string; question: { id: string; options?: string | null }; playerId: string; theme?: SurveyAppearanceTheme; value: string; onChange: (value: string) => void; demo?: boolean; password?: string
 }) {
+  const awakeId = useId()
   const ui = getSurveyUiTokens(theme), modal = getSurveyBodyMapTokens(theme), shell = getSurveyShellClasses(theme)
   const [open, setOpen] = useState(false)
   const [attempt, setAttempt] = useState<Attempt | null>(null)
@@ -30,6 +35,11 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
   const storageKey = `wm-pvt-pending:${surveyId}:${question.id}:${playerId}`
   const completed = parsePvtAnswer(value)
   const duration = pvtDuration(question.options)
+  const stage = attempt ? 'run' : pending || saved ? 'result' : 'setup'
+  useLayoutEffect(() => {
+    // The setup can scroll on a phone; every new stage must start at its top.
+    dialog.current?.scrollTo({ top: 0 })
+  }, [open, stage])
   useEffect(() => {
     try { const raw = sessionStorage.getItem(storageKey); if (raw) { const record = JSON.parse(raw) as Pending; if (record.attempt?.token && record.result?.trials) { setPending(record); setOpen(true) } } } catch { /* Storage unavailable: keep live result on screen. */ }
   }, [storageKey])
@@ -85,38 +95,50 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
   }
   const button = `inline-flex min-h-12 items-center justify-center gap-2 px-5 py-3 font-semibold text-white disabled:opacity-50 ${ui.primaryCtaButton} ${ui.focusVisibleRing}`
   return <>
-    <div className={`mt-3 rounded-2xl border p-4 sm:p-5 ${ui.sliderCardBorder}`}>
+    <div data-pvt-theme={theme} className={`pvt-ui pvt-question-card mt-3 rounded-2xl border p-4 sm:p-5 ${ui.sliderCardBorder}`}>
       <div className="flex items-center gap-3"><div className={`rounded-xl p-3 ${ui.selectedValuePill} ${ui.selectedValueText}`}>{completed ? <CheckCircle2 size={24} /> : <Focus size={24} />}</div><div className="flex-1"><p className="text-base font-semibold text-white">{completed ? 'Completed' : 'Focus test'}</p><p className="text-sm text-slate-300">{completed ? `${completed.durationSeconds} seconds · Ready to submit with your wellness` : `${duration} seconds · One signal. One tap.`}</p></div></div>
       {!completed && <><p className="mt-3 text-sm leading-relaxed text-slate-300">Hold your phone comfortably. Wait for the counter, then tap as quickly as you can.</p><button ref={launch} type="button" className={`${button} mt-4 w-full sm:w-auto`} onClick={() => setOpen(true)}><Play size={17} />Start Focus test</button></>}
       {completed && <p className={`mt-3 flex items-center gap-2 text-sm ${ui.selectedValueText}`}><Check size={16} />Test complete. Continue your questionnaire.</p>}
     </div>
-    {open && createPortal(<div role="dialog" aria-modal="true" aria-label="Focus test" ref={dialog} tabIndex={-1} className={`fixed inset-0 z-[10000] overflow-y-auto text-white outline-none ${shell.root}`} onKeyDown={e => {
+    {open && createPortal(<div role="dialog" aria-modal="true" aria-label="Focus test" ref={dialog} tabIndex={-1} data-pvt-theme={theme} className={`pvt-ui pvt-dialog fixed inset-0 z-[10000] overflow-y-auto text-white outline-none ${shell.root}`} onKeyDown={e => {
       if (e.key === 'Escape' && !attempt && !pending && !saved) close()
       if (e.key === 'Tab') { const nodes = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled)'); if (!nodes?.length) return; const first = nodes[0], last = nodes[nodes.length - 1]; if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { e.preventDefault(); last.focus() } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() } }
     }}>
-      {attempt ? <PvtRun duration={attempt.duration} theme={theme} onFinish={finish} /> : <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 py-6 sm:py-10">
-        <header className="flex items-center justify-between gap-3"><div className="flex items-center gap-3"><Focus className={ui.selectedValueText} size={24} /><span className="text-lg font-semibold">Focus test</span></div>{!pending && !saved && <button type="button" aria-label="Close Focus test" className={`rounded-xl p-3 ${ui.closeButton}`} onClick={close}><X size={22} /></button>}</header>
-        <div className={`my-auto rounded-3xl border p-6 sm:p-8 ${shell.card}`}>
-          {pending || saved ? <div className="space-y-5 text-center">
-            <div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-2xl ${ui.selectedValuePill} ${ui.selectedValueText}`}>{busy ? <Loader2 size={36} className="animate-spin" /> : <CheckCircle2 size={36} />}</div>
-            <h2 className="text-2xl font-semibold">{pending ? 'Saving your test…' : saved?.result.interruption ? 'Attempt stopped' : saved?.practice ? 'Practice complete' : 'Test complete'}</h2>
-            <p className="text-sm leading-6 text-slate-300">{pending ? 'Keep this screen open. Your result will be saved for your coach.' : saved?.result.interruption ? 'Your coach can see this attempt. Return to the question to complete a full test.' : saved?.practice ? 'Practice is saved separately. Complete the assigned test to finish this question.' : 'Your result is saved. Tap Done to return to your wellness questionnaire.'}</p>
-            {error && <p role="alert" className="text-sm text-amber-300">{error}</p>}
-            {pending && !busy && <button type="button" className={`${button} w-full`} onClick={() => void send(pending)}>Retry save</button>}
-            {saved && <button type="button" data-testid="pvt-done" className={`${button} w-full`} onClick={done}><Check size={20} />Done</button>}
-          </div> : <div className="space-y-5">
-            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm ${ui.selectedValuePill} ${ui.selectedValueText}`}><Clock3 size={16} />{practice ? 30 : duration} seconds {practice ? '· Practice' : '· Standard protocol'}</div>
-            <h2 className="text-2xl font-semibold tracking-tight">Ready when you are.</h2>
-            <ol className="space-y-3 text-sm leading-6 text-slate-300"><li><strong className="text-white">1.</strong> Hold the phone upright, with your thumb close to TAP.</li><li><strong className="text-white">2.</strong> Wait until the counter appears. Timing changes each time.</li><li><strong className="text-white">3.</strong> Tap once, as fast as you can. Do not guess.</li></ol>
-            <div className="grid grid-cols-2 gap-3"><label className="space-y-1 text-xs text-slate-300">Position<select className={`w-full p-2.5 text-sm text-white ${ui.inputFieldBase}`} value={posture} onChange={e => setPosture(e.target.value)}><option value="seated">Seated</option><option value="reclined">Reclined</option><option value="lying">Lying down</option></select></label><label className="space-y-1 text-xs text-slate-300">Minutes since waking<input className={`w-full p-2.5 text-sm text-white ${ui.inputFieldBase}`} type="number" inputMode="numeric" min={0} max={1440} value={minutesAwake} onChange={e => setMinutesAwake(e.target.value)} /></label></div>
-            <label className="flex items-center justify-between text-sm text-slate-300">Already had caffeine<input type="checkbox" checked={caffeine} onChange={e => setCaffeine(e.target.checked)} /></label>
-            <label className="flex items-center justify-between text-sm text-slate-300">Practice only · 30 seconds<input type="checkbox" checked={practice} onChange={e => setPractice(e.target.checked)} /></label>
-            {needsCode && <label className="block text-sm">Player access code<input autoComplete="off" type="password" className={`mt-2 w-full p-3 text-white ${ui.inputFieldBase}`} value={password} onChange={e => setPassword(e.target.value)} /></label>}
-            <p className="text-xs leading-5 text-slate-400">Use the same phone, thumb and position each day. Turn on Do Not Disturb. Leaving this screen stops the attempt.</p>
-            {error && <p role="alert" className="text-sm text-amber-300">{error}</p>}
-            <button type="button" className={`${button} w-full`} disabled={busy || minutesAwake === '' || !Number.isInteger(Number(minutesAwake)) || Number(minutesAwake) < 0 || Number(minutesAwake) > 1440} onClick={() => void begin()}>{busy ? <Loader2 size={19} className="animate-spin" /> : <Play size={18} />}{busy ? 'Getting ready…' : 'Begin test'}</button>
+      {attempt ? <PvtRun duration={attempt.duration} theme={theme} onFinish={finish} /> : <div className="pvt-dialog-inner">
+        <header className="pvt-dialog-header"><div className="pvt-wordmark"><span className="pvt-brand-mark"><Focus size={23} /></span><div><span>Focus test</span><small>YOUR DAILY CHECK-IN</small></div></div>{!pending && !saved && <button type="button" aria-label="Close Focus test" className={`pvt-close ${ui.closeButton}`} onClick={close}><X size={20} /></button>}</header>
+        <div className="pvt-dialog-content">
+        <div className="pvt-glass-panel">
+          {pending || saved ? <div className="pvt-result-panel">
+            <span className="pvt-kicker">{pending ? 'SAVING YOUR SESSION' : saved?.result.interruption ? 'SESSION PAUSED' : 'SESSION COMPLETE'}</span>
+            <div className="pvt-success-halo"><div className="pvt-success-icon">{busy ? <Loader2 size={38} className="animate-spin" /> : saved?.result.interruption ? <RotateCcw size={38} /> : <CheckCircle2 size={38} />}</div></div>
+            <h2>{pending ? 'Saving your test…' : saved?.result.interruption ? 'Attempt stopped' : saved?.practice ? 'Practice complete' : 'You’re all set.'}</h2>
+            <p className="pvt-result-copy">{pending ? 'Keep this screen open. Your result will be saved for your coach.' : saved?.result.interruption ? 'Your coach can see this attempt. Return to the question to complete a full test.' : saved?.practice ? 'Practice is saved separately. Complete the assigned test to finish this question.' : 'Your test is complete and your result is saved. Continue with your wellness questionnaire.'}</p>
+            {saved && <div className="pvt-saved-receipt"><ShieldCheck size={18} /><span>{saved.attempt.duration} seconds · {demo ? 'Demo session' : 'Saved for your coach'}</span><Check size={16} /></div>}
+            {error && <p role="alert" className="pvt-alert">{error}</p>}
+            {pending && !busy && <button type="button" className={`pvt-action ${button}`} onClick={() => void send(pending)}>Retry save<RotateCcw size={18} /></button>}
+            {saved && <button type="button" data-testid="pvt-done" className={`pvt-action ${button}`} onClick={done}>Done<ArrowRight size={20} /></button>}
+          </div> : <div className="pvt-setup-panel">
+            <div className="pvt-setup-topline"><span className="pvt-kicker"><Sparkles size={13} /> PREPARE YOUR SESSION</span><span className={`pvt-protocol-pill ${ui.selectedValueText}`}><Clock3 size={14} />{practice ? 30 : duration}s · {practice ? 'Practice' : 'Standard'}</span></div>
+            <h2>Your daily <span>focus.</span></h2>
+            <p className="pvt-setup-description">A little time. Your full attention.</p>
+            <ol className="pvt-instruction-grid">
+              <li><span className="pvt-instruction-icon"><Smartphone size={18} /></span><div><strong>Get comfortable</strong><span>Phone upright. Thumb close to TAP.</span></div><small>01</small></li>
+              <li><span className="pvt-instruction-icon"><Focus size={18} /></span><div><strong>Watch the counter</strong><span>Wait for it to appear. Timing changes.</span></div><small>02</small></li>
+              <li><span className="pvt-instruction-icon"><Hand size={18} /></span><div><strong>One quick tap</strong><span>React as fast as you can. Don’t guess.</span></div><small>03</small></li>
+            </ol>
+            <div className="pvt-context-divider"><span>SESSION CONTEXT</span><span>Keep it consistent</span></div>
+            <fieldset className="pvt-position-field"><legend>Position</legend><div className="pvt-position-options">{POSITIONS.map(({ value: position, label, icon: Icon }) => <button type="button" key={position} aria-label={`Position: ${label}`} aria-pressed={posture === position} className={`pvt-position-choice ${ui.focusVisibleRing}`} onClick={() => setPosture(position)}><Icon size={20} /><span>{label}</span><span className="pvt-selection-check">{posture === position && <Check size={10} strokeWidth={3} />}</span></button>)}</div></fieldset>
+            <div className="pvt-awake-field"><div className="pvt-field-heading"><label htmlFor={awakeId}>Minutes since waking</label><span>Choose or enter</span></div><div className="pvt-awake-presets" role="group" aria-label="Minutes since waking presets">{AWAKE_PRESETS.map(minutes => <button type="button" key={minutes} aria-label={`${minutes} minutes since waking`} aria-pressed={minutesAwake !== '' && Number(minutesAwake) === minutes} className={ui.focusVisibleRing} onClick={() => setMinutesAwake(String(minutes))}>{minutes}<span>min</span></button>)}</div><div className="pvt-manual-input"><Clock3 size={18} /><input id={awakeId} type="number" inputMode="numeric" min={0} max={1440} step={1} placeholder="Or enter your minutes" value={minutesAwake} onChange={e => setMinutesAwake(e.target.value)} /><span>min</span></div></div>
+            <div className="pvt-toggle-grid">
+              <label className={`pvt-toggle-card ${caffeine ? 'is-checked' : ''}`}><Coffee size={19} /><span><strong>Already had caffeine</strong><small>Before this check-in</small></span><input type="checkbox" checked={caffeine} onChange={e => setCaffeine(e.target.checked)} /><span className="pvt-switch" aria-hidden="true" /></label>
+              <label className={`pvt-toggle-card ${practice ? 'is-checked' : ''}`}><RotateCcw size={19} /><span><strong>Practice only</strong><small>30 seconds · separate result</small></span><input type="checkbox" checked={practice} onChange={e => setPractice(e.target.checked)} /><span className="pvt-switch" aria-hidden="true" /></label>
+            </div>
+            {needsCode && <label className="pvt-code-field">Player access code<input autoComplete="off" type="password" className={`mt-2 w-full p-3 text-white ${ui.inputFieldBase}`} value={password} onChange={e => setPassword(e.target.value)} /></label>}
+            <p className="pvt-consistency-note"><ShieldCheck size={16} /><span>Same phone, thumb and position each day. Do Not Disturb on. Leaving this screen stops the attempt.</span></p>
+            {error && <p role="alert" className="pvt-alert">{error}</p>}
+            <button type="button" className={`pvt-action ${button}`} disabled={busy || minutesAwake === '' || !Number.isInteger(Number(minutesAwake)) || Number(minutesAwake) < 0 || Number(minutesAwake) > 1440} onClick={() => void begin()}><span>{busy ? <Loader2 size={18} className="animate-spin" /> : <Play size={17} />}{busy ? 'Getting ready…' : 'Begin test'}</span><ArrowRight size={19} /></button>
           </div>}
-        </div><p className={`text-center text-xs ${modal.emptyHint}`}>{demo ? 'Demo · No player data saved' : 'Your results are shared with your coaching staff'}</p>
+        </div></div><p className={`pvt-dialog-footer ${modal.emptyHint}`}><ShieldCheck size={13} />{demo ? 'Demo · No player data saved' : 'Your results are shared with your coaching staff'}</p>
       </div>}
     </div>, document.body)}
   </>

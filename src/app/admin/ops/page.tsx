@@ -18,6 +18,7 @@ import WellnessFlipCard, {
   type OpsPlayerCard,
 } from '@/components/admin/ops/WellnessFlipCard'
 import OpsAlertTicker from '@/components/admin/ops/OpsAlertTicker'
+import OpsFocusPanel from '@/components/admin/ops/OpsFocusPanel'
 import OpsWellnessTable from '@/components/admin/ops/OpsWellnessTable'
 import OpsColumnBuilder from '@/components/admin/ops/OpsColumnBuilder'
 import OpsCalendar from '@/components/admin/ops/OpsCalendar'
@@ -46,6 +47,8 @@ type OpsPayload = {
   generatedAt: string
   selectedDate: string
   stats: { total: number; done: number; pending: number }
+  focusQuestions?: { id: string; text: string }[]
+  focusAvailable?: boolean
   wellnessSummary: TeamWellnessSummary
   players: Array<{
     id: string
@@ -56,6 +59,8 @@ type OpsPayload = {
     submittedAt: string | null
     rank: number | null
     wellness: PlayerWellness | null
+    focus?: OpsPlayerCard['focus']
+    focusState?: string
     derived?: OpsPlayerCard['derived']
   }>
   rules?: OpsRuleDTO[]
@@ -342,9 +347,12 @@ export default function LiveOpsPage() {
   }, [])
 
   useEffect(() => {
-    const today = localToday()
+    const params = new URLSearchParams(window.location.search)
+    const requestedDate = params.get('date')
+    const today = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : localToday()
+    const requestedSurvey = params.get('surveyId') || undefined
     selectedDateRef.current = today
-    void loadDay({ date: today }).then(() => {
+    void loadDay({ date: today, surveyIdOverride: requestedSurvey }).then(() => {
       const sid = surveyIdRef.current
       if (sid) void hydrateMonthBackground(sid, monthKey(today))
       // Backup: rules list from dedicated endpoint if day payload omitted them.
@@ -768,6 +776,8 @@ export default function LiveOpsPage() {
       {data?.players?.length ? (
         <OpsAlertTicker players={data.players as OpsPlayerCard[]} />
       ) : null}
+
+      {data?.survey && !!data.focusQuestions?.length && <OpsFocusPanel survey={data.survey} date={data.selectedDate} players={data.players} available={data.focusAvailable !== false} />}
 
       <OpsMetricsPanel
         metrics={metrics}

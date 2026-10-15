@@ -1,3 +1,5 @@
+import { localDay } from '@/lib/pvt/server'
+import { parsePvtAnswer } from '@/lib/pvt/options'
 import { baselineFor, type PvtSessionRow } from '@/lib/pvt/baseline'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -57,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     const surveys = await prisma.survey.findMany({
       where: { teamId },
-      select: { id: true, title: true, isActive: true, updatedAt: true },
+      select: { id: true, title: true, isActive: true, updatedAt: true, timezone: true },
       orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }],
     })
 
@@ -120,6 +122,7 @@ export async function GET(request: NextRequest) {
               playerId: { not: null },
             },
             select: {
+              id: true,
               playerId: true,
               submittedAt: true,
               answers: {
@@ -189,16 +192,46 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
+    const focusQuestions = survey ? await prisma.question.findMany({ where: { surveyId: survey.id, type: 'PVT' }, select: { id: true, text: true }, orderBy: { order: 'asc' } }) : []
+    let focusAvailable = true
     let focusSessions: PvtSessionRow[] = []
     try {
-      if (survey) focusSessions = await prisma.pvtSession.findMany({ where: { teamId, surveyId: survey.id, startedAt: { gte: historyStart, lt: dayEnd } }, select: { id: true, questionId: true, playerId: true, surveyId: true, localDate: true, startedAt: true, finishedAt: true, durationSeconds: true, protocolVersion: true, practice: true, status: true, deviceId: true, userAgent: true, context: true, summary: true, player: { select: { firstName: true, lastName: true } } }, orderBy: { startedAt: 'asc' }, take: 10000 }).then(rows => JSON.parse(JSON.stringify(rows)))
-    } catch { /* Optional module must never prevent loading wellness. */ }
+      if (survey && focusQuestions.length) {
+        const firstFocusDay = new Date(selectedDate + 'T12:00:00Z')
+        firstFocusDay.setUTCDate(firstFocusDay.getUTCDate() - 28)
+        focusSessions = await prisma.pvtSession.findMany({
+          where: { teamId, surveyId: survey.id, localDate: { gte: firstFocusDay.toISOString().slice(0, 10), lte: selectedDate } },
+          select: {
+            id: true, responseId: true, questionId: true, playerId: true, surveyId: true,
+            localDate: true, startedAt: true, finishedAt: true, durationSeconds: true,
+            protocolVersion: true, practice: true, status: true, deviceId: true, userAgent: true,
+            context: true, summary: true, player: { select: { firstName: true, lastName: true } },
+          },
+          orderBy: { startedAt: 'asc' }, take: 10000,
+        }).then(rows => JSON.parse(JSON.stringify(rows)))
+      }
+    } catch { focusAvailable = false /* Optional module must never prevent loading wellness. */ }
+    const focusTimezone = surveys.find(s => s.id === survey?.id)?.timezone || 'Europe/Belgrade'
+    const sessionsById = new Map(focusSessions.map(s => [s.id, s]))
     const withFocus = playersWithDerived.map(player => {
-      const attempts = focusSessions.filter(s => s.playerId === player.id && s.localDate === selectedDate && !s.practice && s.status === 'COMPLETED')
-      // The first completed attempt is shown; repeating cannot replace a poor first result.
-      const current = attempts[0]
+      const today = focusSessions.filter(s => s.playerId === player.id && s.localDate === selectedDate && !s.practice)
+      const attempts = today.filter(s => s.status === 'COMPLETED')
+      const response = history.find(r => r.playerId === player.id && localDay(r.submittedAt, focusTimezone) === selectedDate)
+      // Show the exact submitted result, matching the main CSV. Unsubmitted tests stay visible.
+      const submitted = response?.answers.flatMap(answer => {
+        const receipt = parsePvtAnswer(answer.value)
+        const s = receipt ? sessionsById.get(receipt.attemptId) : undefined
+        return s && s.responseId === response.id && s.questionId === answer.questionId && s.playerId === player.id && !s.practice && s.status === 'COMPLETED' ? [s] : []
+      })[0]
+      const current = submitted || attempts[0]
       const base = current ? baselineFor(current, focusSessions) : null
-      return { ...player, focus: current ? { medianRT: current.summary?.medianRT ?? null, quality: current.summary?.quality || 'REVIEW', duration: current.durationSeconds, deltaPercent: base?.deltaPercent ?? null, baselineDays: base?.days ?? 0, count: attempts.length } : null }
+      return { ...player, focusState: current ? 'COMPLETED' : today.at(-1)?.status || 'PENDING', focus: current ? {
+        attemptId: current.id, localDate: current.localDate, surveyId: current.surveyId, questionId: current.questionId,
+        medianRT: current.summary?.medianRT ?? null, quality: current.summary?.quality || 'REVIEW',
+        duration: current.durationSeconds, deltaPercent: base?.deltaPercent ?? null, baselineDays: base?.days ?? 0,
+        count: attempts.length, linked: Boolean(submitted), posture: current.context.posture,
+        minutesAwake: current.context.minutesAwake, caffeine: current.context.caffeine, flags: current.summary?.flags || [],
+      } : null }
     })
 
     return NextResponse.json(
@@ -215,6 +248,8 @@ export async function GET(request: NextRequest) {
         stats: day.stats,
         wellnessSummary: day.wellnessSummary,
         players: withFocus,
+        focusQuestions,
+        focusAvailable,
         rules,
         interventions,
         metrics,

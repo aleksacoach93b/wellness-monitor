@@ -1,4 +1,5 @@
-import { PVT_EXPORT_FIELDS, pvtExportValues } from '@/lib/pvt/export'
+import { loadPvtExportSessions } from '@/lib/pvt/export-server'
+import { PVT_EXPORT_FIELDS, linkedPvtSession, pvtExportValues } from '@/lib/pvt/export'
 import { pvtAnswerText } from '@/lib/pvt/options'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -247,6 +248,9 @@ export async function GET(
       return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
     }
 
+    const focusSessions = survey.questions.some(q => q.type === 'PVT')
+      ? await loadPvtExportSessions(survey.id, survey.responses.map(r => r.id)) : new Map()
+
     // ALWAYS emit all body-map zone columns (empty when unanswered) for stable Power BI schema
     const allBodyMapColumns: string[] = []
     survey.questions.forEach((question) => {
@@ -276,7 +280,9 @@ export async function GET(
         playerImageUrl: hasPhoto ? `${origin}/api/players/${response.player.id}/photo` : '',
         playerEmail: response.player.email || '',
         submittedAt: formattedDate,
-        surveyTitle: survey.title
+        surveyTitle: survey.title,
+        playerId: response.player.id,
+        responseId: response.id,
       }
       
       // Question columns in survey order. BODY_MAP Yes/No parent columns MUST always
@@ -287,7 +293,7 @@ export async function GET(
 
         if (question.type === 'PVT') {
           row[question.text] = pvtAnswerText(raw)
-          for (const [field, value] of Object.entries(pvtExportValues(raw))) row[`${question.text} - ${field}`] = value
+          for (const [field, value] of Object.entries(pvtExportValues(raw, linkedPvtSession(raw, focusSessions, response.id, response.player.id, question.id)))) row[`${question.text} - ${field}`] = value
           return
         }
         if (question.type !== 'BODY_MAP') {
@@ -340,16 +346,6 @@ export async function GET(
       return row
     })
 
-    // Convert to CSV format
-    if (csvData.length === 0) {
-      return new NextResponse('No data available', {
-        headers: {
-          'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="${survey.title}-export.csv"`
-        }
-      })
-    }
-
     // Stable header order (not dependent on which fields the first row happened to set)
     const headers: string[] = [
       'playerName',
@@ -367,6 +363,7 @@ export async function GET(
         )
       }
     })
+    headers.push('playerId', 'responseId')
     if (survey.trackSessionType) headers.push('Session Type')
     if (survey.trackMatchDay) headers.push('Match Day')
 
@@ -397,7 +394,8 @@ export async function GET(
 
     return new NextResponse(csvContent, {
       headers: {
-        'Content-Type': 'text/csv',
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Cache-Control': 'no-store, max-age=0',
         'Content-Disposition': `attachment; filename="${survey.title}${filenameSuffix}"`,
         'X-Body-Map-Export-Mode': exportMode,
       }

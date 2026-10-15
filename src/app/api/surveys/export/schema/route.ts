@@ -1,9 +1,20 @@
+import { PVT_EXPORT_FIELDS } from '@/lib/pvt/export'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
     // Database schema for Power BI setup
     const schema = {
+      unifiedCsv: {
+        urlPattern: '/api/surveys/{surveyId}/export/csv',
+        grain: 'One submitted wellness response per row; Focus is the exact attached non-practice completed attempt.',
+        joins: ['playerId', 'responseId', '{Focus question text} - Attempt ID', '{Focus question text} - Question ID'],
+        focusColumns: PVT_EXPORT_FIELDS.map(field => ({ name: `{Focus question text} - ${field}` })),
+        missing: 'Blank means no recorded value, never an assumed zero. Older responses retain blank Focus columns.',
+        caffeine: '0 = no; 1 = yes',
+        dates: 'Test date uses survey timezone; Started at UTC and Completed at UTC are ISO 8601 UTC timestamps.',
+        slowResponses: 'Responses >=355 ms; exploratory only, not a fatigue classification.',
+      },
       tables: [
         {
           name: 'Survey',

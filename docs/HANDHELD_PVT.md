@@ -92,3 +92,12 @@ Live Ops displays a dedicated Focus overview regardless of an administrator's sa
 The Focus analysis page distinguishes linked results from unsubmitted tests and retains a separate attempts CSV. Its personal reference uses up to 14 distinct prior eligible days within the 28 calendar days preceding each test, with a minimum of seven and the established matching conditions. Extra earlier history is loaded to calculate references for historical rows in the 28-day view; only the requested display window is shown. Positive percentage change is slower median RT, never a fatigue percentage.
 
 Demo attempts at `/pvt/demo` are isolated and never exported. Players must finish their Focus test, select Done, then submit the wellness questionnaire to include it in the main CSV.
+
+
+## Glass setup and donut visual version v4
+
+The setup uses the wellness theme's glass surfaces, three concise instruction tiles, 2×2 posture choices and centered 3×2 awake-minute presets with manual entry. The old “A little time…” subtitle is removed. Reduced-motion preference disables decorative setup/result transitions, not the measured counter.
+
+`handheld-pvt-v4` replaces the white square with a fixed-size circular SVG counter. Its clockwise arc is presentation only: `min(elapsedMs / 500, 1)`. The center displays uncapped elapsed milliseconds. The waiting ring is stationary; numeric post-tap feedback freezes briefly, then resets before the next signal. No CSS interpolation is applied to the arc. All themes share the same blue signal color and neutral background/text contrast; app chrome follows the chosen theme. 500 ms is not an interpretive or fatigue threshold. Engine waits, pointer timing, 30/60-second durations, raw trials and server-computed metrics are unchanged.
+
+New clients request v4 and sessions record that version. Cached v3 square clients may still start/finish v3 sessions during deployment; the server records the requested supported renderer version rather than relabelling old clients as v4. Earlier pending results remain valid. Existing question options using v3 remain editable without a data rewrite; updated builders write v4 options and duration continues to come from the assigned question/day lock. Baselines already match protocol version, so square and donut records never pool. CSV, Live Ops and history retain every session's original version. No database migration or production answer updates are needed.

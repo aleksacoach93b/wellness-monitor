@@ -67,6 +67,7 @@ export default function PvtAdmin() {
       <p><strong>Same task, unpredictable timing.</strong> Hold the phone upright, use the same thumb, posture and device. Respond to the fixed visual counter after a random 1–4 s wait. No camera or microphone.</p>
       <p>30/60 s are experimental short checks. This implementation requires timing validation. Results are not a diagnosis, injury predictor or overall readiness score. A ≥355 ms response is an exploratory brief-PVT reference, not a fatigue cutoff.</p>
       <p>Main wellness CSV includes the exact result submitted with each questionnaire. Completed tests awaiting wellness submission, repeats and practice remain visible here. The demo saves no data.</p>
+      <p>The v4 donut fills over 0–500 ms; reaction times continue beyond 500 ms. This is a visual scale, not a fatigue threshold. Earlier square-counter sessions keep their original version and separate personal references.</p>
       <p>Practice is separate. All attempts remain in history. Prior reference uses the first eligible attempt per day, at least 7 prior eligible days within the preceding 28 calendar days (up to 14 days used), matching player, survey, duration, version, device/browser, posture and caffeine. It is descriptive and does not establish meaningful-change thresholds.</p>
       <a className="font-bold text-teal-700 underline" href="/pvt/demo" target="_blank" rel="noreferrer">Open isolated player demo (no data saved)</a>
     </div>

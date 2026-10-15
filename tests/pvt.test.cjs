@@ -5,7 +5,7 @@ const os = require('node:os')
 const path = require('node:path')
 const ts = require('typescript')
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pvt-unit-'))
-for (const name of ['protocol', 'engine', 'baseline', 'server', 'options', 'export']) {
+for (const name of ['protocol', 'engine', 'baseline', 'server', 'options', 'export', 'visual']) {
   const source = fs.readFileSync(path.join(__dirname, '../src/lib/pvt', name + '.ts'), 'utf8')
   fs.writeFileSync(path.join(dir, name + '.js'), ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText)
 }
@@ -157,4 +157,39 @@ test('export joins only the explicit completed attempt for the same response, pl
   assert.equal(match({}).id, 'a')
   for (const patch of [{responseId:'other'}, {playerId:'other'}, {questionId:'other'}, {practice:true}, {status:'INTERRUPTED'}]) assert.equal(match(patch),undefined)
   assert.equal(linkedPvtSession('',new Map([['a',s]]),'r','p','q'),undefined)
+})
+
+
+test('donut caps its visual fill at 500ms while keeping the full counter and raw reaction time', () => {
+  const { pvtVisualFrame, pvtRingFraction } = require(path.join(dir, 'visual.js'))
+  assert.equal(pvtRingFraction(355), .71)
+  assert.equal(pvtRingFraction(500), 1)
+  assert.equal(pvtRingFraction(720), 1)
+  assert.equal(pvtRingFraction(-1), 0)
+  const late = pvtVisualFrame(true, 720, '', false)
+  assert.equal(late.text, '720'); assert.equal(late.fill, 1); assert.equal(late.numeric, true)
+  const result = run(30, 720)
+  assert.equal(validatePvtRecord(result, 30), true)
+  assert.equal(summarizePvt(result, 30).medianRT, 720)
+})
+
+test('donut is stationary before a signal and freezes feedback without counting into the next wait', () => {
+  const { pvtVisualFrame } = require(path.join(dir, 'visual.js'))
+  assert.deepEqual(pvtVisualFrame(false, 900, '', false), {text:'WAIT',numeric:false,fill:0,status:'WAIT FOR THE SIGNAL'})
+  assert.equal(pvtVisualFrame(true, 0, '', false).text, '000')
+  assert.equal(pvtVisualFrame(false, 0, '720 ms', true).fill, 1)
+  assert.equal(pvtVisualFrame(false, 0, '720 ms', true).text, '720')
+  assert.equal(pvtVisualFrame(false, 0, '720 ms', false).fill, 0)
+  assert.equal(pvtVisualFrame(false, 0, 'TOO EARLY', true).numeric, false)
+})
+
+test('old square sessions remain valid and cannot enter the new donut reference', () => {
+  const current = row('2026-10-15', {protocolVersion:'handheld-pvt-v4'})
+  const squareDays = Array.from({length:7}, (_,i) => row(`2026-10-0${i+1}`, {protocolVersion:'handheld-pvt-v3'}))
+  assert.equal(baselineFor(current, squareDays).days, 0)
+  assert.equal(validatePvtRecord(run(30), 30, 'handheld-pvt-v3'), true)
+  assert.equal(validatePvtRecord(run(60), 60, 'handheld-pvt-v3'), true)
+  assert.equal(validatePvtRecord(run(30), 30, 'unknown'), false)
+  const {validPvtOptions}=require(path.join(dir, 'options.js'))
+  assert.equal(validPvtOptions(JSON.stringify({durationSeconds:30,protocolVersion:'handheld-pvt-v3'})),true)
 })

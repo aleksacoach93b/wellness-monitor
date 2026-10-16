@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Save } from 'lucide-react'
 import { QuestionType } from '@prisma/client'
-import { pvtOptions, pvtDuration } from '@/lib/pvt/options'
+import { pvtOptions } from '@/lib/pvt/options'
+import { rhrOptions } from '@/lib/rhr/options'
 import HomeButton from '@/components/HomeButton'
 import { serializeSliderLabels } from '@/lib/sliderOptions'
 
@@ -15,6 +16,7 @@ interface Question {
   options: string[]
   required: boolean
   order: number
+  rhr?: boolean
   pvtDuration?: number
   /** Per-slider-value captions 1–10; keys "1"…"10" */
   sliderSteps?: Record<string, string>
@@ -110,7 +112,7 @@ export default function NewSurveyPage() {
           text: q.text.trim(),
           type: q.type,
           options:
-            q.type === 'PVT' ? pvtOptions(q.pvtDuration ?? 30) : q.type === 'SLIDER'
+            q.rhr ? rhrOptions() : q.type === 'PVT' ? pvtOptions(q.pvtDuration ?? 30) : q.type === 'SLIDER'
               ? serializeSliderLabels({
                   left: q.options[0],
                   center: q.options[1],
@@ -339,8 +341,8 @@ export default function NewSurveyPage() {
                           Question Type
                         </label>
                         <select
-                          value={question.type}
-                          onChange={(e) => updateQuestion(question.id, { type: e.target.value as QuestionType })}
+                          value={question.rhr ? 'RHR' : question.type}
+                          onChange={(e) => updateQuestion(question.id, { type: e.target.value === 'RHR' ? 'NUMBER' : e.target.value as QuestionType, rhr: e.target.value === 'RHR' })}
                           className="mt-1 block w-full bg-slate-50 border-slate-300 text-slate-900 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                         >
                           <option value="TEXT">Text Input</option>
@@ -356,6 +358,7 @@ export default function NewSurveyPage() {
                           <option value="BODY_MAP">Body Map (Pain/Injury)</option>
                           <option value="TIME">Time (24h format)</option>
                           <option value="PVT">Focus test (PVT)</option>
+                          <option value="RHR">Resting heart rate (15s camera)</option>
                         </select>
                       </div>
 
@@ -395,6 +398,7 @@ export default function NewSurveyPage() {
                         </div>
                       )}
 
+                      {question.rhr && <p className="my-4 rounded-xl border border-blue-500/25 bg-blue-500/5 p-4 text-sm">15-second rear-camera pulse estimate. Measurement position and resting confirmation are required. Invalid signals require a repeat. Device validation pending.</p>}
                       {question.type === 'PVT' && <div className="my-4 rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4">
                         <label className="block text-sm font-medium mb-2">Standard protocol duration</label>
                         <select className="bg-slate-800 text-white border border-slate-600 rounded-lg p-2" value={question.pvtDuration ?? 30} onChange={e => updateQuestion(question.id, { pvtDuration: Number(e.target.value) })}>

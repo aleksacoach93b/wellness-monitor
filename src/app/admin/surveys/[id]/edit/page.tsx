@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Save, Eye, ChevronUp, ChevronDown, Clock } from 'lucide-react'
 import { QuestionType, Survey, Question } from '@prisma/client'
 import { pvtOptions, pvtDuration } from '@/lib/pvt/options'
+import { rhrOptions, isRhrQuestion } from '@/lib/rhr/options'
 import HomeButton from '@/components/HomeButton'
 import { parseSliderOptions, serializeSliderLabels, type SliderLabelsState } from '@/lib/sliderOptions'
 
@@ -15,6 +16,7 @@ interface QuestionFormState {
   options: string[]
   required: boolean
   order: number
+  rhr?: boolean
   pvtDuration?: number
   sliderLabels?: SliderLabelsState
 }
@@ -64,6 +66,7 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
               options: parsedOptions,
               sliderLabels,
               pvtDuration: pvtDuration(q.options),
+              rhr: isRhrQuestion(q),
             }
           }))
         }
@@ -189,7 +192,7 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
           text: q.text,
           type: q.type,
           options:
-            q.type === 'PVT' ? pvtOptions(q.pvtDuration ?? 30) : q.type === 'SLIDER'
+            q.rhr ? rhrOptions() : q.type === 'PVT' ? pvtOptions(q.pvtDuration ?? 30) : q.type === 'SLIDER'
               ? serializeSliderLabels(q.sliderLabels)
               : q.options.length > 0
                 ? JSON.stringify(q.options)
@@ -404,22 +407,10 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
                         Question Type
                       </label>
                       <select
-                        value={question.type}
+                        value={question.rhr ? 'RHR' : question.type}
                         onChange={(e) => {
-                          const next = e.target.value as QuestionType
-                          if (next === 'SLIDER') {
-                            updateQuestion(question.id, {
-                              type: next,
-                              options: [],
-                              sliderLabels: {},
-                            })
-                          } else {
-                            updateQuestion(question.id, {
-                              type: next,
-                              options: [],
-                              sliderLabels: undefined,
-                            })
-                          }
+                          const next = (e.target.value === 'RHR' ? 'NUMBER' : e.target.value) as QuestionType
+                          updateQuestion(question.id, {type:next,rhr:e.target.value==='RHR',options:[],sliderLabels:next==='SLIDER'?{}:undefined})
                         }}
                         className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       >
@@ -436,6 +427,7 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
                         <option value="BODY_MAP">Body Map</option>
                         <option value="TIME">Time (24h format)</option>
                           <option value="PVT">Focus test (PVT)</option>
+                          <option value="RHR">Resting heart rate (15s camera)</option>
                       </select>
                     </div>
                   </div>
@@ -492,7 +484,8 @@ export default function EditSurveyPage({ params }: { params: Promise<{ id: strin
                     </div>
                   )}
 
-                  {question.type === 'PVT' && <div className="my-4 rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4">
+                  {question.rhr && <p className="my-4 rounded-xl border border-blue-500/25 bg-blue-500/5 p-4 text-sm">15-second rear-camera pulse estimate. Measurement position and resting confirmation are required. Invalid signals require a repeat. Device validation pending.</p>}
+                      {question.type === 'PVT' && <div className="my-4 rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4">
                         <label className="block text-sm font-medium mb-2">Standard protocol duration</label>
                         <select className="bg-slate-800 text-white border border-slate-600 rounded-lg p-2" value={question.pvtDuration ?? 30} onChange={e => updateQuestion(question.id, { pvtDuration: Number(e.target.value) })}>
                           <option value={30}>30 seconds</option><option value={60}>60 seconds</option>

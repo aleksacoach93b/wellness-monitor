@@ -18,6 +18,7 @@ import WellnessFlipCard, {
   type OpsPlayerCard,
 } from '@/components/admin/ops/WellnessFlipCard'
 import OpsAlertTicker from '@/components/admin/ops/OpsAlertTicker'
+import OpsRhrPanel from '@/components/admin/ops/OpsRhrPanel'
 import OpsFocusPanel from '@/components/admin/ops/OpsFocusPanel'
 import OpsWellnessTable from '@/components/admin/ops/OpsWellnessTable'
 import OpsColumnBuilder from '@/components/admin/ops/OpsColumnBuilder'
@@ -47,6 +48,7 @@ type OpsPayload = {
   generatedAt: string
   selectedDate: string
   stats: { total: number; done: number; pending: number }
+  rhrAvailable?: boolean
   focusQuestions?: { id: string; text: string }[]
   focusAvailable?: boolean
   wellnessSummary: TeamWellnessSummary
@@ -59,6 +61,7 @@ type OpsPayload = {
     submittedAt: string | null
     rank: number | null
     wellness: PlayerWellness | null
+    restingHr?: OpsPlayerCard['restingHr']
     focus?: OpsPlayerCard['focus']
     focusState?: string
     derived?: OpsPlayerCard['derived']
@@ -777,6 +780,7 @@ export default function LiveOpsPage() {
         <OpsAlertTicker players={data.players as OpsPlayerCard[]} />
       ) : null}
 
+      {data?.survey && data.rhrAvailable && <OpsRhrPanel surveyId={data.survey.id} players={data.players} />}
       {data?.survey && !!data.focusQuestions?.length && <OpsFocusPanel survey={data.survey} date={data.selectedDate} players={data.players} available={data.focusAvailable !== false} />}
 
       <OpsMetricsPanel

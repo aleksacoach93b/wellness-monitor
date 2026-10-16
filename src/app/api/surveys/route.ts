@@ -1,3 +1,4 @@
+import { isRhrQuestion, validRhrOptions } from '@/lib/rhr/options'
 import { pvtDuration, validPvtOptions } from '@/lib/pvt/options'
 import { localDay } from '@/lib/pvt/server'
 import { NextRequest, NextResponse } from 'next/server'
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
     
     const validatedData = createSurveySchema.parse(body)
     if (validatedData.questions.some(q => q.type === 'PVT' && !validPvtOptions(q.options))) return NextResponse.json({ error: 'Focus test requires a 30 or 60 second standard protocol.' }, { status: 400 })
+    if (validatedData.questions.some(q => isRhrQuestion({type:q.type,options:typeof q.options==='string'?q.options:null}) && !validRhrOptions(q.options))) return NextResponse.json({error:'Resting HR requires the 15-second camera protocol.'},{status:400})
     console.log('Validated data:', JSON.stringify(validatedData, null, 2))
 
     const survey = await prisma.survey.create({

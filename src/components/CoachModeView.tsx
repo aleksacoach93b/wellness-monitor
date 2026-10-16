@@ -6,6 +6,8 @@ import { CheckCircle, AlertTriangle, Send, ArrowDownAZ, ArrowUpZA } from 'lucide
 import Image from 'next/image'
 import BodyMap from '@/components/BodyMap'
 import PvtQuestion from '@/components/pvt/PvtQuestion'
+import RhrQuestion from '@/components/rhr/RhrQuestion'
+import { isRhrQuestion } from '@/lib/rhr/options'
 import { createPortal } from 'react-dom'
 import type { KioskTheme } from '@/lib/kioskThemes'
 import { kioskThemes, kioskTextTokens } from '@/lib/kioskThemes'
@@ -124,7 +126,7 @@ export default function CoachModeView({
   const booleanQuestions = survey.questions.filter((q) => q.type === 'BOOLEAN')
   const bodyMapQuestions = survey.questions.filter((q) => q.type === 'BODY_MAP')
   const textQuestions = survey.questions.filter(
-    (q) => q.type === 'TEXT' || q.type === 'NUMBER' || q.type === 'TIME'
+    (q) => !isRhrQuestion(q) && (q.type === 'TEXT' || q.type === 'NUMBER' || q.type === 'TIME')
   )
 
   const [playerData, setPlayerData] = useState<
@@ -203,7 +205,7 @@ export default function CoachModeView({
   const applyGlobalDuration = useCallback(() => {
     if (!globalDuration.trim()) return
     const durationQuestions = survey.questions.filter(
-      (q) => q.type === 'SLIDER' || q.type === 'NUMBER'
+      (q) => !isRhrQuestion(q) && (q.type === 'SLIDER' || q.type === 'NUMBER')
     )
     if (durationQuestions.length === 0) return
 
@@ -338,6 +340,7 @@ export default function CoachModeView({
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         if (typeof err.focusQuestionId === 'string' && survey.questions.some(q => q.id === err.focusQuestionId && q.type === 'PVT')) setAnswer(playerId, err.focusQuestionId, '')
+        if (typeof err.rhrQuestionId === 'string' && survey.questions.some(q => q.id === err.rhrQuestionId && isRhrQuestion(q))) setAnswer(playerId, err.rhrQuestionId, '')
         throw new Error(err.error || `HTTP ${res.status}`)
       }
       setSubmitted((s) => ({ ...s, [playerId]: true }))
@@ -445,6 +448,7 @@ export default function CoachModeView({
         )
       },
     },
+    ...survey.questions.filter(isRhrQuestion).map(q => ({id:q.id,label:q.text,width:'320px',cell:(player:PlayerWithStatus)=>submitted[player.id]?<span>Submitted</span>:<RhrQuestion surveyId={survey.id} question={q} playerId={player.id} theme={bodyMapAppearance} value={String(playerData[player.id]?.answers[q.id]||'')} onChange={value=>setAnswer(player.id,q.id,value)} password={player.password||`${player.firstName.charAt(0)}${player.lastName.charAt(0)}`} />})),
     ...survey.questions.filter(q => q.type === 'PVT').map(q => ({
       id: q.id, label: q.text, width: '320px',
       cell: (player: PlayerWithStatus) => submitted[player.id] ? <span className="text-sm text-emerald-300">Submitted</span> : <PvtQuestion surveyId={survey.id} question={q} playerId={player.id} theme={bodyMapAppearance} value={String(playerData[player.id]?.answers[q.id] || '')} onChange={value => setAnswer(player.id, q.id, value)} password={player.password || `${player.firstName.charAt(0)}${player.lastName.charAt(0)}`} />,
@@ -755,7 +759,7 @@ export default function CoachModeView({
         {/* Bulk-fill toolbar: controls in one row, Apply to All beneath each */}
         {(scaleQuestions.length > 0 ||
           sliderQuestions.length > 0 ||
-          survey.questions.some((q) => q.type === 'NUMBER') ||
+          survey.questions.some((q) => q.type === 'NUMBER' && !isRhrQuestion(q)) ||
           showSession ||
           showMatchDay) && (
           <div className="mb-3 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.03] p-3">
@@ -798,7 +802,7 @@ export default function CoachModeView({
               )}
 
               {/* Duration */}
-              {(sliderQuestions.length > 0 || survey.questions.some((q) => q.type === 'NUMBER')) && (
+              {(sliderQuestions.length > 0 || survey.questions.some((q) => q.type === 'NUMBER' && !isRhrQuestion(q))) && (
                 <>
                   <span className={`text-[10px] font-semibold uppercase tracking-wide ${text.textFaint}`}>
                     {t(locale, 'durationMin')}

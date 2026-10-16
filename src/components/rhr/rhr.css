@@ -1,0 +1,69 @@
+.rhr-video {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.rhr-dialog .pvt-position-choice {
+  justify-content: center;
+  min-height: 48px;
+}
+.rhr-rest-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 1.3rem 0;
+  color: #cbd5e1;
+}
+.rhr-rest-confirm input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: #60a5fa;
+}
+.rhr-camera-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  margin: 1rem 0;
+}
+.rhr-camera-label select,
+.rhr-camera-label input {
+  padding: 0.8rem;
+  max-width: 100%;
+}
+.rhr-countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 2rem auto;
+  color: rgb(var(--pvt-rgb));
+}
+.rhr-countdown strong {
+  font-size: 6rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: white;
+}
+.rhr-countdown span {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+.rhr-wave {
+  width: 100%;
+  max-width: 340px;
+  height: 80px;
+  color: rgb(var(--pvt-rgb));
+  margin: 0 auto;
+}
+.rhr-estimate-note {
+  font-size: 0.7rem;
+  text-align: center;
+  color: #94a3b8;
+  margin: 1rem 0 0;
+}

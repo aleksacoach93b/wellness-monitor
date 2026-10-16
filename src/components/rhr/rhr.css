@@ -506,3 +506,23 @@
   position: absolute;
   left: calc(100% + 0.5rem);
 }
+.rhr-active-camera {
+  font-size: 0.78rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+.rhr-preflight-hint[data-status='problem'] { color: #fbbf24; }
+.rhr-preflight-hint[data-status='checking'] { opacity: 0.8; }
+
+.pvt-ui[data-pvt-theme='soft'] .rhr-preflight-hint[data-status='problem'] { color: #92400e; }
+.rhr-light-status .pvt-stop {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.55rem 0.7rem;
+  margin: 0.5rem 0;
+  border: 1px solid rgba(var(--pvt-rgb), 0.3);
+  border-radius: 12px;
+  background: rgba(var(--pvt-rgb), 0.07);
+}

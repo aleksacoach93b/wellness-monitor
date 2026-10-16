@@ -1,0 +1,308 @@
+// Owned synthetic camera only. No OS camera, API writes or player data.
+const assert = require('node:assert/strict')
+const { chromium } = require(process.env.RHR_PLAYWRIGHT_MODULE || 'playwright')
+const mode = process.env.RHR_SCENARIO || 'stable'
+const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
+;(async () => {
+  const browser = await chromium.launch({
+    headless: true,
+    ...(process.env.RHR_BROWSER
+      ? { executablePath: process.env.RHR_BROWSER }
+      : {}),
+  })
+  try {
+    const ctx = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    })
+    await ctx.route('**/api/**', (r) =>
+      r.request().method() === 'GET' ? r.continue() : r.abort(),
+    )
+    await ctx.addInitScript((mode) => {
+      window.__calls = []
+      window.__stops = 0
+      window.__light = false
+      window.__optimized = false
+      window.__scanStart = null
+      document.addEventListener(
+        'click',
+        (e) => {
+          if (
+            e.target.closest('button')?.textContent.trim() ===
+            'Start measurement'
+          )
+            window.__scanStart = performance.now()
+        },
+        true,
+      )
+      navigator.mediaDevices.enumerateDevices = async () =>
+        mode === 'flat'
+          ? [{ kind: 'videoinput', deviceId: 'main', label: 'Back Camera' }]
+          : [
+              { kind: 'videoinput', deviceId: 'main', label: 'Back Camera' },
+              {
+                kind: 'videoinput',
+                deviceId: 'wide',
+                label: 'Back Ultra Wide Camera',
+              },
+            ]
+      navigator.mediaDevices.getUserMedia = async (constraints) => {
+        const requested = constraints.video.deviceId?.exact || 'main'
+        const id = mode === 'mismatch' ? 'main' : requested
+        window.__calls.push({ requested, actual: id })
+        const canvas = document.createElement('canvas')
+        canvas.width = 128
+        canvas.height = 128
+        const x = canvas.getContext('2d'),
+          created = performance.now()
+        const draw = () => {
+          const t = (performance.now() - (window.__scanStart ?? created)) / 1000
+          const phase = (2 * Math.PI * 55 * t) / 60
+          const v =
+            mode === 'flat' || (mode === 'switch' && id === 'main')
+              ? 0
+              : Math.sin(phase) + 0.3 * Math.sin(phase * 2 + 0.4)
+          x.fillStyle = `rgb(${Math.round(180 + 8 * v)},${Math.round(75 + 5 * v)},45)`
+          x.fillRect(0, 0, 128, 128)
+        }
+        draw()
+        let timer = setInterval(
+          draw,
+          mode === 'slow' || mode === 'ignored' ? 67 : 33,
+        )
+        const stream = canvas.captureStream(30),
+          track = stream.getVideoTracks()[0],
+          originalStop = track.stop.bind(track)
+        track.stop = () => {
+          clearInterval(timer)
+          window.__stops++
+          window.__light = false
+          originalStop()
+        }
+        track.getSettings = () => ({
+          deviceId: id,
+          facingMode: 'environment',
+          frameRate: 30,
+          width: 320,
+          height: 240,
+          torch: window.__light,
+        })
+        track.getCapabilities = () => ({
+          torch: true,
+          frameRate: { min: 15, max: 60 },
+        })
+        track.applyConstraints = async (q) => {
+          window.__light =
+            q.torch === true || !!q.advanced?.some((a) => a.torch === true)
+          if (q.width?.ideal === 160 && mode !== 'ignored') {
+            clearInterval(timer)
+            timer = setInterval(draw, 33)
+            window.__optimized = true
+          }
+        }
+        return stream
+      }
+    }, mode)
+    const page = await ctx.newPage(),
+      errors = []
+    page.on('pageerror', (e) => errors.push(e.message))
+    const setup = async () => {
+      await page.goto(base + '/rhr/demo?cameraCheck=1')
+      await page
+        .getByRole('button', { name: 'Measure resting HR', exact: true })
+        .click()
+      await page.getByRole('button', { name: 'Seated', exact: true }).click()
+      await page
+        .getByRole('checkbox', {
+          name: 'I have rested quietly for at least 5 minutes.',
+        })
+        .check()
+      await page
+        .getByRole('button', { name: 'Enable rear camera', exact: true })
+        .click()
+    }
+    const ready = async () => {
+      await page
+        .getByTestId('rhr-preflight-hint')
+        .filter({ hasText: 'Camera check passed' })
+        .waitFor({ timeout: 12000 })
+      assert.ok(
+        await page
+          .getByRole('button', { name: 'Start measurement', exact: true })
+          .isEnabled(),
+      )
+    }
+    const finish = async () => {
+      const start = Date.now()
+      await page
+        .getByRole('button', { name: 'Start measurement', exact: true })
+        .click()
+      await page.getByTestId('rhr-done').waitFor({ timeout: 20000 })
+      assert.ok(Date.now() - start >= 14900 && Date.now() - start < 19000)
+      assert.ok(
+        Math.abs(Number(await page.getByTestId('rhr-bpm').innerText()) - 55) <=
+          3,
+      )
+      assert.equal(await page.evaluate(() => window.__light), false)
+    }
+    await setup()
+    if (mode === 'slow' || mode === 'ignored') {
+      await page.getByTestId('rhr-improve-stream').waitFor({ timeout: 12000 })
+      assert.equal(
+        await page
+          .getByRole('button', { name: 'Start measurement', exact: true })
+          .isEnabled(),
+        false,
+      )
+      assert.match(
+        await page.getByTestId('rhr-preflight-hint').innerText(),
+        /fps/,
+      )
+      if (process.env.RHR_SCREENSHOT)
+        await page.screenshot({
+          path: process.env.RHR_SCREENSHOT,
+          fullPage: true,
+        })
+      await page.getByText('Camera details', { exact: true }).click()
+      const saving = page.waitForEvent('download')
+      await page
+        .getByRole('button', {
+          name: 'Download camera diagnostics',
+          exact: true,
+        })
+        .click()
+      const setupFile = await (await saving).path()
+      const setupData = JSON.parse(
+        require('node:fs').readFileSync(setupFile, 'utf8'),
+      )
+      assert.equal(setupData.diagnosticKind, 'camera-setup')
+      // Requested/reported rate is 30, but the real frame clock is about 15.
+      assert.equal(setupData.camera.settings.frameRate, 30)
+      assert.ok(setupData.check.stats.fps < 20)
+      await page.getByTestId('rhr-improve-stream').click()
+      if (mode === 'ignored') {
+        await page.getByTestId('rhr-improve-stream').waitFor({ timeout: 12000 })
+        assert.equal(
+          await page
+            .getByRole('button', { name: 'Start measurement', exact: true })
+            .isEnabled(),
+          false,
+        )
+      } else {
+        await ready()
+        await finish()
+        assert.equal(
+          await page.evaluate(
+            () =>
+              JSON.parse(localStorage.getItem('rhr-working-stream-v1')).compact,
+          ),
+          true,
+        )
+        await page.getByTestId('rhr-done').click()
+        await setup()
+        await ready()
+        assert.equal(
+          await page.evaluate(() => window.__optimized),
+          true,
+          'A previously successful compact stream is restored',
+        )
+      }
+    } else {
+      await ready()
+      if (mode === 'mismatch') {
+        await page
+          .getByRole('combobox', { name: 'Rear camera' })
+          .selectOption('wide')
+        await page
+          .getByRole('alert')
+          .filter({ hasText: 'could not be verified' })
+          .waitFor()
+        assert.equal(
+          await page
+            .getByRole('button', { name: 'Start measurement', exact: true })
+            .count(),
+          0,
+        )
+      } else if (mode === 'flat' || mode === 'switch') {
+        await page
+          .getByRole('button', { name: 'Start measurement', exact: true })
+          .click()
+        await page.getByTestId('rhr-repeat').waitFor({ timeout: 20000 })
+        await page.getByText('Scan details', { exact: true }).click()
+        const downloading = page.waitForEvent('download')
+        await page
+          .getByRole('button', { name: 'Download signal diagnostics' })
+          .click()
+        const file = await (await downloading).path(),
+          data = JSON.parse(require('node:fs').readFileSync(file, 'utf8'))
+        assert.equal(data.record.protocolVersion, 'camera-rhr-v4')
+        assert.equal(data.record.elapsedMs, 15000)
+        assert.equal(data.capture.camera.actualId, 'main')
+        assert.ok(data.deliveredFrames.fps >= 20)
+        assert.equal(data.analysis.bpm, null)
+        if (mode === 'flat')
+          assert.equal(await page.getByTestId('rhr-next-camera').count(), 0)
+        else {
+          await page.getByTestId('rhr-next-camera').click()
+          await ready()
+          assert.equal(
+            await page
+              .getByRole('combobox', { name: 'Rear camera' })
+              .inputValue(),
+            'wide',
+          )
+          assert.equal(
+            await page.evaluate(() => window.__calls.at(-1).actual),
+            'wide',
+          )
+          await finish()
+          assert.equal(
+            await page.evaluate(() =>
+              localStorage.getItem('rhr-working-camera-v1'),
+            ),
+            'wide',
+          )
+          await page.getByTestId('rhr-done').click()
+          await setup()
+          await ready()
+          assert.equal(
+            await page.evaluate(() => window.__calls.at(-1).actual),
+            'wide',
+          )
+        }
+      } else {
+        await finish()
+      }
+    }
+    assert.equal(errors.length, 0, errors.join(';'))
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    )
+    if (
+      await page
+        .getByRole('button', { name: 'Close resting HR', exact: true })
+        .count()
+    )
+      await page
+        .getByRole('button', { name: 'Close resting HR', exact: true })
+        .click()
+    assert.equal(await page.evaluate(() => window.__light), false)
+    assert.ok(await page.evaluate(() => window.__stops > 0))
+    console.log(
+      JSON.stringify({
+        mode,
+        pass: true,
+        noApiWrites: true,
+        syntheticCameraOnly: true,
+      }),
+    )
+  } finally {
+    await browser.close()
+  }
+})().catch((e) => {
+  console.error(e)
+  process.exitCode = 1
+})

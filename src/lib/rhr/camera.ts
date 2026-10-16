@@ -99,7 +99,7 @@ export type ExposureAdjustment = {
   reported: number | null
 }
 
-export const RHR_ACQUISITION_VERSION = 'android-adaptive-gain-v2'
+export const RHR_ACQUISITION_VERSION = 'android-metering-compat-v3'
 export const needsAndroidCameraHold = (userAgent: string) =>
   /Android/i.test(userAgent)
 type HoldMode = 'whiteBalanceMode' | 'focusMode' | 'exposureMode'
@@ -109,15 +109,54 @@ type HoldSettings = MediaTrackSettings & {
   exposureMode?: string
   focusDistance?: number
   exposureTime?: number
+  iso?: number
 }
+type MeteringIssue = 'invalid-iso' | 'invalid-exposure-time'
 export type CameraHold = {
   controls: {
     mode: HoldMode
     status: 'requested' | 'confirmed' | 'unsupported' | 'failed'
     before: string | null
     reported: string | null
+    skippedReason?: MeteringIssue | 'invalid-focus-distance'
   }[]
   exposureReleased: boolean
+  automaticRecovery?: { reason: MeteringIssue; status: 'requested' | 'failed' }
+}
+/** Browser settings may contain sentinel zeros, not measured camera values.
+ * Never freeze or manufacture a numeric setting outside its advertised range.
+ */
+function usableCameraValue(value: unknown, range: unknown, positive: boolean) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return false
+  if (positive ? value <= 0 : value < 0) return false
+  if (!range || typeof range !== 'object') return true
+  const { min, max } = range as { min?: unknown; max?: unknown }
+  return (
+    typeof min === 'number' &&
+    typeof max === 'number' &&
+    Number.isFinite(min) &&
+    Number.isFinite(max) &&
+    min <= max &&
+    value >= min &&
+    value <= max
+  )
+}
+function meteringIssue(
+  settings: HoldSettings,
+  caps: Record<string, unknown> | undefined,
+): MeteringIssue | null {
+  // Retain legacy behavior when neither settings nor capabilities expose a value.
+  if (
+    (settings.iso !== undefined || caps?.iso !== undefined) &&
+    !usableCameraValue(settings.iso, caps?.iso, true)
+  )
+    return 'invalid-iso'
+  if (
+    (settings.exposureTime !== undefined || caps?.exposureTime !== undefined) &&
+    !usableCameraValue(settings.exposureTime, caps?.exposureTime, true)
+  )
+    return 'invalid-exposure-time'
+  return null
 }
 /** Android Chromium maps manual white balance to AWB lock and holds its last
  * exposure time in manual exposure mode. Request only advertised controls after
@@ -131,6 +170,27 @@ export async function holdAndroidPulseCamera(
   const report: CameraHold = { controls: [], exposureReleased: false }
   if (!needsAndroidCameraHold(userAgent)) return report
   const caps = track.getCapabilities?.() as Record<string, unknown> | undefined
+  const restoreAutomatic = async (reason: MeteringIssue) => {
+    // A hold can itself invalidate reported metering. Undo the earlier color
+    // lock too; do not preserve it in advanced constraints during recovery.
+    report.exposureReleased = true
+    report.automaticRecovery = { reason, status: 'failed' }
+    const values: Record<string, unknown> = { torch: true }
+    for (const mode of ['exposureMode', 'whiteBalanceMode'] as const)
+      if (Array.isArray(caps?.[mode]) && caps[mode].includes('continuous'))
+        values[mode] = 'continuous'
+    if (!values.exposureMode) return
+    try {
+      await track.applyConstraints(
+        preservingConstraints(track, values as MediaTrackConstraintSet),
+      )
+      if (track.readyState !== 'live')
+        throw new Error('The rear camera stopped.')
+      report.automaticRecovery.status = 'requested'
+    } catch {
+      /* Keep this failure in local diagnostics; fresh frames still decide quality. */
+    }
+  }
   for (const mode of [
     'whiteBalanceMode',
     'focusMode',
@@ -150,11 +210,31 @@ export async function holdAndroidPulseCamera(
       !(caps[mode] as unknown[]).includes('manual')
     )
       continue
+    if (mode !== 'focusMode' && report.exposureReleased) {
+      entry.skippedReason = report.automaticRecovery?.reason
+      continue
+    }
+    const issue = meteringIssue(before, caps)
+    if (mode !== 'focusMode' && issue) {
+      entry.skippedReason = issue
+      if (
+        !report.exposureReleased &&
+        (['manual', 'none'].includes(before.exposureMode ?? '') ||
+          report.controls.some(
+            (c) => c.mode === 'whiteBalanceMode' && c.status !== 'unsupported',
+          ))
+      )
+        await restoreAutomatic(issue)
+      continue
+    }
     const values: Record<string, unknown> = { torch: true, [mode]: 'manual' }
     if (mode === 'focusMode') {
       // Freeze the reported focus, rather than guessing lens-specific units/distance.
       const distance = before.focusDistance
-      if (typeof distance !== 'number' || !Number.isFinite(distance)) continue
+      if (!usableCameraValue(distance, caps?.focusDistance, false)) {
+        entry.skippedReason = 'invalid-focus-distance'
+        continue
+      }
       values.focusDistance = distance
     }
     // On Android Chromium, a mode-only request uses its last known exposure time.
@@ -173,9 +253,17 @@ export async function holdAndroidPulseCamera(
       )
       if (track.readyState !== 'live')
         throw new Error('The rear camera stopped.')
-      entry.reported = (track.getSettings() as HoldSettings)[mode] ?? null
+      const after = track.getSettings() as HoldSettings
+      entry.reported = after[mode] ?? null
       // Chromium can report continuous AWB even after its AWB_LOCK request.
       entry.status = entry.reported === 'manual' ? 'confirmed' : 'requested'
+      const afterIssue = meteringIssue(after, caps)
+      if (mode === 'exposureMode' && afterIssue) {
+        entry.status = 'failed'
+        entry.skippedReason = afterIssue
+        await restoreAutomatic(afterIssue)
+        entry.reported = (track.getSettings() as HoldSettings)[mode] ?? null
+      }
     } catch {
       entry.status = 'failed'
     }

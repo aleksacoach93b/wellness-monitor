@@ -1330,3 +1330,270 @@ test('adaptive ISO steps use measured light, advertised bounds and preserve expo
     'unsupported',
   )
 })
+
+test('Samsung-style zero ISO and out-of-range focus retain automatic controls without guessing values', async () => {
+  const { holdAndroidPulseCamera } = require(path.join(dir, 'camera.js'))
+  const calls = []
+  const settings = {
+    iso: 0,
+    focusDistance: 0,
+    exposureTime: 399.81,
+    focusMode: 'continuous',
+    exposureMode: 'continuous',
+    whiteBalanceMode: 'continuous',
+  }
+  const track = {
+    readyState: 'live',
+    getSettings: () => settings,
+    getCapabilities: () => ({
+      iso: { min: 50, max: 3200, step: 1 },
+      focusDistance: { min: 0.1, max: 3.6 },
+      exposureTime: { min: 0.85, max: 1000 },
+      focusMode: ['manual', 'continuous'],
+      exposureMode: ['manual', 'continuous'],
+      whiteBalanceMode: ['manual', 'continuous'],
+    }),
+    applyConstraints: async (q) => {
+      calls.push(q)
+    },
+  }
+  const report = await holdAndroidPulseCamera(
+    track,
+    'Android SamsungBrowser/30.0',
+  )
+  assert.deepEqual(calls, [])
+  assert.ok(report.controls.every((c) => c.status === 'unsupported'))
+  assert.equal(
+    report.controls.find((c) => c.mode === 'exposureMode').skippedReason,
+    'invalid-iso',
+  )
+  assert.equal(
+    report.controls.find((c) => c.mode === 'focusMode').skippedReason,
+    'invalid-focus-distance',
+  )
+})
+
+test('unusable ISO reporting after exposure hold restores auto exposure and colors once', async () => {
+  const { holdAndroidPulseCamera } = require(path.join(dir, 'camera.js'))
+  let settings = {
+    iso: 100,
+    focusDistance: 0,
+    exposureTime: 399.81,
+    focusMode: 'continuous',
+    exposureMode: 'continuous',
+    whiteBalanceMode: 'continuous',
+    torch: true,
+  }
+  let constraints = { width: { ideal: 160 }, frameRate: { min: 20, ideal: 30 } }
+  const calls = []
+  const track = {
+    readyState: 'live',
+    getSettings: () => settings,
+    getConstraints: () => constraints,
+    getCapabilities: () => ({
+      iso: { min: 50, max: 3200 },
+      focusDistance: { min: 0.1, max: 3.6 },
+      exposureTime: { min: 0.85, max: 1000 },
+      focusMode: ['manual', 'continuous'],
+      exposureMode: ['manual', 'continuous'],
+      whiteBalanceMode: ['manual', 'continuous'],
+    }),
+    applyConstraints: async (q) => {
+      calls.push(q)
+      constraints = q
+      settings = {
+        ...settings,
+        ...Object.fromEntries(
+          Object.entries(q).filter(([k]) =>
+            ['focusMode', 'exposureMode', 'whiteBalanceMode'].includes(k),
+          ),
+        ),
+      }
+      settings.iso = settings.exposureMode === 'manual' ? 0 : 100
+    },
+  }
+  const report = await holdAndroidPulseCamera(track, 'Android')
+  assert.equal(settings.exposureMode, 'continuous')
+  assert.equal(settings.whiteBalanceMode, 'continuous')
+  assert.equal(report.exposureReleased, true)
+  assert.deepEqual(report.automaticRecovery, {
+    reason: 'invalid-iso',
+    status: 'requested',
+  })
+  assert.equal(calls.filter((q) => q.exposureMode === 'continuous').length, 1)
+  assert.ok(
+    calls.every(
+      (q) =>
+        q.torch &&
+        q.width.ideal === 160 &&
+        q.frameRate.min === 20 &&
+        q.iso === undefined,
+    ),
+  )
+  assert.ok(
+    constraints.advanced.every(
+      (q) =>
+        q.exposureMode === 'continuous' && q.whiteBalanceMode === 'continuous',
+    ),
+  )
+})
+
+test('manual metering rejects missing/out-of-range ISO only when reported controls require validation', async () => {
+  const { holdAndroidPulseCamera } = require(path.join(dir, 'camera.js'))
+  for (const iso of [undefined, 0, NaN, Infinity, 49, 3201]) {
+    const calls = []
+    const report = await holdAndroidPulseCamera(
+      {
+        readyState: 'live',
+        getSettings: () => ({
+          iso,
+          exposureMode: 'continuous',
+          whiteBalanceMode: 'continuous',
+        }),
+        getCapabilities: () => ({
+          iso: { min: 50, max: 3200 },
+          exposureMode: ['manual', 'continuous'],
+          whiteBalanceMode: ['manual', 'continuous'],
+        }),
+        applyConstraints: async (q) => calls.push(q),
+      },
+      'Android',
+    )
+    assert.equal(calls.length, 0)
+    assert.ok(
+      report.controls
+        .filter((c) => c.mode !== 'focusMode')
+        .every((c) => c.skippedReason === 'invalid-iso'),
+    )
+  }
+})
+
+test('focus zero is accepted only within the advertised range and invalid shutter metadata stays automatic', async () => {
+  const { holdAndroidPulseCamera } = require(path.join(dir, 'camera.js'))
+  for (const [distance, min, max, allowed] of [
+    [0, 0, 3.6, true],
+    [0, 0.1, 3.6, false],
+    [4, 0.1, 3.6, false],
+    [0.1, 0.1, 3.6, true],
+    [NaN, 0, 3.6, false],
+  ]) {
+    const calls = []
+    await holdAndroidPulseCamera(
+      {
+        readyState: 'live',
+        getSettings: () => ({
+          focusDistance: distance,
+          focusMode: 'continuous',
+        }),
+        getCapabilities: () => ({
+          focusMode: ['manual', 'continuous'],
+          focusDistance: { min, max },
+        }),
+        applyConstraints: async (q) => calls.push(q),
+      },
+      'Android',
+    )
+    assert.equal(calls.length, allowed ? 1 : 0)
+  }
+  for (const exposureTime of [0, NaN, 1001]) {
+    const calls = []
+    const report = await holdAndroidPulseCamera(
+      {
+        readyState: 'live',
+        getSettings: () => ({
+          iso: 100,
+          exposureTime,
+          exposureMode: 'continuous',
+          whiteBalanceMode: 'continuous',
+        }),
+        getCapabilities: () => ({
+          iso: { min: 50, max: 3200 },
+          exposureTime: { min: 0.85, max: 1000 },
+          exposureMode: ['manual', 'continuous'],
+          whiteBalanceMode: ['manual', 'continuous'],
+        }),
+        applyConstraints: async (q) => calls.push(q),
+      },
+      'Android',
+    )
+    assert.equal(calls.length, 0)
+    assert.ok(
+      report.controls
+        .filter((c) => c.mode !== 'focusMode')
+        .every((c) => c.skippedReason === 'invalid-exposure-time'),
+    )
+  }
+})
+
+test('pre-existing invalid manual metering is recovered once and is not locked again', async () => {
+  const { holdAndroidPulseCamera } = require(path.join(dir, 'camera.js'))
+  const settings = {
+    iso: 0,
+    exposureTime: 400,
+    exposureMode: 'none',
+    whiteBalanceMode: 'manual',
+  }
+  const calls = []
+  const report = await holdAndroidPulseCamera(
+    {
+      readyState: 'live',
+      getSettings: () => settings,
+      getCapabilities: () => ({
+        iso: { min: 50, max: 3200 },
+        exposureMode: ['manual', 'continuous'],
+        whiteBalanceMode: ['manual', 'continuous'],
+      }),
+      applyConstraints: async (q) => {
+        calls.push(q)
+        settings.exposureMode = q.exposureMode
+        settings.whiteBalanceMode = q.whiteBalanceMode
+        settings.iso = 100
+      },
+    },
+    'Android',
+  )
+  assert.equal(calls.length, 1)
+  assert.equal(settings.exposureMode, 'continuous')
+  assert.equal(settings.whiteBalanceMode, 'continuous')
+  assert.deepEqual(report.automaticRecovery, {
+    reason: 'invalid-iso',
+    status: 'requested',
+  })
+  assert.equal(
+    report.controls.find((c) => c.mode === 'exposureMode').status,
+    'unsupported',
+  )
+})
+
+test('a rejected automatic recovery is recorded as failed without retrying or inventing ISO', async () => {
+  const { holdAndroidPulseCamera } = require(path.join(dir, 'camera.js'))
+  const calls = []
+  const report = await holdAndroidPulseCamera(
+    {
+      readyState: 'live',
+      getSettings: () => ({
+        iso: 0,
+        exposureMode: 'none',
+        whiteBalanceMode: 'manual',
+      }),
+      getCapabilities: () => ({
+        iso: { min: 50, max: 3200 },
+        exposureMode: ['manual', 'continuous'],
+        whiteBalanceMode: ['manual', 'continuous'],
+      }),
+      applyConstraints: async (q) => {
+        calls.push(q)
+        throw Error('Unsupported automatic settings')
+      },
+    },
+    'Android',
+  )
+  assert.equal(calls.length, 1)
+  assert.deepEqual(report.automaticRecovery, {
+    reason: 'invalid-iso',
+    status: 'failed',
+  })
+  assert.ok(
+    calls.every((q) => q.iso === undefined && q.exposureTime === undefined),
+  )
+})

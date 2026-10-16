@@ -53,6 +53,12 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
               'Mozilla/5.0 (Linux; Android 15; HONOR) AppleWebKit/537.36 Chrome/155.0.0.0 Mobile Safari/537.36',
           }
         : {}),
+      ...(mode.startsWith('android-samsung')
+        ? {
+            userAgent:
+              'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/30.0 Chrome/143.0.0.0 Mobile Safari/537.36',
+          }
+        : {}),
       ...(mode === 'iphone-controls'
         ? {
             userAgent:
@@ -203,14 +209,15 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           whiteBalanceMode: 'continuous',
           focusMode: 'continuous',
           exposureMode: 'continuous',
-          focusDistance: 0.11,
-          exposureTime: 80,
+          focusDistance: mode.startsWith('android-samsung') ? 0 : 0.11,
+          exposureTime: mode.startsWith('android-samsung') ? 399.81 : 80,
         }
         const draw = () => {
           if (window.__freeze) return
           const t = (performance.now() - (window.__scanStart ?? created)) / 1000
           const phase = (2 * Math.PI * window.__bpm * t) / 60
           const v =
+            mode === 'android-samsung-flat' ||
             window.__flat ||
             mode === 'flat' ||
             mode === 'android-ignored' ||
@@ -241,12 +248,21 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
             } else
               x.fillStyle = `rgb(${Math.round(180 + 8 * w)},${Math.round(75 + 5 * w)},45)`
           }
+          if (
+            mode.startsWith('android-samsung') &&
+            controls.exposureMode === 'manual'
+          )
+            x.fillStyle = `rgb(${Math.round(175 + 4 * Math.sin(t * 0.8))},0,1)`
           x.fillRect(0, 0, 128, 128)
         }
         draw()
         let timer = setInterval(
           draw,
-          mode === 'slow' || mode === 'ignored' ? 67 : 33,
+          mode === 'slow' || mode === 'ignored'
+            ? 67
+            : mode.startsWith('android-samsung')
+              ? 40
+              : 33,
         )
         const stream = canvas.captureStream(30),
           track = stream.getVideoTracks()[0],
@@ -267,6 +283,19 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           torch: window.__light,
           exposureCompensation: ev,
           ...controls,
+          ...(mode.startsWith('android-samsung')
+            ? {
+                iso:
+                  mode === 'android-samsung-after-hold' &&
+                  controls.exposureMode !== 'manual'
+                    ? 100
+                    : 0,
+                exposureMode:
+                  controls.exposureMode === 'manual'
+                    ? 'none'
+                    : controls.exposureMode,
+              }
+            : {}),
           ...(mode.startsWith('android-gain')
             ? {
                 iso,
@@ -281,6 +310,13 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
         track.getCapabilities = () => ({
           torch: true,
           frameRate: { min: 15, max: 60 },
+          ...(mode.startsWith('android-samsung')
+            ? {
+                iso: { min: 50, max: 3200, step: 1 },
+                focusDistance: { min: 0.1, max: 3.6, step: 0.01 },
+                exposureTime: { min: 0.85, max: 1000, step: 0.1 },
+              }
+            : {}),
           ...(mode.startsWith('android-gain')
             ? {
                 iso: {
@@ -618,6 +654,48 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           [1, 2],
         )
       } else await finish()
+    } else if (mode.startsWith('android-samsung')) {
+      await ready()
+      const state = await page.evaluate(() => ({
+        calls: window.__holdCalls,
+        settings: window.__tracks.at(-1).getSettings(),
+        releases: window.__releaseCalls,
+      }))
+      assert.equal(
+        state.settings.exposureMode,
+        'continuous',
+        'Unusable ISO metadata must retain/restore automatic exposure',
+      )
+      assert.equal(
+        state.settings.whiteBalanceMode,
+        'continuous',
+        'Unusable metering must not freeze camera colors',
+      )
+      assert.equal(
+        state.calls.some(
+          (c) => c.mode === 'focusMode' && c.requested === 'manual',
+        ),
+        false,
+        'Out-of-range focus distance must not be requested',
+      )
+      assert.equal(
+        state.releases,
+        mode === 'android-samsung-after-hold' ? 1 : 0,
+      )
+      assert.equal(
+        state.calls.filter(
+          (c) => c.mode === 'exposureMode' && c.requested === 'manual',
+        ).length,
+        mode === 'android-samsung-after-hold' ? 1 : 0,
+      )
+      if (mode === 'android-samsung-flat') {
+        await page
+          .getByRole('button', { name: 'Start measurement', exact: true })
+          .click()
+        await page.getByTestId('rhr-repeat').waitFor({ timeout: 20000 })
+        assert.equal(await page.getByTestId('rhr-bpm').count(), 0)
+      } else await finish()
+      assert.equal(await page.evaluate(() => window.__changesInCapture), 0)
     } else if (mode === 'android-gain-cancel') {
       await page
         .getByTestId('rhr-hold-note')
@@ -648,7 +726,7 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
         )
         assert.equal(
           data.capture.acquisitionVersion,
-          'android-adaptive-gain-v2',
+          'android-metering-compat-v3',
         )
         assert.equal(data.capture.gainAdjustments.length, 1)
         assert.equal(data.capture.cameraHold.exposureReleased, true)
@@ -701,7 +779,7 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           )
           assert.equal(
             data.capture.acquisitionVersion,
-            'android-adaptive-gain-v2',
+            'android-metering-compat-v3',
           )
           assert.ok(
             data.capture.cameraHold.controls.some(

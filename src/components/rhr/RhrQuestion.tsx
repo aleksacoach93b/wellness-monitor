@@ -556,6 +556,12 @@ export default function RhrQuestion({
       if (cancelled) return
       const t = performance.now() - started
       if (t - lastPaint >= 250) {
+        const manualExposure =
+          cameraHold.current &&
+          !cameraHold.current.exposureReleased &&
+          cameraHold.current.controls.some(
+            (c) => c.mode === 'exposureMode' && c.status !== 'unsupported',
+          )
         const checked =
           adjusting || t - lastAdjustment < 1500
             ? {
@@ -564,7 +570,7 @@ export default function RhrQuestion({
                 message: 'Adjusting lighting and checking fresh frames…',
                 stats: frameSummary(samples),
               }
-            : checkCamera(samples, t, android)
+            : checkCamera(samples, t, android, !!manualExposure)
         setCameraCheck(checked)
         const latest = samples.at(-1)
         const covered = !!latest && t - latest.t <= 400 && fingerPresent(latest)
@@ -591,12 +597,6 @@ export default function RhrQuestion({
               : 'no-response'
           if (lastGain.imageResponse === 'no-response') gainBlocked = true
         }
-        const manualExposure =
-          cameraHold.current &&
-          !cameraHold.current.exposureReleased &&
-          cameraHold.current.controls.some(
-            (c) => c.mode === 'exposureMode' && c.status !== 'unsupported',
-          )
         const needsGain =
           android &&
           manualExposure &&

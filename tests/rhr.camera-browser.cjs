@@ -101,6 +101,8 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
             x.fillStyle = `rgb(180,${Math.round(40 + ((t * 10) % 40))},15)`
           if (mode === 'android-rollback' && controls.exposureMode === 'manual')
             x.fillStyle = 'rgb(5,1,0)'
+          if (mode === 'android-dim-auto')
+            x.fillStyle = `rgb(${Math.round(87 + 8 * v)},${Math.round(9 + v)},0)`
           if (mode.startsWith('android-gain')) {
             const flat = [
               'android-gain-ignored',
@@ -164,18 +166,23 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
             : {}),
           ...(mode.startsWith('android') || mode === 'iphone-controls'
             ? {
-                whiteBalanceMode:
-                  mode === 'android-unsupported'
-                    ? ['continuous']
-                    : ['continuous', 'manual'],
-                focusMode:
-                  mode === 'android-unsupported'
-                    ? ['continuous']
-                    : ['continuous', 'manual'],
-                exposureMode:
-                  mode === 'android-unsupported'
-                    ? ['continuous']
-                    : ['continuous', 'manual'],
+                whiteBalanceMode: [
+                  'android-unsupported',
+                  'android-dim-auto',
+                ].includes(mode)
+                  ? ['continuous']
+                  : ['continuous', 'manual'],
+                focusMode: ['android-unsupported', 'android-dim-auto'].includes(
+                  mode,
+                )
+                  ? ['continuous']
+                  : ['continuous', 'manual'],
+                exposureMode: [
+                  'android-unsupported',
+                  'android-dim-auto',
+                ].includes(mode)
+                  ? ['continuous']
+                  : ['continuous', 'manual'],
               }
             : {}),
           ...(mode !== 'exposure-unsupported'

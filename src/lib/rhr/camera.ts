@@ -98,6 +98,100 @@ export type ExposureAdjustment = {
   requested: number | null
   reported: number | null
 }
+
+export const RHR_ACQUISITION_VERSION = 'android-camera-hold-v1'
+export const needsAndroidCameraHold = (userAgent: string) =>
+  /Android/i.test(userAgent)
+type HoldMode = 'whiteBalanceMode' | 'focusMode' | 'exposureMode'
+type HoldSettings = MediaTrackSettings & {
+  whiteBalanceMode?: string
+  focusMode?: string
+  exposureMode?: string
+  focusDistance?: number
+  exposureTime?: number
+}
+export type CameraHold = {
+  controls: {
+    mode: HoldMode
+    status: 'requested' | 'confirmed' | 'unsupported' | 'failed'
+    before: string | null
+    reported: string | null
+  }[]
+  exposureReleased: boolean
+}
+/** Android Chromium maps manual white balance to AWB lock and holds its last
+ * exposure time in manual exposure mode. Request only advertised controls after
+ * real covered frames. Recheck the resulting image; settings alone are not proof.
+ * No arbitrary shutter/ISO/color-temperature/focus-distance values are invented.
+ */
+export async function holdAndroidPulseCamera(
+  track: TorchTrack,
+  userAgent: string,
+): Promise<CameraHold> {
+  const report: CameraHold = { controls: [], exposureReleased: false }
+  if (!needsAndroidCameraHold(userAgent)) return report
+  const caps = track.getCapabilities?.() as Record<string, unknown> | undefined
+  for (const mode of [
+    'whiteBalanceMode',
+    'focusMode',
+    'exposureMode',
+  ] as const) {
+    if (track.readyState !== 'live') throw new Error('The rear camera stopped.')
+    const before = track.getSettings() as HoldSettings
+    const entry: CameraHold['controls'][number] = {
+      mode,
+      status: 'unsupported',
+      before: before[mode] ?? null,
+      reported: before[mode] ?? null,
+    }
+    report.controls.push(entry)
+    if (
+      !Array.isArray(caps?.[mode]) ||
+      !(caps[mode] as unknown[]).includes('manual')
+    )
+      continue
+    const values: Record<string, unknown> = { torch: true, [mode]: 'manual' }
+    if (mode === 'focusMode') {
+      // Freeze the reported focus, rather than guessing lens-specific units/distance.
+      const distance = before.focusDistance
+      if (typeof distance !== 'number' || !Number.isFinite(distance)) continue
+      values.focusDistance = distance
+    }
+    // On Android Chromium, a mode-only request uses its last known exposure time.
+    // Missing camera metadata can trigger a driver fallback: always recheck frames.
+    // Prefer a reported value; do not invent a shutter time, midpoint or ISO here.
+    if (
+      mode === 'exposureMode' &&
+      typeof before.exposureTime === 'number' &&
+      Number.isFinite(before.exposureTime) &&
+      before.exposureTime > 0
+    )
+      values.exposureTime = before.exposureTime
+    try {
+      await track.applyConstraints(
+        preservingConstraints(track, values as MediaTrackConstraintSet),
+      )
+      if (track.readyState !== 'live')
+        throw new Error('The rear camera stopped.')
+      entry.reported = (track.getSettings() as HoldSettings)[mode] ?? null
+      // Chromium can report continuous AWB even after its AWB_LOCK request.
+      entry.status = entry.reported === 'manual' ? 'confirmed' : 'requested'
+    } catch {
+      entry.status = 'failed'
+    }
+  }
+  return report
+}
+
+/** One bounded recovery if a mode-only exposure hold makes the real image unusable. */
+export async function releasePulseExposureHold(track: TorchTrack) {
+  await track.applyConstraints(
+    preservingConstraints(track, {
+      torch: true,
+      exposureMode: 'continuous',
+    } as MediaTrackConstraintSet),
+  )
+}
 /** Called only by the narrow red-ceiling setup screen, never during the 15s capture.
  * A resolved constraint is not proof of a repaired optical signal; recheck real frames.
  */

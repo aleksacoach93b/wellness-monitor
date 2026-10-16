@@ -15,6 +15,18 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       viewport: { width: 390, height: 844 },
       isMobile: true,
       hasTouch: true,
+      ...(mode.startsWith('android')
+        ? {
+            userAgent:
+              'Mozilla/5.0 (Linux; Android 15; HONOR) AppleWebKit/537.36 Chrome/155.0.0.0 Mobile Safari/537.36',
+          }
+        : {}),
+      ...(mode === 'iphone-controls'
+        ? {
+            userAgent:
+              'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
+          }
+        : {}),
     })
     await ctx.route('**/api/**', (r) =>
       r.request().method() === 'GET' ? r.continue() : r.abort(),
@@ -26,6 +38,9 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       window.__optimized = false
       window.__scanStart = null
       window.__exposureCalls = 0
+      window.__holdCalls = []
+      window.__releaseCalls = 0
+      window.__changesInCapture = 0
       document.addEventListener(
         'click',
         (e) => {
@@ -59,11 +74,20 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           created = performance.now()
         let ev = 0,
           applied = {}
+        const controls = {
+          whiteBalanceMode: 'continuous',
+          focusMode: 'continuous',
+          exposureMode: 'continuous',
+          focusDistance: 0.11,
+          exposureTime: 80,
+        }
         const draw = () => {
           const t = (performance.now() - (window.__scanStart ?? created)) / 1000
           const phase = (2 * Math.PI * 55 * t) / 60
           const v =
-            mode === 'flat' || (mode === 'switch' && id === 'main')
+            mode === 'flat' ||
+            mode === 'android-ignored' ||
+            (mode === 'switch' && id === 'main')
               ? 0
               : Math.sin(phase) + 0.3 * Math.sin(phase * 2 + 0.4)
           const redCeiling =
@@ -71,6 +95,10 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           x.fillStyle = redCeiling
             ? 'rgb(253,0,0)'
             : `rgb(${Math.round(180 + 8 * v)},${Math.round(75 + 5 * v)},45)`
+          if (mode === 'android' && controls.exposureMode !== 'manual')
+            x.fillStyle = `rgb(180,${Math.round(40 + ((t * 10) % 40))},15)`
+          if (mode === 'android-rollback' && controls.exposureMode === 'manual')
+            x.fillStyle = 'rgb(5,1,0)'
           x.fillRect(0, 0, 128, 128)
         }
         draw()
@@ -95,16 +123,45 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           height: 240,
           torch: window.__light,
           exposureCompensation: ev,
+          ...controls,
         })
         track.getConstraints = () => applied
         track.getCapabilities = () => ({
           torch: true,
           frameRate: { min: 15, max: 60 },
+          ...(mode.startsWith('android') || mode === 'iphone-controls'
+            ? {
+                whiteBalanceMode:
+                  mode === 'android-unsupported'
+                    ? ['continuous']
+                    : ['continuous', 'manual'],
+                focusMode:
+                  mode === 'android-unsupported'
+                    ? ['continuous']
+                    : ['continuous', 'manual'],
+                exposureMode:
+                  mode === 'android-unsupported'
+                    ? ['continuous']
+                    : ['continuous', 'manual'],
+              }
+            : {}),
           ...(mode !== 'exposure-unsupported'
             ? { exposureCompensation: { min: -4, max: 4, step: 1 / 6 } }
             : {}),
         })
         track.applyConstraints = async (q) => {
+          if (window.__scanStart !== null) window.__changesInCapture++
+          if (mode === 'android-cancel' && q.whiteBalanceMode === 'manual')
+            await new Promise((resolve) => setTimeout(resolve, 800))
+          if (track.readyState !== 'live') throw Error('Camera stopped')
+          for (const k of ['whiteBalanceMode', 'focusMode', 'exposureMode']) {
+            if (q[k] !== undefined && q[k] !== controls[k]) {
+              window.__holdCalls.push({ mode: k, requested: q[k] })
+              if (k === 'exposureMode' && q[k] === 'continuous')
+                window.__releaseCalls++
+              if (mode !== 'android-ignored') controls[k] = q[k]
+            }
+          }
           applied = q
           if (typeof q.exposureCompensation === 'number') {
             window.__exposureCalls++
@@ -164,7 +221,52 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       assert.equal(await page.evaluate(() => window.__light), false)
     }
     await setup()
-    if (mode.startsWith('exposure')) {
+    if (mode.startsWith('android')) {
+      await page.getByTestId('rhr-hold-note').waitFor({ timeout: 12000 })
+      if (mode === 'android-cancel') {
+        await page
+          .getByRole('button', { name: 'Close resting HR', exact: true })
+          .click()
+        await page.waitForTimeout(1000)
+        assert.equal(await page.getByRole('dialog').count(), 0)
+      } else {
+        await ready()
+        if (mode === 'android-ignored') {
+          await page
+            .getByRole('button', { name: 'Start measurement', exact: true })
+            .click()
+          await page.getByTestId('rhr-repeat').waitFor({ timeout: 20000 })
+          await page.getByText('Scan details', { exact: true }).click()
+          const downloading = page.waitForEvent('download')
+          await page
+            .getByRole('button', { name: 'Download signal diagnostics' })
+            .click()
+          const data = JSON.parse(
+            require('node:fs').readFileSync(
+              await (await downloading).path(),
+              'utf8',
+            ),
+          )
+          assert.equal(
+            data.capture.acquisitionVersion,
+            'android-camera-hold-v1',
+          )
+          assert.ok(
+            data.capture.cameraHold.controls.some(
+              (c) => c.status === 'requested',
+            ),
+          )
+          assert.ok(data.capture.settingsTrace.length >= 10)
+          assert.equal(data.analysis.bpm, null)
+          assert.equal(data.record.elapsedMs, 15000)
+        } else await finish()
+        assert.equal(
+          await page.evaluate(() => window.__releaseCalls),
+          mode === 'android-rollback' ? 1 : 0,
+        )
+        assert.equal(await page.evaluate(() => window.__changesInCapture), 0)
+      }
+    } else if (mode.startsWith('exposure')) {
       await page.getByTestId('rhr-exposure-note').waitFor({ timeout: 10000 })
       if (mode === 'exposure') {
         await ready()
@@ -347,6 +449,8 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       } else {
         await finish()
         assert.equal(await page.evaluate(() => window.__exposureCalls), 0)
+        if (mode === 'iphone-controls')
+          assert.equal(await page.evaluate(() => window.__holdCalls.length), 0)
       }
     }
     assert.equal(errors.length, 0, errors.join(';'))

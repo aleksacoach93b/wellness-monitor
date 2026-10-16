@@ -99,7 +99,7 @@ export type ExposureAdjustment = {
   reported: number | null
 }
 
-export const RHR_ACQUISITION_VERSION = 'android-camera-hold-v1'
+export const RHR_ACQUISITION_VERSION = 'android-adaptive-gain-v2'
 export const needsAndroidCameraHold = (userAgent: string) =>
   /Android/i.test(userAgent)
 type HoldMode = 'whiteBalanceMode' | 'focusMode' | 'exposureMode'
@@ -191,6 +191,89 @@ export async function releasePulseExposureHold(track: TorchTrack) {
       exposureMode: 'continuous',
     } as MediaTrackConstraintSet),
   )
+}
+
+export type GainAdjustment = {
+  status: 'requested' | 'unsupported' | 'ignored' | 'limit'
+  before: number | null
+  requested: number | null
+  reported: number | null
+}
+/** Closed-loop setup only. Control brightness, never use or target a pulse rate.
+ * Manual AE can fall back to minimum sensor gain on Android. Use measured RGB
+ * to choose one bounded ISO step, then inspect fresh frames before another step.
+ */
+export async function adjustAndroidPulseGain(
+  track: TorchTrack,
+  red: number,
+): Promise<GainAdjustment> {
+  if (track.readyState !== 'live') throw new Error('The rear camera stopped.')
+  const settings = track.getSettings() as MediaTrackSettings & {
+    iso?: number
+    exposureMode?: string
+  }
+  const before = settings.iso
+  const base = {
+    before: before ?? null,
+    requested: null,
+    reported: before ?? null,
+  }
+  const caps = track.getCapabilities?.() as
+    { iso?: { min: number; max: number; step?: number } } | undefined
+  const range = caps?.iso
+  if (
+    !range ||
+    !['manual', 'none'].includes(settings.exposureMode ?? '') ||
+    !Number.isFinite(red) ||
+    !Number.isFinite(range.min) ||
+    !Number.isFinite(range.max) ||
+    range.min <= 0 ||
+    range.max < range.min ||
+    typeof before !== 'number' ||
+    !Number.isFinite(before) ||
+    before < range.min ||
+    before > range.max
+  )
+    return { ...base, status: 'unsupported' }
+  // Engineering ceiling: do not chase poor illumination with extreme sensor gain.
+  const ceiling = Math.min(range.max, 1600)
+  const step =
+    range.step && Number.isFinite(range.step) && range.step > 0 ? range.step : 1
+  const raw = red < 140 ? before * 2 : red > 230 ? before / 2 : before
+  const requested =
+    range.min +
+    Math.floor(
+      (Math.max(range.min, Math.min(ceiling, raw)) - range.min) / step + 1e-6,
+    ) *
+      step
+  if (
+    ceiling < range.min ||
+    (red < 140 && requested <= before) ||
+    (red > 230 && requested >= before) ||
+    Math.abs(requested - before) < Math.max(1e-6, step / 2)
+  )
+    return { ...base, status: 'limit' }
+  await track.applyConstraints(
+    preservingConstraints(track, {
+      torch: true,
+      exposureMode: 'manual',
+      iso: requested,
+    } as MediaTrackConstraintSet),
+  )
+  const reported = (
+    track.getSettings() as MediaTrackSettings & { iso?: number }
+  ).iso
+  return {
+    before,
+    requested,
+    reported: reported ?? null,
+    status:
+      typeof reported === 'number' &&
+      Number.isFinite(reported) &&
+      Math.abs(reported - requested) <= Math.max(1e-4, step * 0.1)
+        ? 'requested'
+        : 'ignored',
+  }
 }
 /** Called only by the narrow red-ceiling setup screen, never during the 15s capture.
  * A resolved constraint is not proof of a repaired optical signal; recheck real frames.

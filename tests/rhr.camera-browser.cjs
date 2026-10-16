@@ -10,7 +10,39 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       ? { executablePath: process.env.RHR_BROWSER }
       : {}),
   })
+  let fixture
   try {
+    if (mode.startsWith('network-')) {
+      const database = process.env.PVT_TEST_DATABASE_URL
+      assert.equal(new URL(base).hostname, '127.0.0.1')
+      assert.equal(new URL(database).hostname, '127.0.0.1')
+      fixture = new (require('@prisma/client').PrismaClient)({
+        datasourceUrl: database,
+      })
+      await fixture.survey.create({
+        data: {
+          id: 'rhr-browser-' + mode,
+          title: 'Camera lifecycle fixture',
+          teamId: 'test-team',
+          createdBy: 'test-admin',
+          questions: {
+            create: [
+              {
+                id: 'rhr-browser-question-' + mode,
+                text: 'Resting HR',
+                type: 'NUMBER',
+                required: false,
+                options: JSON.stringify({
+                  widget: 'RHR_CAMERA',
+                  durationSeconds: 15,
+                  protocolVersion: 'camera-rhr-v4',
+                }),
+              },
+            ],
+          },
+        },
+      })
+    }
     const ctx = await browser.newContext({
       viewport: { width: 390, height: 844 },
       isMobile: true,
@@ -31,7 +63,84 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
     await ctx.route('**/api/**', (r) =>
       r.request().method() === 'GET' ? r.continue() : r.abort(),
     )
+    let starts = 0,
+      finishes = 0
+    if (mode.startsWith('network-'))
+      await ctx.route('**/api/kiosk/rhr-browser-*/rhr', async (r) => {
+        const body = r.request().postDataJSON()
+        if (body.action === 'start') {
+          starts++
+          if (mode === 'network-start-retry' && starts === 1) return r.abort()
+          if (mode === 'network-idle' || mode === 'network-stale-start')
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+          return r.fulfill({ json: { ticket: 'owned-test-ticket' } })
+        }
+        assert.equal(body.action, 'finish')
+        finishes++
+        if (mode === 'network-save-retry' && finishes === 1) return r.abort()
+        return r.fulfill({
+          json: {
+            accepted: true,
+            result: {
+              kind: 'RHR',
+              bpm: 55,
+              position: 'seated',
+              rested: true,
+              durationSeconds: 15,
+              targetDurationSeconds: 15,
+              restarts: 0,
+              protocolVersion: 'camera-rhr-v4',
+              algorithmVersion: 'original-ppg-v1',
+              measuredAt: new Date().toISOString(),
+              quality: 'ACCEPTED',
+              torch: true,
+              fps: 30,
+              beats: 13,
+              correlation: 0.99,
+            },
+          },
+        })
+      })
     await ctx.addInitScript((mode) => {
+      const realTimeout = window.setTimeout.bind(window)
+      if (mode === 'network-idle')
+        window.setTimeout = (fn, ms, ...args) =>
+          realTimeout(fn, ms === 30000 ? 6000 : ms, ...args)
+      if (mode === 'callback-race') {
+        const requestFrame =
+          HTMLVideoElement.prototype.requestVideoFrameCallback
+        HTMLVideoElement.prototype.requestVideoFrameCallback = function (
+          callback,
+        ) {
+          if (window.__scanStart !== null && !window.__oldScanCallback)
+            window.__oldScanCallback = callback
+          return requestFrame.call(this, callback)
+        }
+      }
+      window.__wakeReleased = []
+      window.__wakeRequests = 0
+      if (mode === 'wake-race')
+        Object.defineProperty(navigator, 'wakeLock', {
+          value: {
+            request: async () => {
+              const id = ++window.__wakeRequests
+              if (id === 1)
+                await new Promise((resolve) => {
+                  window.__resolveWake = resolve
+                })
+              return {
+                release: async () => {
+                  window.__wakeReleased.push(id)
+                },
+              }
+            },
+          },
+        })
+      window.__bpm = 55
+      window.__freeze = false
+      window.__flat = mode === 'repeat-failure'
+      window.__tracks = []
+      window.__enumerations = 0
       window.__calls = []
       window.__stops = 0
       window.__light = false
@@ -53,8 +162,11 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
         },
         true,
       )
-      navigator.mediaDevices.enumerateDevices = async () =>
-        mode === 'flat'
+      navigator.mediaDevices.enumerateDevices = async () => {
+        window.__enumerations++
+        if (mode === 'enumeration-race' && window.__enumerations === 1)
+          await new Promise((resolve) => realTimeout(resolve, 1500))
+        return mode === 'flat'
           ? [{ kind: 'videoinput', deviceId: 'main', label: 'Back Camera' }]
           : [
               { kind: 'videoinput', deviceId: 'main', label: 'Back Camera' },
@@ -64,9 +176,20 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
                 label: 'Back Ultra Wide Camera',
               },
             ]
+      }
       navigator.mediaDevices.getUserMedia = async (constraints) => {
+        window.__scanStart = null
+        if (mode === 'permission-retry' && !window.__denied) {
+          window.__denied = true
+          throw new DOMException('Denied by test', 'NotAllowedError')
+        }
         const requested = constraints.video.deviceId?.exact || 'main'
-        const id = mode === 'mismatch' ? 'main' : requested
+        const id =
+          mode === 'mismatch'
+            ? 'main'
+            : mode === 'enumeration-race' && window.__calls.length === 0
+              ? 'wide'
+              : requested
         window.__calls.push({ requested, actual: id })
         const canvas = document.createElement('canvas')
         canvas.width = 128
@@ -75,7 +198,7 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           created = performance.now()
         let ev = 0,
           applied = {},
-          iso = 100
+          iso = mode === 'android-gain-repeat' ? window.__lastIso || 100 : 100
         const controls = {
           whiteBalanceMode: 'continuous',
           focusMode: 'continuous',
@@ -84,9 +207,11 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           exposureTime: 80,
         }
         const draw = () => {
+          if (window.__freeze) return
           const t = (performance.now() - (window.__scanStart ?? created)) / 1000
-          const phase = (2 * Math.PI * 55 * t) / 60
+          const phase = (2 * Math.PI * window.__bpm * t) / 60
           const v =
+            window.__flat ||
             mode === 'flat' ||
             mode === 'android-ignored' ||
             (mode === 'switch' && id === 'main')
@@ -126,6 +251,7 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
         const stream = canvas.captureStream(30),
           track = stream.getVideoTracks()[0],
           originalStop = track.stop.bind(track)
+        window.__tracks.push(track)
         track.stop = () => {
           clearInterval(timer)
           window.__stops++
@@ -199,6 +325,7 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           if (q.iso !== undefined) {
             window.__gainCalls.push(q.iso)
             if (mode !== 'android-gain-ignored') iso = q.iso
+            window.__lastIso = iso
           }
           for (const k of ['whiteBalanceMode', 'focusMode', 'exposureMode']) {
             if (q[k] !== undefined && q[k] !== controls[k]) {
@@ -228,7 +355,12 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       errors = []
     page.on('pageerror', (e) => errors.push(e.message))
     const setup = async () => {
-      await page.goto(base + '/rhr/demo?cameraCheck=1')
+      await page.goto(
+        base +
+          (mode.startsWith('network-')
+            ? '/survey/rhr-browser-' + mode + '?playerId=test-player'
+            : '/rhr/demo?cameraCheck=1'),
+      )
       await page
         .getByRole('button', { name: 'Measure resting HR', exact: true })
         .click()
@@ -253,21 +385,240 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           .isEnabled(),
       )
     }
-    const finish = async () => {
+    const finish = async (bpm = 55) => {
       const start = Date.now()
       await page
         .getByRole('button', { name: 'Start measurement', exact: true })
         .click()
+      if (mode === 'callback-race') {
+        await page.getByTestId('rhr-countdown').waitFor()
+        await page.evaluate(() => window.__oldScanCallback())
+      }
       await page.getByTestId('rhr-done').waitFor({ timeout: 20000 })
       assert.ok(Date.now() - start >= 14900 && Date.now() - start < 19000)
       assert.ok(
-        Math.abs(Number(await page.getByTestId('rhr-bpm').innerText()) - 55) <=
+        Math.abs(Number(await page.getByTestId('rhr-bpm').innerText()) - bpm) <=
           3,
       )
       assert.equal(await page.evaluate(() => window.__light), false)
     }
     await setup()
-    if (mode === 'android-gain-cancel') {
+    if (mode === 'enumeration-race') {
+      await page.waitForFunction(() => window.__enumerations === 1)
+      await page
+        .getByRole('button', { name: 'Close resting HR', exact: true })
+        .click()
+      await page
+        .getByRole('button', { name: 'Measure resting HR', exact: true })
+        .click()
+      await page
+        .getByRole('button', { name: 'Enable rear camera', exact: true })
+        .click()
+      await ready()
+      assert.equal(
+        await page.evaluate(() => window.__calls.length),
+        2,
+        'Closing during enumeration must not open a third stale camera',
+      )
+      assert.equal(
+        await page.evaluate(
+          () => window.__tracks.filter((t) => t.readyState === 'live').length,
+        ),
+        1,
+      )
+      await finish()
+    } else if (mode === 'network-idle') {
+      await ready()
+      await page.waitForTimeout(1800)
+      await finish()
+      assert.equal(starts, 1)
+      assert.equal(finishes, 1)
+    } else if (mode === 'network-stale-start') {
+      await ready()
+      await page
+        .getByRole('button', { name: 'Start measurement', exact: true })
+        .evaluate((el) => {
+          el.click()
+          el.click()
+        })
+      await page
+        .getByRole('button', { name: 'Close resting HR', exact: true })
+        .click()
+      await page
+        .getByRole('button', { name: 'Measure resting HR', exact: true })
+        .click()
+      await page
+        .getByRole('button', { name: 'Enable rear camera', exact: true })
+        .click()
+      await ready()
+      assert.equal(starts, 1, 'Rapid start taps must request only one ticket')
+      assert.equal(
+        await page.getByTestId('rhr-countdown').count(),
+        0,
+        'Late start must not start a new dialog',
+      )
+      await finish()
+      assert.equal(starts, 2)
+    } else if (mode === 'network-start-retry') {
+      await ready()
+      await page
+        .getByRole('button', { name: 'Start measurement', exact: true })
+        .click()
+      await page.getByRole('alert').waitFor()
+      await ready()
+      await finish()
+      assert.equal(starts, 2)
+      assert.equal(finishes, 1)
+    } else if (mode === 'network-save-retry') {
+      await ready()
+      await page
+        .getByRole('button', { name: 'Start measurement', exact: true })
+        .click()
+      await page
+        .getByTestId('rhr-repeat')
+        .filter({ hasText: 'Retry save' })
+        .waitFor({ timeout: 20000 })
+      await page.getByTestId('rhr-repeat').evaluate((el) => {
+        el.click()
+        el.click()
+      })
+      await page.getByTestId('rhr-done').waitFor()
+      assert.equal(starts, 1)
+      assert.equal(
+        finishes,
+        2,
+        'Retry save must submit the captured signal only once',
+      )
+    } else if (
+      mode === 'repeat-failure' ||
+      mode === 'repeat-success' ||
+      mode === 'android-repeat' ||
+      mode === 'android-gain-repeat'
+    ) {
+      await ready()
+      if (mode === 'repeat-failure') {
+        await page
+          .getByRole('button', { name: 'Start measurement', exact: true })
+          .click()
+        await page.getByTestId('rhr-repeat').waitFor({ timeout: 20000 })
+        assert.equal(await page.getByTestId('rhr-bpm').count(), 0)
+        await page.evaluate(() => {
+          window.__flat = false
+        })
+        await page.getByTestId('rhr-repeat').click()
+        await page
+          .getByRole('button', { name: 'Enable rear camera', exact: true })
+          .click()
+        await ready()
+      }
+      for (let i = 0; i < 3; i++) {
+        const bpm = [55, 72, 90][i]
+        await page.evaluate((bpm) => {
+          window.__bpm = bpm
+        }, bpm)
+        await finish(bpm)
+        assert.equal(
+          await page.evaluate(
+            () => window.__tracks.filter((t) => t.readyState === 'live').length,
+          ),
+          0,
+        )
+        await page
+          .getByRole('button', { name: 'Close resting HR', exact: true })
+          .click()
+        if (i < 2) {
+          await page
+            .getByRole('button', { name: 'Measure resting HR', exact: true })
+            .click()
+          await page
+            .getByRole('button', { name: 'Enable rear camera', exact: true })
+            .click()
+          await ready()
+        }
+      }
+    } else if (mode === 'permission-retry' || mode === 'camera-ended') {
+      if (mode === 'permission-retry')
+        await page
+          .getByRole('alert')
+          .filter({ hasText: 'permission was denied' })
+          .waitFor()
+      else {
+        await ready()
+        await page.evaluate(() =>
+          window.__tracks.at(-1).dispatchEvent(new Event('ended')),
+        )
+        await page
+          .getByRole('alert')
+          .filter({ hasText: 'Camera disconnected' })
+          .waitFor()
+      }
+      await page
+        .getByRole('button', { name: 'Enable rear camera', exact: true })
+        .click()
+      await ready()
+      await finish()
+    } else if (
+      [
+        'interrupt-retry',
+        'wake-race',
+        'frames-retry',
+        'background-retry',
+        'callback-race',
+      ].includes(mode)
+    ) {
+      await ready()
+      await page
+        .getByRole('button', { name: 'Start measurement', exact: true })
+        .click()
+      await page.waitForTimeout(2000)
+      if (mode === 'frames-retry')
+        await page.evaluate(() => {
+          window.__freeze = true
+        })
+      else if (mode === 'background-retry')
+        await page.evaluate(() => {
+          Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            value: true,
+          })
+          document.dispatchEvent(new Event('visibilitychange'))
+          Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            value: false,
+          })
+        })
+      else
+        await page
+          .getByRole('button', { name: 'Cancel measurement', exact: true })
+          .click()
+      await page.getByTestId('rhr-repeat').waitFor({ timeout: 20000 })
+      await page.evaluate(() => {
+        window.__freeze = false
+      })
+      await page.getByTestId('rhr-repeat').click()
+      await page
+        .getByRole('button', { name: 'Enable rear camera', exact: true })
+        .click()
+      await ready()
+      if (mode === 'wake-race') {
+        await page
+          .getByRole('button', { name: 'Start measurement', exact: true })
+          .click()
+        await page.getByTestId('rhr-countdown').waitFor()
+        await page.evaluate(() => window.__resolveWake())
+        await page.waitForTimeout(100)
+        assert.deepEqual(
+          await page.evaluate(() => window.__wakeReleased),
+          [1],
+          'A late wake lock from the old scan must be released',
+        )
+        await page.getByTestId('rhr-done').waitFor({ timeout: 20000 })
+        assert.deepEqual(
+          await page.evaluate(() => window.__wakeReleased),
+          [1, 2],
+        )
+      } else await finish()
+    } else if (mode === 'android-gain-cancel') {
       await page
         .getByTestId('rhr-hold-note')
         .filter({ hasText: 'Optimizing camera lighting' })
@@ -574,11 +925,18 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       JSON.stringify({
         mode,
         pass: true,
-        noApiWrites: true,
+        noApiWrites: !mode.startsWith('network-'),
+        mockedHrApiOnly: mode.startsWith('network-'),
         syntheticCameraOnly: true,
       }),
     )
   } finally {
+    if (fixture) {
+      await fixture.survey.deleteMany({
+        where: { id: 'rhr-browser-' + mode, teamId: 'test-team' },
+      })
+      await fixture.$disconnect()
+    }
     await browser.close()
   }
 })().catch((e) => {

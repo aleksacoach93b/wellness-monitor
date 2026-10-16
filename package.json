@@ -10,7 +10,8 @@
     "postinstall": "npx prisma generate",
     "vercel-build": "prisma generate && next build",
     "test:pvt": "node --test tests/pvt.test.cjs",
-    "test:rhr": "node --test tests/rhr.test.cjs"
+    "test:rhr": "node --test tests/rhr.test.cjs",
+    "test:rhr:camera": "node tests/rhr.camera-matrix.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

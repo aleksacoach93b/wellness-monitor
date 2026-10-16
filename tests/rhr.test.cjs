@@ -5,7 +5,14 @@ const { test, after } = require('node:test'),
   path = require('node:path'),
   ts = require('typescript')
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rhr-test-'))
-for (const name of ['protocol', 'options', 'server', 'camera', 'sampling'])
+for (const name of [
+  'protocol',
+  'options',
+  'server',
+  'camera',
+  'sampling',
+  'session',
+])
   fs.writeFileSync(
     path.join(dir, name + '.js'),
     ts.transpileModule(
@@ -144,7 +151,9 @@ test('signed results bind player, question and survey and ignore forged displaye
   const { signRhrResult, verifyRhrAnswer } = require(
     path.join(dir, 'server.js'),
   )
-  const { RHR_VERSION } = require(path.join(dir, 'protocol.js'))
+  const { RHR_LEGACY_VERSION: RHR_VERSION } = require(
+    path.join(dir, 'protocol.js'),
+  )
   const scope = { surveyId: 's', playerId: 'p', questionId: 'q' },
     a = {
       kind: 'RHR',
@@ -172,7 +181,7 @@ test('signed results bind player, question and survey and ignore forged displaye
   assert.equal(await verifyRhrAnswer(JSON.stringify(a), scope), null)
 })
 
-test('a measurement cannot silently extend beyond 15 seconds', () => {
+test('legacy v1 measurement cannot silently extend beyond 15 seconds', () => {
   assert.equal(validateRhrRecord({ ...signal(60), elapsedMs: 15001 }), false)
 })
 
@@ -367,4 +376,216 @@ test('exposure adjustments respect the reported EV range, preserve torch and are
     ),
     false,
   )
+})
+
+function qualitySignal({
+  bpm = 65,
+  changeAt = Infinity,
+  nextBpm = 80,
+  dropout = false,
+  flat = false,
+  fps = 30,
+} = {}) {
+  const { RHR_VERSION } = require(path.join(dir, 'protocol.js'))
+  const samples = []
+  let phase = 0
+  for (let t = 0; t <= 60000; t += 1000 / fps) {
+    const rate = t < changeAt ? bpm : nextBpm
+    phase += (2 * Math.PI * rate) / 60 / fps
+    const v = flat ? 0 : Math.sin(phase) + 0.3 * Math.sin(phase * 2 + 0.4)
+    const lost = dropout && t >= 8000 && t < 8500
+    samples.push({
+      t,
+      r: lost ? 25 : 180 + 3 * v,
+      g: lost ? 25 : 75 + 2 * v,
+      b: 45,
+      clipped: 0,
+      spread: 0.05,
+    })
+  }
+  return {
+    protocolVersion: RHR_VERSION,
+    samples,
+    elapsedMs: 60000,
+    interruption: null,
+    torch: true,
+  }
+}
+function finishQuality(record) {
+  const { RhrSession } = require(path.join(dir, 'session.js'))
+  const session = new RhrSession(),
+    samples = []
+  for (const sample of record.samples) {
+    samples.push(sample)
+    const view = session.push(sample)
+    if (view.stage === 'complete')
+      return {
+        record: {
+          ...record,
+          samples,
+          elapsedMs: Math.max(sample.t, view.analysis.completeAtMs),
+        },
+        view,
+      }
+  }
+  return { record, view: session.advanceTo(record.elapsedMs) }
+}
+for (const bpm of [30, 40, 55, 80, 110, 170])
+  test(`quality session detects then verifies 10s at ${bpm} bpm`, () => {
+    const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+    const { record, view } = finishQuality(qualitySignal({ bpm }))
+    assert.equal(view.stage, 'complete', JSON.stringify(view))
+    assert.ok(record.elapsedMs >= 15000 && record.elapsedMs < 22000)
+    assert.ok(view.analysis.windowStartMs >= 5000)
+    assert.ok(view.analysis.completeAtMs - view.analysis.windowStartMs >= 10000)
+    const a = analyzeRhrRecord(record)
+    assert.equal(a.quality, 'ACCEPTED', JSON.stringify(a))
+    assert.ok(Math.abs(a.bpm - bpm) <= 3)
+  })
+test('110 to 80 change restarts the stable countdown and discards the old window', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  const { record, view } = finishQuality(
+    qualitySignal({ bpm: 110, changeAt: 10000, nextBpm: 80 }),
+  )
+  assert.equal(view.stage, 'complete', JSON.stringify(view))
+  assert.ok(view.restarts >= 1)
+  assert.ok(view.analysis.windowStartMs >= 10000)
+  assert.ok(record.elapsedMs > 20000)
+  assert.ok(Math.abs(analyzeRhrRecord(record).bpm - 80) <= 3)
+})
+test('lost contact restarts acquisition and continuous noise/flat signals stop at 60s without a result', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  const good = finishQuality(qualitySignal({ dropout: true }))
+  assert.equal(good.view.stage, 'complete')
+  assert.ok(good.view.restarts >= 1)
+  assert.ok(good.record.elapsedMs > 20000)
+  const flat = finishQuality(qualitySignal({ flat: true }))
+  assert.equal(flat.view.stage, 'timeout')
+  assert.equal(analyzeRhrRecord(flat.record).bpm, null)
+  assert.ok(Math.abs(analyzeRhrRecord(flat.record).fps - 30) < 1)
+  assert.ok(analyzeRhrRecord(flat.record).reasons.includes('signal-timeout'))
+})
+test('v2 replay rejects stale, interrupted, oversized, missing-tail and forged display metadata', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  const finished = finishQuality(qualitySignal())
+  assert.equal(
+    analyzeRhrRecord({ ...finished.record, elapsedMs: 40000 }).bpm,
+    null,
+  )
+  assert.equal(
+    analyzeRhrRecord({ ...finished.record, interruption: 'hidden' }).bpm,
+    null,
+  )
+  assert.equal(
+    analyzeRhrRecord({ ...finished.record, elapsedMs: 60001 }).bpm,
+    null,
+  )
+  assert.equal(
+    analyzeRhrRecord({
+      ...finished.record,
+      samples: finished.record.samples.filter((s) => s.t < 13000),
+    }).bpm,
+    null,
+  )
+  assert.equal(
+    analyzeRhrRecord({ ...finished.record, bpm: 110, restarts: 0 }).bpm,
+    65,
+  )
+})
+test('both widget generations remain valid and v2 receipts bind actual duration and restarts', async () => {
+  process.env.ADMIN_JWT_SECRET = 'rhr-unit-test-only'
+  const { validRhrOptions, rhrExportValues } = require(
+    path.join(dir, 'options.js'),
+  )
+  const { signRhrResult, verifyRhrAnswer } = require(
+    path.join(dir, 'server.js'),
+  )
+  for (const protocolVersion of ['camera-rhr-v1', 'camera-rhr-v2'])
+    assert.ok(
+      validRhrOptions(
+        JSON.stringify({
+          widget: 'RHR_CAMERA',
+          protocolVersion,
+          durationSeconds: 15,
+        }),
+      ),
+    )
+  const a = {
+    kind: 'RHR',
+    bpm: 80,
+    position: 'seated',
+    rested: true,
+    durationSeconds: 26,
+    targetDurationSeconds: 15,
+    detectionSeconds: 5,
+    stableWindowSeconds: 10,
+    restarts: 2,
+    protocolVersion: 'camera-rhr-v2',
+    algorithmVersion: 'quality-window-v3',
+    measuredAt: new Date().toISOString(),
+    quality: 'ACCEPTED',
+    torch: true,
+    fps: 30,
+    beats: 12,
+    correlation: 0.9,
+  }
+  const scope = { surveyId: 's', playerId: 'p', questionId: 'q' },
+    receipt = await signRhrResult(a, scope)
+  const saved = await verifyRhrAnswer(
+    JSON.stringify({
+      ...a,
+      durationSeconds: 15,
+      restarts: 0,
+      bpm: 110,
+      receipt,
+    }),
+    scope,
+  )
+  assert.equal(saved.bpm, 80)
+  assert.equal(saved.durationSeconds, 26)
+  assert.equal(saved.restarts, 2)
+  assert.equal(rhrExportValues(JSON.stringify(saved))['Duration s'], 26)
+  const invalidReceipt = await signRhrResult(
+    { ...a, stableWindowSeconds: 2 },
+    scope,
+  )
+  assert.equal(
+    await verifyRhrAnswer(
+      JSON.stringify({ ...a, receipt: invalidReceipt }),
+      scope,
+    ),
+    null,
+  )
+})
+
+test('quality capture tolerates 15/24/60fps but rejects low-rate, gapped and random signals', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  for (const fps of [15, 24, 60]) {
+    const r = finishQuality(qualitySignal({ bpm: 65, fps }))
+    assert.equal(r.view.stage, 'complete')
+    assert.ok(Math.abs(analyzeRhrRecord(r.record).bpm - 65) <= 3)
+  }
+  const slow = finishQuality(qualitySignal({ fps: 10 }))
+  assert.equal(slow.view.stage, 'timeout')
+  const noise = qualitySignal()
+  let seed = 9
+  noise.samples.forEach((s) => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    s.r = 180 + (seed / 4294967296 - 0.5) * 5
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    s.g = 75 + (seed / 4294967296 - 0.5) * 4
+  })
+  assert.equal(finishQuality(noise).view.stage, 'timeout')
+})
+
+test('discrete camera levels do not discard a stable pulse solely because of flat-topped peaks', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  const record = qualitySignal({ bpm: 55 })
+  record.samples.forEach((s) => {
+    s.r = Math.round(s.r)
+    s.g = Math.round(s.g)
+  })
+  const finished = finishQuality(record)
+  assert.equal(finished.view.stage, 'complete', JSON.stringify(finished.view))
+  assert.ok(Math.abs(analyzeRhrRecord(finished.record).bpm - 55) <= 3)
 })

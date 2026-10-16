@@ -60,13 +60,6 @@
   padding: 0.8rem;
   max-width: 100%;
 }
-.rhr-wave {
-  width: 100%;
-  max-width: 340px;
-  height: 80px;
-  color: rgb(var(--pvt-rgb));
-  margin: 0 auto;
-}
 .rhr-estimate-note {
   font-size: 0.7rem;
   text-align: center;
@@ -251,56 +244,6 @@
   letter-spacing: 0.2em;
   margin: 0;
 }
-.rhr-session-dial {
-  width: clamp(200px, 62vw, 260px);
-  aspect-ratio: 1;
-  position: relative;
-  margin: 0.7rem auto;
-}
-.rhr-session-dial > svg {
-  width: 100%;
-  height: 100%;
-  stroke-width: 11;
-  stroke-linecap: round;
-}
-.rhr-dial-active {
-  stroke: var(--pvt-strong);
-  filter: drop-shadow(0 0 2px rgba(var(--pvt-rgb), 0.3));
-}
-.rhr-dial-inactive {
-  stroke: rgba(var(--pvt-rgb), 0.13);
-}
-.rhr-dial-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-.rhr-dial-center > svg {
-  color: var(--pvt-accent);
-  margin-bottom: 0.25rem;
-}
-.rhr-dial-center strong {
-  color: #f8fafc;
-  font-weight: 650;
-  letter-spacing: -0.065em;
-  font-variant-numeric: tabular-nums;
-  font-size: 4rem;
-  line-height: 1.1;
-  padding-right: 0.065em;
-}
-.rhr-dial-center > span {
-  color: #d8e6f6;
-  font-size: 0.76rem;
-}
-.rhr-dial-center > small {
-  color: #8da9cb;
-  font-size: 0.64rem;
-  margin-top: 0.15rem;
-}
 .rhr-scan-instruction {
   color: #bdcfe5;
   font-size: 0.75rem;
@@ -352,25 +295,6 @@
   color: var(--pvt-deep);
   background: var(--pvt-accent);
 }
-.rhr-signal-card {
-  padding: 0.7rem;
-  border: 1px solid rgba(var(--pvt-rgb), 0.25);
-  border-radius: 15px;
-  background: linear-gradient(140deg, rgba(var(--pvt-rgb), 0.065), #00000015);
-}
-.rhr-signal-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
-  color: #c4d6ee;
-  font-size: 0.64rem;
-}
-.rhr-signal-heading > span:first-child {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
 .rhr-contact-chip {
   font-size: 0.57rem;
   color: #facc8d;
@@ -383,16 +307,6 @@
   color: #8be8b6;
   background: #10b9810d;
   border-color: #10b98135;
-}
-.rhr-signal-card .rhr-wave {
-  display: block;
-  width: 100%;
-  height: 68px;
-  margin: 0.5rem 0 0;
-  background-image:
-    linear-gradient(rgba(var(--pvt-rgb), 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(var(--pvt-rgb), 0.045) 1px, transparent 1px);
-  background-size: 24px 17px;
 }
 .rhr-live-hint {
   font-size: 0.63rem;
@@ -451,11 +365,144 @@
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .rhr-dial-active,
-  .rhr-dial-inactive {
-    transition: stroke 0.2s;
-  }
   .rhr-question .pvt-action:hover {
     box-shadow: 0 7px 25px rgba(var(--pvt-rgb), 0.2);
   }
+}
+
+/* Quality-guided camera measurement: real optical trace inside the time ring. */
+.rhr-pulse-circle {
+  position: relative;
+  width: min(100%, 300px);
+  aspect-ratio: 1;
+  margin: 1rem auto 0.8rem;
+}
+.rhr-pulse-ring {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke-width: 11;
+}
+.rhr-pulse-track {
+  stroke: rgba(var(--pvt-rgb), 0.13);
+}
+.rhr-pulse-progress {
+  stroke: var(--pvt-accent);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(var(--pvt-rgb), 0.2));
+}
+.rhr-pulse-center {
+  position: absolute;
+  inset: 13%;
+  border: 1px solid rgba(var(--pvt-rgb), 0.12);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 30%,
+    rgba(var(--pvt-rgb), 0.14),
+    rgba(var(--pvt-rgb), 0.035)
+  );
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+.rhr-pulse-stage {
+  color: var(--pvt-accent);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  font-weight: 650;
+  margin-top: 0.6rem;
+}
+.rhr-pulse-time {
+  color: #bfd1e8;
+  font-size: 0.73rem;
+  margin-top: 0.2rem;
+  min-height: 1.2rem;
+}
+.rhr-live-bpm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.1rem 0 0;
+}
+.rhr-live-bpm strong {
+  color: #f8fafc;
+  font-size: clamp(2.9rem, 15vw, 4.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.06em;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.rhr-beat-heart {
+  display: inline-flex;
+  transform-origin: center;
+  color: var(--pvt-accent);
+}
+.rhr-provisional-label {
+  color: #9bb3d0;
+  font-size: 0.57rem;
+  margin-top: 0.15rem;
+}
+.rhr-circle-wave {
+  display: block;
+  width: 70%;
+  height: 42px;
+  color: var(--pvt-accent);
+  margin: 0.4rem 0 0;
+  flex-shrink: 0;
+}
+.rhr-restart-note {
+  font-size: 0.73rem;
+  line-height: 1.5;
+  margin: 0.85rem 0.3rem 0;
+  color: #f9d394;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #f59e0b35;
+  border-radius: 12px;
+  background: #f59e0b08;
+}
+.rhr-scan-panel > .rhr-scan-instruction {
+  margin: 1rem 0;
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+.rhr-scan-limit {
+  color: #859fbe;
+  font-size: 0.62rem;
+  line-height: 1.5;
+  margin: 0.4rem 0 0.1rem;
+}
+.rhr-pulse-circle[data-stage='recovering'] .rhr-pulse-progress {
+  stroke: #f9d394;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .rhr-pulse-progress {
+    transition: stroke-dashoffset 0.22s linear;
+  }
+}
+@media (max-width: 360px) {
+  .rhr-pulse-stage {
+    font-size: 0.5rem;
+    letter-spacing: 0.08em;
+  }
+  .rhr-pulse-time {
+    font-size: 0.63rem;
+  }
+  .rhr-circle-wave {
+    height: 32px;
+    margin-top: 0.2rem;
+  }
+  .rhr-beat-heart svg {
+    width: 23px;
+    height: 23px;
+  }
+}
+.rhr-live-bpm {
+  position: relative;
+}
+.rhr-beat-heart {
+  position: absolute;
+  left: calc(100% + 0.5rem);
 }

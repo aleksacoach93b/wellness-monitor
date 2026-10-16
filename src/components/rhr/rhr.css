@@ -60,24 +60,6 @@
   padding: 0.8rem;
   max-width: 100%;
 }
-.rhr-countdown {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 2rem auto;
-  color: rgb(var(--pvt-rgb));
-}
-.rhr-countdown strong {
-  font-size: 6rem;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: white;
-}
-.rhr-countdown span {
-  font-size: 0.85rem;
-  color: #94a3b8;
-}
 .rhr-wave {
   width: 100%;
   max-width: 340px;
@@ -90,4 +72,390 @@
   text-align: center;
   color: #94a3b8;
   margin: 1rem 0 0;
+}
+
+/* Session Dial follows the survey's accent tokens in all five themes. */
+.rhr-question {
+  overflow: hidden;
+  padding: 1.15rem;
+  border-left: 3px solid var(--pvt-accent);
+  background: linear-gradient(
+    130deg,
+    rgba(var(--pvt-rgb), 0.14),
+    transparent 75%
+  );
+}
+.rhr-question-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1;
+}
+.rhr-heart-tile {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  color: var(--pvt-accent);
+  background: linear-gradient(
+    145deg,
+    rgba(var(--pvt-rgb), 0.19),
+    rgba(var(--pvt-rgb), 0.035)
+  );
+  border: 1px solid rgba(var(--pvt-rgb), 0.4);
+  border-radius: 15px;
+  box-shadow: inset 0 1px 0 #ffffff12;
+}
+.rhr-time-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.07em;
+  color: var(--pvt-accent);
+  padding: 0.4rem 0.6rem;
+  border: 1px solid rgba(var(--pvt-rgb), 0.3);
+  border-radius: 30px;
+}
+.rhr-question-copy {
+  position: relative;
+  margin: 1rem 0;
+  z-index: 1;
+}
+.rhr-eyebrow {
+  font-size: 0.57rem;
+  letter-spacing: 0.19em;
+  font-weight: 650;
+  color: var(--pvt-accent);
+  margin-bottom: 0.35rem;
+}
+.rhr-question-copy h3 {
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.25;
+  color: #f8fafc;
+}
+.rhr-question-copy h3 small {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--pvt-accent);
+}
+.rhr-question-copy > p:last-child {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #b6c8dd;
+  max-width: 85%;
+}
+.rhr-question-orbit {
+  position: absolute;
+  right: -24px;
+  top: 52px;
+  width: 135px;
+  height: 135px;
+  border: 1px solid rgba(var(--pvt-rgb), 0.16);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 14px rgba(var(--pvt-rgb), 0.035),
+    0 0 0 29px rgba(var(--pvt-rgb), 0.025);
+  display: grid;
+  place-items: center;
+  color: rgba(var(--pvt-rgb), 0.17);
+  pointer-events: none;
+}
+.rhr-question-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  position: relative;
+}
+.rhr-question-facts > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.65rem 0.2rem;
+  border: 1px solid rgba(var(--pvt-rgb), 0.18);
+  background: rgba(var(--pvt-rgb), 0.04);
+  border-radius: 10px;
+  color: #d7e4f4;
+  font-size: 0.65rem;
+}
+.rhr-question-facts svg {
+  color: var(--pvt-accent);
+  flex-shrink: 0;
+}
+.rhr-question-rest {
+  font-size: 0.73rem;
+  line-height: 1.5;
+  color: #a6bdd8;
+  margin: 0.8rem 0;
+}
+.rhr-question .pvt-action {
+  display: flex;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 49px;
+  font-size: 0.86rem;
+}
+.rhr-question .pvt-action > svg:last-child {
+  margin-left: auto;
+}
+.rhr-question .pvt-action > span {
+  flex: 1;
+  text-align: center;
+}
+.rhr-completed-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--pvt-accent);
+  font-size: 0.78rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 11px;
+  background: rgba(var(--pvt-rgb), 0.075);
+  border: 1px solid rgba(var(--pvt-rgb), 0.22);
+}
+.rhr-camera-preview {
+  position: relative;
+}
+.rhr-preview-label {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.35rem;
+  color: #fff;
+  font-size: 0.6rem;
+  background: #020617b3;
+  padding: 0.15rem 0.4rem;
+  border-radius: 5px;
+  z-index: 1;
+}
+.rhr-camera-preview[data-scanning='true'] {
+  width: 112px;
+  height: 54px;
+  margin: 0.8rem 1.2rem 0 auto;
+  border-color: rgba(var(--pvt-rgb), 0.3);
+}
+.rhr-camera-preview[data-scanning='true'] .rhr-video {
+  height: 54px;
+}
+.rhr-scan-panel {
+  padding: 0.65rem 1.2rem 0.8rem;
+  text-align: center;
+}
+.rhr-scan-panel .pvt-kicker {
+  color: var(--pvt-accent);
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  margin: 0;
+}
+.rhr-session-dial {
+  width: clamp(200px, 62vw, 260px);
+  aspect-ratio: 1;
+  position: relative;
+  margin: 0.7rem auto;
+}
+.rhr-session-dial > svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: 11;
+  stroke-linecap: round;
+}
+.rhr-dial-active {
+  stroke: var(--pvt-strong);
+  filter: drop-shadow(0 0 2px rgba(var(--pvt-rgb), 0.3));
+}
+.rhr-dial-inactive {
+  stroke: rgba(var(--pvt-rgb), 0.13);
+}
+.rhr-dial-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.rhr-dial-center > svg {
+  color: var(--pvt-accent);
+  margin-bottom: 0.25rem;
+}
+.rhr-dial-center strong {
+  color: #f8fafc;
+  font-weight: 650;
+  letter-spacing: -0.065em;
+  font-variant-numeric: tabular-nums;
+  font-size: 4rem;
+  line-height: 1.1;
+  padding-right: 0.065em;
+}
+.rhr-dial-center > span {
+  color: #d8e6f6;
+  font-size: 0.76rem;
+}
+.rhr-dial-center > small {
+  color: #8da9cb;
+  font-size: 0.64rem;
+  margin-top: 0.15rem;
+}
+.rhr-scan-instruction {
+  color: #bdcfe5;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.rhr-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+}
+.rhr-steps li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  color: #8ba1bc;
+  font-size: 0.65rem;
+  position: relative;
+}
+.rhr-steps li:not(:last-child)::after {
+  position: absolute;
+  content: '';
+  height: 1px;
+  background: rgba(var(--pvt-rgb), 0.2);
+  left: calc(50% + 15px);
+  width: calc(100% - 30px);
+  top: 11px;
+}
+.rhr-steps li > span {
+  display: grid;
+  place-items: center;
+  height: 23px;
+  width: 23px;
+  border: 1px solid rgba(var(--pvt-rgb), 0.4);
+  border-radius: 50%;
+  font-size: 0.64rem;
+  background: var(--pvt-deep);
+}
+.rhr-steps li[data-state='current'] {
+  color: var(--pvt-accent);
+}
+.rhr-steps li[data-state='current'] > span {
+  border: 2px solid var(--pvt-accent);
+  box-shadow: 0 0 0 3px rgba(var(--pvt-rgb), 0.1);
+}
+.rhr-steps li[data-state='done'] > span {
+  color: var(--pvt-deep);
+  background: var(--pvt-accent);
+}
+.rhr-signal-card {
+  padding: 0.7rem;
+  border: 1px solid rgba(var(--pvt-rgb), 0.25);
+  border-radius: 15px;
+  background: linear-gradient(140deg, rgba(var(--pvt-rgb), 0.065), #00000015);
+}
+.rhr-signal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  color: #c4d6ee;
+  font-size: 0.64rem;
+}
+.rhr-signal-heading > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.rhr-contact-chip {
+  font-size: 0.57rem;
+  color: #facc8d;
+  padding: 0.25rem 0.4rem;
+  border-radius: 20px;
+  background: #f59e0b10;
+  border: 1px solid #f59e0b30;
+}
+.rhr-contact-chip[data-contact='true'] {
+  color: #8be8b6;
+  background: #10b9810d;
+  border-color: #10b98135;
+}
+.rhr-signal-card .rhr-wave {
+  display: block;
+  width: 100%;
+  height: 68px;
+  margin: 0.5rem 0 0;
+  background-image:
+    linear-gradient(rgba(var(--pvt-rgb), 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--pvt-rgb), 0.045) 1px, transparent 1px);
+  background-size: 24px 17px;
+}
+.rhr-live-hint {
+  font-size: 0.63rem;
+  color: #9bb3d0;
+  min-height: 2.5em;
+  line-height: 1.4;
+  margin: 0.65rem 0 0.1rem;
+}
+.rhr-preflight-hint {
+  border-top: 1px solid rgba(var(--pvt-rgb), 0.15);
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  color: var(--pvt-accent);
+}
+.rhr-lens-note {
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: #a6bdd8;
+  margin: 0.6rem 0;
+}
+.rhr-diagnostics {
+  text-align: left;
+  padding: 0.8rem;
+  margin: 0.7rem 0 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--pvt-rgb), 0.25);
+  background: #00000012;
+  color: #b6c8dd;
+  font-size: 0.7rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.rhr-diagnostics summary {
+  cursor: pointer;
+  color: var(--pvt-accent);
+}
+.rhr-diagnostics p {
+  margin-top: 0.5rem;
+}
+.rhr-light-status {
+  color: #cbd5e1;
+  border-color: rgba(var(--pvt-rgb), 0.3);
+  background: rgba(var(--pvt-rgb), 0.045);
+}
+@media (max-width: 360px) {
+  .rhr-question {
+    padding: 0.9rem;
+  }
+  .rhr-question-facts > span {
+    flex-direction: column;
+    font-size: 0.62rem;
+  }
+  .rhr-scan-panel {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .rhr-dial-active,
+  .rhr-dial-inactive {
+    transition: stroke 0.2s;
+  }
+  .rhr-question .pvt-action:hover {
+    box-shadow: 0 7px 25px rgba(var(--pvt-rgb), 0.2);
+  }
 }

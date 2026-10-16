@@ -34,6 +34,7 @@ export type RhrAnswer = {
   rested: true
   durationSeconds: 15
   protocolVersion: string
+  algorithmVersion?: string
   measuredAt: string
   quality: 'ACCEPTED'
   torch: boolean
@@ -79,7 +80,9 @@ export function rhrExportValues(raw: string) {
     'Duration s': a?.durationSeconds ?? null,
     'Signal quality': a?.quality ?? null,
     'Measured at UTC': a?.measuredAt ?? null,
-    Protocol: a?.protocolVersion ?? null,
+    Protocol: a
+      ? [a.protocolVersion, a.algorithmVersion].filter(Boolean).join('/')
+      : null,
     'Light enabled 0 or 1': a ? Number(a.torch) : null,
     'Frame rate fps': a?.fps ?? null,
     'Rest confirmed 0 or 1': a ? Number(a.rested) : null,

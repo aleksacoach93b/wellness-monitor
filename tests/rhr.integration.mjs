@@ -170,6 +170,42 @@ try {
     bad.status === 200 && !bad.data.accepted && bad.data.analysis.bpm === null,
     'flat signal produces Repeat, not a number',
   )
+  const alternate = {
+    ...record,
+    samples: record.samples
+      .filter((_, i) => i % 2 === 0)
+      .map((s) => ({
+        ...s,
+        r: 255,
+        g: 255,
+        b: 50 + 2 * Math.sin((((2 * Math.PI * 55) / 60) * s.t) / 1000),
+        redClipped: 1,
+        greenClipped: 1,
+        blueClipped: 0,
+      })),
+  }
+  const adapted = await request(path, {
+    action: 'finish',
+    ticket,
+    record: alternate,
+  })
+  check(
+    adapted.status === 200 &&
+      adapted.data.accepted &&
+      Math.abs(adapted.data.result.bpm - 55) <= 2,
+    'server preserves per-channel clipping and accepts a stable blue signal at 15fps',
+  )
+  check(
+    adapted.data.result.algorithmVersion === 'adaptive-rgb-v2',
+    'algorithm revision is signed and auditable',
+  )
+  const malformed = structuredClone(alternate)
+  malformed.samples[0].greenClipped = 2
+  check(
+    (await request(path, { action: 'finish', ticket, record: malformed }))
+      .status === 400,
+    'invalid clipping metrics cannot bypass validation',
+  )
   const good = await request(path, { action: 'finish', ticket, record, bpm: 1 })
   check(
     good.status === 200 &&
@@ -186,7 +222,14 @@ try {
     surveyId,
     playerId: 'test-player',
     answers: [
-      { questionId, value: JSON.stringify({ ...good.data.result, bpm: 1 }) },
+      {
+        questionId,
+        value: JSON.stringify({
+          ...good.data.result,
+          bpm: 1,
+          algorithmVersion: 'FORGED',
+        }),
+      },
       { questionId: 'rhr-number', value: '30' },
     ],
   }
@@ -213,7 +256,10 @@ try {
     submitted.data.answers.find((a) => a.questionId === questionId).value,
   )
   check(
-    saved.bpm === 55 && saved.position === 'lying' && !saved.receipt,
+    saved.bpm === 55 &&
+      saved.position === 'lying' &&
+      !saved.receipt &&
+      saved.algorithmVersion === 'adaptive-rgb-v2',
     'answer uses signed server value and strips credentials',
   )
   const csv = await fetch(base + `/api/surveys/${surveyId}/export/csv`).then(

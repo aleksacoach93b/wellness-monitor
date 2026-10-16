@@ -14,7 +14,25 @@ export type TorchState = 'on' | 'unconfirmed'
 type TorchTrack = Pick<
   MediaStreamTrack,
   'getCapabilities' | 'getSettings' | 'applyConstraints' | 'readyState'
->
+> & { getConstraints?: () => MediaTrackConstraints }
+/** Keep an explicitly repaired stream/exposure when verifying its light again. */
+function preservingConstraints(
+  track: TorchTrack,
+  values: MediaTrackConstraintSet,
+): MediaTrackConstraints {
+  let previous: MediaTrackConstraints = {}
+  try {
+    previous = track.getConstraints?.() ?? {}
+  } catch {}
+  return {
+    ...previous,
+    ...values,
+    advanced: [
+      ...(previous.advanced ?? []).map((a) => ({ ...a, ...values })),
+      values,
+    ],
+  }
+}
 export async function enableCameraLight(
   track: TorchTrack,
 ): Promise<TorchState> {
@@ -31,7 +49,7 @@ export async function enableCameraLight(
       'This rear camera does not support the camera light. Choose another rear camera or a browser that supports its camera light.',
     )
   const constraints = [
-    { torch: true, advanced: [{ torch: true }] },
+    preservingConstraints(track, { torch: true } as MediaTrackConstraintSet),
     { advanced: [{ torch: true }] },
     { torch: true },
   ]
@@ -72,6 +90,83 @@ export async function enableCameraLight(
     /* Require visual confirmation. */
   }
   return 'unconfirmed'
+}
+
+export type ExposureAdjustment = {
+  status: 'requested' | 'unsupported' | 'limit' | 'ignored'
+  before: number | null
+  requested: number | null
+  reported: number | null
+}
+/** Called only by the narrow red-ceiling setup screen, never during the 15s capture.
+ * A resolved constraint is not proof of a repaired optical signal; recheck real frames.
+ */
+export async function reducePulseExposure(
+  track: TorchTrack,
+): Promise<ExposureAdjustment> {
+  if (track.readyState !== 'live')
+    throw new Error('The rear camera has stopped. Enable it again.')
+  type EvSettings = MediaTrackSettings & { exposureCompensation?: number }
+  let range: { min: number; max: number; step?: number } | undefined
+  let before: number | undefined
+  try {
+    range = (
+      track.getCapabilities?.() as {
+        exposureCompensation?: typeof range
+      }
+    )?.exposureCompensation
+    before = (track.getSettings() as EvSettings).exposureCompensation
+  } catch {}
+  const base = {
+    before: before ?? null,
+    requested: null,
+    reported: before ?? null,
+  }
+  if (
+    !range ||
+    !Number.isFinite(range.min) ||
+    !Number.isFinite(range.max) ||
+    range.min >= range.max ||
+    typeof before !== 'number' ||
+    !Number.isFinite(before) ||
+    before < range.min ||
+    before > range.max
+  )
+    return { ...base, status: 'unsupported' }
+  const step =
+    range.step && Number.isFinite(range.step) && range.step > 0
+      ? range.step
+      : 0.5
+  const requested = Math.max(
+    range.min,
+    Math.min(
+      range.max,
+      range.min +
+        Math.round((before - Math.max(step, 1) - range.min) / step) * step,
+    ),
+  )
+  if (requested >= before - 1e-6) return { ...base, status: 'limit' }
+  await track.applyConstraints(
+    preservingConstraints(track, {
+      torch: true,
+      exposureCompensation: requested,
+    } as MediaTrackConstraintSet),
+  )
+  const reported = (track.getSettings() as EvSettings).exposureCompensation
+  return {
+    status:
+      typeof reported === 'number' &&
+      Number.isFinite(reported) &&
+      Math.abs(reported - requested) <= Math.max(1e-4, step * 0.1)
+        ? 'requested'
+        : 'ignored',
+    before,
+    requested,
+    reported:
+      typeof reported === 'number' && Number.isFinite(reported)
+        ? reported
+        : null,
+  }
 }
 
 /** Prefer the main rear lens over virtual/ultrawide/telephoto choices on multi-camera phones. */

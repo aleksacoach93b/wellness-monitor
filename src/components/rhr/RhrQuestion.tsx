@@ -32,6 +32,8 @@ import {
   enableCameraLight,
   configurePulseCamera,
   primaryRearCamera,
+  reducePulseExposure,
+  type ExposureAdjustment,
   type TorchState,
 } from '@/lib/rhr/camera'
 import { analyzeRhrRecord, type RhrSessionView } from '@/lib/rhr/session'
@@ -131,6 +133,7 @@ export default function RhrQuestion({
     [activeCamera, setActiveCamera] = useState<ReturnType<
       typeof cameraDetails
     > | null>(null),
+    [exposureNote, setExposureNote] = useState(''),
     [diagnostics, setDiagnostics] = useState<RhrAnalysis | null>(null)
   const video = useRef<HTMLVideoElement>(null),
     canvas = useRef<HTMLCanvasElement>(null),
@@ -146,12 +149,16 @@ export default function RhrQuestion({
     lastCapture = useRef<RhrRecord | null>(null),
     compactStream = useRef(false),
     setupSamples = useRef<PpgSample[]>([]),
+    exposureAdjustments = useRef<
+      (ExposureAdjustment & { stats: ReturnType<typeof frameSummary> })[]
+    >([]),
     captureInfo = useRef<{
       camera: ReturnType<typeof cameraDetails>
       preflight: CameraCheck
       userAgent: string
       lightConfirmed: boolean
       compactStream: boolean
+      exposureAdjustments: typeof exposureAdjustments.current
     } | null>(null),
     pending = useRef<{
       record: RhrRecord
@@ -207,6 +214,8 @@ export default function RhrQuestion({
     lastCapture.current = null
     captureInfo.current = null
     setupSamples.current = []
+    exposureAdjustments.current = []
+    setExposureNote('')
   }
   const save = async (
     record: RhrRecord,
@@ -329,23 +338,107 @@ export default function RhrQuestion({
       callback: number | null = null,
       raf = 0,
       lastMedia = -1,
-      lastPaint = 0
+      lastPaint = 0,
+      adjusting = false,
+      lastAdjustment = -Infinity,
+      blocked = exposureAdjustments.current.some(
+        (a) => a.status !== 'requested',
+      )
     const element = video.current
     const started = performance.now(),
       samples: PpgSample[] = []
     setupSamples.current = samples
     setCameraCheck(checkCamera([], 0))
+    const calibrate = async (stats: ReturnType<typeof frameSummary>) => {
+      const track = stream.current?.getVideoTracks()[0]
+      if (!track || adjusting || blocked || cancelled) return
+      adjusting = true
+      setExposureNote('Adjusting camera lighting. Keep your fingertip still…')
+      try {
+        const adjustment = await reducePulseExposure(track)
+        if (cancelled) return
+        exposureAdjustments.current.push({ ...adjustment, stats })
+        blocked = adjustment.status !== 'requested'
+        // Do not reconfigure a confirmed light; that can reset exposure on some devices.
+        let state: TorchState = 'on'
+        if (
+          (track.getSettings() as MediaTrackSettings & { torch?: boolean })
+            .torch !== true
+        )
+          state = await enableCameraLight(track)
+        if (cancelled) return
+        setLight(state)
+        setLightConfirmed(state === 'on')
+        setActiveCamera(cameraDetails(track, camera, state))
+        if (blocked)
+          setExposureNote(
+            adjustment.status === 'limit'
+              ? 'This camera has reached its exposure limit. Try another rear camera or download camera diagnostics.'
+              : 'The browser could not confirm an exposure change. Try another rear camera or download camera diagnostics.',
+          )
+        else
+          setExposureNote(
+            'Lighting adjustment requested. Checking fresh camera frames…',
+          )
+      } catch {
+        if (cancelled) return
+        blocked = true
+        setLight('off')
+        setLightConfirmed(false)
+        exposureAdjustments.current.push({
+          status: 'unsupported',
+          before: null,
+          requested: null,
+          reported: null,
+          stats,
+        })
+        setExposureNote(
+          'This browser could not adjust camera exposure. Try another rear camera or download camera diagnostics.',
+        )
+      } finally {
+        if (!cancelled) {
+          // Discard pre-adjustment frames. Never blend two exposures in a capture.
+          samples.length = 0
+          lastAdjustment = performance.now() - started
+          lastPaint = -Infinity
+        }
+        adjusting = false
+      }
+    }
     const paint = () => {
       if (cancelled) return
       const t = performance.now() - started
       if (t - lastPaint >= 250) {
-        const checked = checkCamera(samples, t)
+        const checked =
+          adjusting || t - lastAdjustment < 1500
+            ? {
+                status: 'checking' as const,
+                code: 'exposure-settling',
+                message: 'Adjusting lighting and checking fresh frames…',
+                stats: frameSummary(samples),
+              }
+            : checkCamera(samples, t)
         setCameraCheck(checked)
         const latest = samples.at(-1)
         const covered = !!latest && t - latest.t <= 400 && fingerPresent(latest)
         setContact(covered)
         setHint(checked.message)
         lastPaint = t
+        if (checked.code === 'red-ceiling' && lightConfirmed && !blocked) {
+          if (exposureAdjustments.current.length < 4)
+            void calibrate(checked.stats)
+          else
+            setExposureNote(
+              'The image is still almost flat after bounded lighting adjustments. Try another rear camera or download camera diagnostics.',
+            )
+        } else if (
+          checked.status === 'ready' &&
+          exposureAdjustments.current.length
+        ) {
+          setExposureNote(
+            'Camera lighting checked after adjustment. Pulse is assessed during the 15-second measurement.',
+          )
+        }
       }
     }
     const schedule = () => {
@@ -375,7 +468,7 @@ export default function RhrQuestion({
       cancelAnimationFrame(raf)
       if (callback !== null) element?.cancelVideoFrameCallback?.(callback)
     }
-  }, [phase])
+  }, [phase, lightConfirmed, camera])
   const armCameraIdle = () => {
     if (deadline.current) clearTimeout(deadline.current)
     deadline.current = setTimeout(() => {
@@ -399,6 +492,8 @@ export default function RhrQuestion({
     captureInfo.current = null
     compactStream.current = false
     setupSamples.current = []
+    exposureAdjustments.current = []
+    setExposureNote('')
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext)
         throw new Error(
@@ -639,6 +734,7 @@ export default function RhrQuestion({
           userAgent: navigator.userAgent,
           lightConfirmed,
           compactStream: compactStream.current,
+          exposureAdjustments: [...exposureAdjustments.current],
         }
       setPhase('scan')
       navigator.wakeLock
@@ -1299,6 +1395,15 @@ export default function RhrQuestion({
                             Camera check happens before the 15-second
                             measurement. It does not confirm pulse accuracy.
                           </p>
+                          {exposureNote && (
+                            <p
+                              className="rhr-lens-note"
+                              role="status"
+                              data-testid="rhr-exposure-note"
+                            >
+                              {exposureNote}
+                            </p>
+                          )}
                           {cameraCheck.status === 'problem' &&
                             ['slow-frames', 'frame-gaps'].includes(
                               cameraCheck.code,
@@ -1376,6 +1481,8 @@ export default function RhrQuestion({
                                     userAgent: navigator.userAgent,
                                     lightConfirmed,
                                     compactStream: compactStream.current,
+                                    exposureAdjustments:
+                                      exposureAdjustments.current,
                                   },
                                   'resting-hr-camera.json',
                                 )

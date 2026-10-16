@@ -1,4 +1,5 @@
 'use client'
+import { isRhrQuestion, rhrAnswerText } from '@/lib/rhr/options'
 import { pvtAnswerText } from '@/lib/pvt/options'
 
 import { useState } from 'react'
@@ -221,6 +222,7 @@ export default function ResultsTable({ responses }: ResultsTableProps) {
             <div className="mt-4 space-y-4">
               {response.answers.map((answer) => {
                 // Check if this is body map data
+                if (isRhrQuestion(answer.question)) return <div key={answer.id} className="rounded-lg bg-slate-50 p-4"><h4>{answer.question.text}</h4><p>{rhrAnswerText(answer.value)}</p></div>
                 if (answer.question.type === 'PVT') return <div key={answer.id} className="rounded-lg bg-slate-50 p-4"><h4 className="font-medium text-slate-900">{answer.question.text}</h4><p className="mt-1 text-sm text-slate-700">{pvtAnswerText(answer.value)}</p><a className="text-sm text-teal-700 underline" href={`/admin/pvt?surveyId=${response.surveyId}&playerId=${response.playerId || ''}&questionId=${answer.questionId}`}>View Focus analysis</a></div>
                 if (answer.question.type === 'BODY_MAP' && answer.value.includes('{')) {
                   try {

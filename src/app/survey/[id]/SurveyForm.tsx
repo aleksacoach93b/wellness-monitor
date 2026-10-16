@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Survey, Question, Player } from '@prisma/client'
 import { CheckCircle, WifiOff } from 'lucide-react'
 import PvtQuestion from '@/components/pvt/PvtQuestion'
+import RhrQuestion from '@/components/rhr/RhrQuestion'
+import { isRhrQuestion } from '@/lib/rhr/options'
 import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
@@ -452,6 +454,7 @@ export default function SurveyForm({
         try {
           const errorData = await response.json()
           if (typeof errorData.focusQuestionId === 'string' && survey.questions.some(q => q.id === errorData.focusQuestionId && q.type === 'PVT')) handleInputChange(errorData.focusQuestionId, '')
+          if (typeof errorData.rhrQuestionId === 'string' && survey.questions.some(q => q.id === errorData.rhrQuestionId && isRhrQuestion(q))) handleInputChange(errorData.rhrQuestionId, '')
           if (errorData.error) errorMessage = errorData.error
           else if (errorData.details) errorMessage = `Validation error: ${JSON.stringify(errorData.details)}`
         } catch {
@@ -809,7 +812,7 @@ export default function SurveyForm({
               />
             )}
 
-            {question.type === 'NUMBER' && (
+            {question.type === 'NUMBER' && !isRhrQuestion(question) && (
               <input
                 type="number"
                 value={formData[question.id] as string || ''}
@@ -853,6 +856,7 @@ export default function SurveyForm({
               </div>
             )}
 
+        {isRhrQuestion(question) && <RhrQuestion surveyId={survey.id} question={question} playerId={playerId || player?.id || ''} theme={appearance} value={String(formData[question.id] || '')} onChange={value => handleInputChange(question.id, value)} />}
         {question.type === 'PVT' && <PvtQuestion surveyId={survey.id} question={question} playerId={playerId || player?.id || ''} theme={appearance} value={String(formData[question.id] || '')} onChange={value => handleInputChange(question.id, value)} />}
 
         {(question.type === 'BOOLEAN' || question.type === 'BODY_MAP') && (

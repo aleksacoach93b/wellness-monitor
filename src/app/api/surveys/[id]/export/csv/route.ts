@@ -1,3 +1,4 @@
+import { isRhrQuestion, rhrExportValues, RHR_EXPORT_FIELDS, parseRhrAnswer } from '@/lib/rhr/options'
 import { loadPvtExportSessions } from '@/lib/pvt/export-server'
 import { PVT_EXPORT_FIELDS, linkedPvtSession, pvtExportValues } from '@/lib/pvt/export'
 import { pvtAnswerText } from '@/lib/pvt/options'
@@ -291,6 +292,7 @@ export async function GET(
         const answer = response.answers.find((a) => a.questionId === question.id)
         const raw = (answer?.value ?? '').trim()
 
+        if (isRhrQuestion(question)) { row[question.text]=parseRhrAnswer(raw)?.bpm??''; for (const [field,value] of Object.entries(rhrExportValues(raw))) row[`${question.text} - ${field}`]=value; return }
         if (question.type === 'PVT') {
           row[question.text] = pvtAnswerText(raw)
           for (const [field, value] of Object.entries(pvtExportValues(raw, linkedPvtSession(raw, focusSessions, response.id, response.player.id, question.id)))) row[`${question.text} - ${field}`] = value
@@ -356,6 +358,7 @@ export async function GET(
     ]
     survey.questions.forEach((question) => {
       headers.push(question.text)
+      if (isRhrQuestion(question)) headers.push(...RHR_EXPORT_FIELDS.map(field=>`${question.text} - ${field}`))
       if (question.type === 'PVT') headers.push(...PVT_EXPORT_FIELDS.map(field => `${question.text} - ${field}`))
       if (question.type === 'BODY_MAP') {
         headers.push(

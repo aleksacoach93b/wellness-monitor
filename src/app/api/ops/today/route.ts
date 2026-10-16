@@ -1,3 +1,4 @@
+import { isRhrQuestion, parseRhrAnswer } from '@/lib/rhr/options'
 import { localDay } from '@/lib/pvt/server'
 import { parsePvtAnswer } from '@/lib/pvt/options'
 import { baselineFor, type PvtSessionRow } from '@/lib/pvt/baseline'
@@ -130,7 +131,7 @@ export async function GET(request: NextRequest) {
                 select: {
                   value: true,
                   questionId: true,
-                  question: { select: { id: true, text: true, type: true } },
+                  question: { select: { id: true, text: true, type: true, options: true } },
                 },
               },
             },
@@ -151,7 +152,7 @@ export async function GET(request: NextRequest) {
                 select: {
                   value: true,
                   questionId: true,
-                  question: { select: { id: true, text: true, type: true } },
+                  question: { select: { id: true, text: true, type: true, options: true } },
                 },
               },
             },
@@ -225,7 +226,8 @@ export async function GET(request: NextRequest) {
       })[0]
       const current = submitted || attempts[0]
       const base = current ? baselineFor(current, focusSessions) : null
-      return { ...player, focusState: current ? 'COMPLETED' : today.at(-1)?.status || 'PENDING', focus: current ? {
+      const restingHr=response?.answers.flatMap(answer=>{if(!isRhrQuestion(answer.question))return [];const r=parseRhrAnswer(answer.value);return r?[{questionId:answer.questionId,label:answer.question.text,bpm:r.bpm,position:r.position,measuredAt:r.measuredAt}]:[]})||[]
+      return { ...player, restingHr, focusState: current ? 'COMPLETED' : today.at(-1)?.status || 'PENDING', focus: current ? {
         attemptId: current.id, localDate: current.localDate, surveyId: current.surveyId, questionId: current.questionId,
         medianRT: current.summary?.medianRT ?? null, quality: current.summary?.quality || 'REVIEW',
         duration: current.durationSeconds, deltaPercent: base?.deltaPercent ?? null, baselineDays: base?.days ?? 0,
@@ -234,6 +236,7 @@ export async function GET(request: NextRequest) {
       } : null }
     })
 
+    const rhrAvailable = !!survey && (await prisma.question.findMany({where:{surveyId:survey.id,type:'NUMBER'},select:{type:true,options:true}})).some(isRhrQuestion)
     return NextResponse.json(
       {
         team,
@@ -250,6 +253,7 @@ export async function GET(request: NextRequest) {
         players: withFocus,
         focusQuestions,
         focusAvailable,
+        rhrAvailable,
         rules,
         interventions,
         metrics,

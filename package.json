@@ -9,7 +9,8 @@
     "lint": "eslint",
     "postinstall": "npx prisma generate",
     "vercel-build": "prisma generate && next build",
-    "test:pvt": "node --test tests/pvt.test.cjs"
+    "test:pvt": "node --test tests/pvt.test.cjs",
+    "test:rhr": "node --test tests/rhr.test.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

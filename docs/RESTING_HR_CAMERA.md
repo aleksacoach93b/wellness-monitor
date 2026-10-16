@@ -1,0 +1,37 @@
+# Resting heart rate: 15-second contact camera PPG
+
+This opt-in question estimates pulse rate only. It does not calculate HRV, blood pressure, oxygen saturation, fatigue, readiness or a diagnosis. Hardware/reference validation is pending. Automated tests exercise software and synthetic signals; they cannot establish accuracy on an iPhone or in football players.
+
+## Player protocol
+
+Rest quietly for at least five minutes before measuring. The scan itself is fixed at 15 seconds, including the first two seconds reserved for exposure/contact settling. Camera permission/setup is separate. Choose Seated, Standing, Reclined or Lying down and confirm prior rest. Compare only consistent positions and conditions; standing values must not be pooled with lying values.
+
+The player enables a rear camera with a controllable continuous light, lightly covers its lens with a fingertip, starts the scan and remains still while breathing normally. An unsupported rear camera/light gives an explicit error; there is no front-camera substitution or invented fallback value. Camera selection is offered when more than one rear candidate is available. The screen stops capture at 15 seconds even when signal quality is poor. A failure requires an explicit new scan; there is no automatic extension. The live trace is camera intensity, not an ECG.
+
+Camera tracks and light are released after capture, close, cancellation, unmount or error. A ready camera also expires after 30 seconds of inactivity. Hidden/blur/orientation/ended-track events interrupt an active scan. Video frames stay on the device and are never recorded or uploaded. Only timestamped ROI RGB averages, clipping and spatial-range measures are sent for server processing; those samples are not retained after verification.
+
+## Signal processing and acceptance
+
+Central 55% square ROI is downsampled to 32×32. Prefer actual video-frame callbacks; fall back to animation frames with distinct video timestamps. The algorithm uses actual monotonic sample times, rejects incomplete or slow/gapped streams, and interpolates onto 30 Hz. It discards the first two seconds, removes slow illumination drift and smooths camera noise. Red and green channels are assessed independently.
+
+An autocorrelation period estimate and a separately detected, sub-frame-refined peak-interval estimate must agree within 5 bpm. Accepted signals require correlation ≥0.7, at least five peaks, interval median absolute deviation ≤0.16 of the median interval, agreement between usable color channels and stable estimates across two halves. The implemented operating range is 30–180 bpm; rejected signals are not evidence of an abnormal pulse. At least 96% of analyzed samples must satisfy the contact screen, acquisition must span at least 12.5 seconds after settling, average frame rate must be ≥20 fps, and gaps must be ≤200 ms. These thresholds are engineering quality screens, not validated clinical thresholds. Periodic movement or lighting can resemble a pulse; the algorithm cannot prove sensor authenticity.
+
+The 15-second window is a product constraint and needs independent validation. Published accuracy of another app, algorithm or longer recording does not validate this implementation. Reference sources:
+
+- Smartphone fingertip PPG validation using 20-second recordings: https://mhealth.jmir.org/2017/3/e33/
+- Camera/torch constraints: https://www.w3.org/TR/image-capture/
+- WebKit camera settings caveat (runtime capability checks are required): https://bugs.webkit.org/show_bug.cgi?id=280970
+
+## Integration and data
+
+The builder exposes **Resting heart rate (15s camera)**. It is stored as existing NUMBER type with `Question.options = {widget:"RHR_CAMERA", protocolVersion:"camera-rhr-v1", durationSeconds:15}`. No enum/table/schema migration is required. Ordinary NUMBER questions keep their original behavior. Camera questions are excluded from Coach Mode's bulk duration assignment.
+
+`POST /api/kiosk/{surveyId}/rhr` authenticates the player through the existing kiosk grant or access code and checks team/question/survey ownership. A short-lived signed start ticket binds player, survey, question, position and rest confirmation. Finish checks wall time and recomputes quality and bpm from bounded aggregate samples. Only an accepted result gets a signed 48-hour result receipt. This prevents editing the reported bpm or switching the player/question; it does not attest physical sensor inputs. Failed signals produce no completion value.
+
+The normal wellness submission revalidates the receipt and stores the server-signed snapshot without the receipt/token. Required measurements cannot be omitted or entered manually. There is no database write or new production question assignment merely from deployment. The coach explicitly adds the question to a survey. Main public CSV retains a numeric parent BPM column, plus BPM, position, duration, quality, measured time, protocol, light use, frame rate and rest-confirmation columns. Power BI exports equivalent fields. Live Ops shows submitted values with position separately from readiness scoring. Existing historical survey columns and answers are not rewritten.
+
+`/rhr/demo` uses the real camera/algorithm but makes no API requests or saves player data. It has no synthetic signal button. Browser QA injects fake camera signals only in an isolated owned test browser; these are never production player measurements.
+
+## Verification
+
+`node --test tests/rhr.test.cjs` covers synthetic pulse rates, drift/jitter/noise, low frame rates, gaps, flat/saturated/uncovered signals and scoped signed results. Native integration tests use only the explicit loopback fixture and synthetic accounts. Physical-device checks must compare repeated measurements against a suitable reference, including low resting pulse, camera lens choice, skin/contact/lighting conditions and repeatability. Until that work is completed the feature remains labeled a camera estimate with device validation pending.

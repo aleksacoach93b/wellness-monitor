@@ -21,6 +21,7 @@ export type OpsPlayerCard = {
   submittedAt: string | null
   rank: number | null
   wellness: PlayerWellness | null
+  restingHr?: {questionId:string;label:string;bpm:number;position:string;measuredAt:string}[]
   focusState?: string
   focus?: { attemptId: string; localDate: string; surveyId: string; questionId: string | null; medianRT: number | null; quality: string; duration: number; deltaPercent: number | null; baselineDays: number; count: number; linked: boolean; posture?: string; minutesAwake?: number; caffeine?: boolean; flags: string[] } | null
   derived?: OpsDerivedCell[]

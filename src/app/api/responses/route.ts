@@ -1,3 +1,5 @@
+import { isRhrQuestion } from '@/lib/rhr/options'
+import { verifyRhrAnswer } from '@/lib/rhr/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
@@ -66,6 +68,13 @@ export async function POST(request: NextRequest) {
         answer.value = JSON.stringify({ kind: 'PVT', attemptId: attempt.id, durationSeconds: attempt.durationSeconds, protocolVersion: attempt.protocolVersion, medianRT: summary?.medianRT, responses: summary?.responses, falseStarts: summary?.falseStarts, quality: summary?.quality, flags: summary?.flags })
         attempts.push(attempt.id)
       }
+      for (const question of survey.questions.filter(isRhrQuestion)) {
+        const answer=answers.find(a=>a.questionId===question.id)
+        if(!answer?.value){if(question.required)throw new Error('RHR_REQUIRED');continue}
+        const verified=await verifyRhrAnswer(answer.value,{surveyId:survey.id,playerId:data.playerId||'',questionId:question.id})
+        if(!verified)throw new Error('RHR_INVALID', {cause:question.id})
+        answer.value=JSON.stringify(verified)
+      }
       // Preserve the existing one-response-per-day/session behavior atomically.
       // Attempt history survives replacement through the nullable SetNull relation.
       if (data.playerId) {
@@ -82,6 +91,7 @@ export async function POST(request: NextRequest) {
     }, { timeout: 15000 })
     return NextResponse.json(response)
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith('RHR_')) return NextResponse.json({rhrQuestionId:typeof error.cause==='string'?error.cause:undefined,error:error.message==='RHR_REQUIRED'?'Complete the required resting HR measurement before submitting.':'Resting HR could not be verified. Measure again before submitting.'},{status:400})
     if (error instanceof z.ZodError) return NextResponse.json({ error: 'Validation error', details: error.issues }, { status: 400 })
     if (error instanceof Error && error.message.startsWith('PVT_')) return NextResponse.json({ focusQuestionId: error.message === 'PVT_REPEAT_REQUIRED' && typeof error.cause === 'string' ? error.cause : undefined, error: error.message === 'PVT_REQUIRED' ? 'Complete the required Focus test before submitting.' : error.message === 'PVT_REPEAT_REQUIRED' ? 'Repeat the Focus test: this attempt did not meet the completion rules.' : 'Focus test could not be verified. Reopen the question and save the test first.' }, { status: 400 })
     console.error('Survey submission failed', error instanceof Error ? error.name : 'UnknownError')

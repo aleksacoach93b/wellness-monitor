@@ -348,7 +348,7 @@ try {
   const temporary = fs.mkdtempSync(p.join(os.tmpdir(), 'rhr-native-replay-'))
   let v2Record, localAnalysis
   try {
-    for (const name of ['protocol', 'session', 'fixed'])
+    for (const name of ['protocol', 'session', 'fixed', 'original', 'restored'])
       fs.writeFileSync(
         p.join(temporary, name + '.cjs'),
         ts.default
@@ -368,7 +368,9 @@ try {
             'require("./protocol")',
             'require("./protocol.cjs")',
           )
-          .replace('require("./fixed")', 'require("./fixed.cjs")'),
+          .replace('require("./fixed")', 'require("./fixed.cjs")')
+          .replace('require("./restored")', 'require("./restored.cjs")')
+          .replace('require("./original")', 'require("./original.cjs")'),
       )
     const { default: sessionModule } = await import(
       'file://' + p.join(temporary, 'session.cjs')
@@ -553,6 +555,58 @@ try {
     fixedOps.data.players.find((p) => p.id === 'test-player').restingHr[0]
       .bpm === 72,
     'Live Ops receives the fixed capture through normal wellness submission',
+  )
+  const restoredStart = await request(path, {
+    ...start,
+    protocolVersion: 'camera-rhr-v4',
+  })
+  check(
+    restoredStart.status === 200,
+    'restored original protocol starts on existing widgets',
+  )
+  const restoredPayload = decodeJwt(restoredStart.data.ticket)
+  const restoredTicket = await new SignJWT({ ...restoredPayload })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt(Math.floor(Date.now() / 1000) - 20)
+    .setExpirationTime('10m')
+    .sign(key)
+  const restoredGood = await request(path, {
+    action: 'finish',
+    ticket: restoredTicket,
+    record: { ...signal(72), protocolVersion: 'camera-rhr-v4' },
+  })
+  check(
+    restoredGood.data.accepted &&
+      restoredGood.data.result.bpm === 72 &&
+      restoredGood.data.result.algorithmVersion === 'original-ppg-v1',
+    'server uses original estimator for the restored version',
+  )
+  const restoredSaved = await request('/api/responses', {
+    ...wellness,
+    answers: [
+      {
+        questionId,
+        value: JSON.stringify({ ...restoredGood.data.result, bpm: 30 }),
+      },
+      { questionId: 'rhr-number', value: '30' },
+    ],
+  })
+  const restoredAnswer = JSON.parse(
+    restoredSaved.data.answers.find((a) => a.questionId === questionId).value,
+  )
+  check(
+    restoredSaved.status === 200 &&
+      restoredAnswer.bpm === 72 &&
+      restoredAnswer.durationSeconds === 15 &&
+      !restoredAnswer.receipt,
+    'restored results preserve signed BPM through wellness submission',
+  )
+  const restoredCsv = await fetch(
+    base + `/api/surveys/${surveyId}/export/csv`,
+  ).then((r) => r.text())
+  check(
+    restoredCsv.includes('camera-rhr-v4/original-ppg-v1'),
+    'main CSV identifies original estimator restoration',
   )
   fs.writeFileSync('/tmp/rhr-test-admin-cookie', 'wm_admin_session=' + admin, {
     mode: 0o600,

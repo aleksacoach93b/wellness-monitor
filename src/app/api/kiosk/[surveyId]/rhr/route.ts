@@ -12,7 +12,9 @@ import {
 import {
   RHR_VERSION,
   RHR_FIXED_VERSION,
+  RHR_RESTORED_VERSION,
   RHR_FIXED_ALGORITHM_VERSION,
+  RHR_RESTORED_ALGORITHM_VERSION,
   RHR_ALGORITHM_VERSION,
   RHR_LEGACY_VERSION,
   RHR_LEGACY_ALGORITHM_VERSION,
@@ -33,7 +35,12 @@ const schema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('start'),
     protocolVersion: z
-      .enum([RHR_VERSION, RHR_LEGACY_VERSION, RHR_FIXED_VERSION])
+      .enum([
+        RHR_VERSION,
+        RHR_LEGACY_VERSION,
+        RHR_FIXED_VERSION,
+        RHR_RESTORED_VERSION,
+      ])
       .optional(),
     playerId: z.string().min(1).max(100),
     questionId: z.string().min(1).max(100),
@@ -68,9 +75,12 @@ export async function POST(
       }
       if (
         ticket.surveyId !== surveyId ||
-        ![RHR_VERSION, RHR_LEGACY_VERSION, RHR_FIXED_VERSION].includes(
-          String(ticket.version),
-        ) ||
+        ![
+          RHR_VERSION,
+          RHR_LEGACY_VERSION,
+          RHR_FIXED_VERSION,
+          RHR_RESTORED_VERSION,
+        ].includes(String(ticket.version)) ||
         ticket.version !==
           (body.record.protocolVersion ?? RHR_LEGACY_VERSION) ||
         !ticket.iat
@@ -112,11 +122,13 @@ export async function POST(
             : 15,
         protocolVersion: String(ticket.version),
         algorithmVersion:
-          ticket.version === RHR_FIXED_VERSION
-            ? RHR_FIXED_ALGORITHM_VERSION
-            : ticket.version === RHR_VERSION
-              ? RHR_ALGORITHM_VERSION
-              : RHR_LEGACY_ALGORITHM_VERSION,
+          ticket.version === RHR_RESTORED_VERSION
+            ? RHR_RESTORED_ALGORITHM_VERSION
+            : ticket.version === RHR_FIXED_VERSION
+              ? RHR_FIXED_ALGORITHM_VERSION
+              : ticket.version === RHR_VERSION
+                ? RHR_ALGORITHM_VERSION
+                : RHR_LEGACY_ALGORITHM_VERSION,
         ...(ticket.version === RHR_VERSION
           ? {
               targetDurationSeconds: 15 as const,
@@ -125,7 +137,9 @@ export async function POST(
               restarts: analysis.restarts!,
             }
           : {}),
-        ...(ticket.version === RHR_FIXED_VERSION
+        ...([RHR_FIXED_VERSION, RHR_RESTORED_VERSION].includes(
+          String(ticket.version),
+        )
           ? { targetDurationSeconds: 15 as const, restarts: 0 }
           : {}),
         measuredAt: new Date(

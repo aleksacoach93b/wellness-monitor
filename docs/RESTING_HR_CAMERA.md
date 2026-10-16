@@ -2,7 +2,17 @@
 
 Estimates pulse rate, not HRV or a fatigue/medical score. Real-device accuracy is unverified. The user supplied a 150-second screen recording of repeated failed attempts: contact was detected while the previous rolling countdown repeatedly reset. This confirms poor acquisition usability, not a reference heart rate or a raw optical recording.
 
-## Current protocol: camera-rhr-v3 / fixed-rgb-v4
+## Current protocol: camera-rhr-v4 / original-ppg-v1
+
+At the user’s explicit request, restore the first working iPhone algorithm after repeated failures and implausible 30 BPM readings in later versions. `original.ts` is an unmodified copy of `332c6f7:src/lib/rhr/protocol.ts` (also identical to the first feature commit’s protocol source). A regression test checks byte identity and numerical parity across signals/frame rates. `restored.ts` only adapts version validation and the 15-second session clock; it does not change estimator thresholds or select recent suffixes.
+
+Restore the original central-ROI RGB aggregation, red+green clipping and full red spatial range. Disable the later preflight exposure tuning. Retain the iPhone torch compatibility fix, main-lens selection, frame-rate request before final light verification, current circle/wave design, posture/rest capture, diagnostics and camera cleanup.
+
+The first release calculated final BPM after capture, with no short-window live BPM. Restore that behavior: show the countdown and real trace during the fixed 15 seconds, then the original final estimate if accepted. No provisional 30 BPM, no synthetic pulse icon animation, no automatic countdown restarts. Original validation still may reject an unreadable scan; hardware accuracy is not established by source restoration or synthetic testing.
+
+V4 uses the existing signed 15-second answer shape with targetDurationSeconds:15 and restarts:0. Preserve v1/v2/v3 captures, outstanding receipts and existing data/CSV headers. No database migration or survey edits. The following v3 discussion is historical, not the algorithm used for new measurements.
+
+## Previous protocol: camera-rhr-v3 / fixed-rgb-v4 (cached clients only)
 
 Rest quietly for five minutes; select Seated, Standing, Reclined or Lying down and confirm rest. Enable a rear camera/light. Cover the active lens near the light with light fingertip pressure; covering only the flash cannot image the finger. Setup/permissions are separate from capture.
 

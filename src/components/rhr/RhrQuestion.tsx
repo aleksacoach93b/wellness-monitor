@@ -19,11 +19,10 @@ import {
   type SurveyAppearanceTheme,
 } from '@/lib/surveyFormAppearance'
 import {
-  fingerPresent,
   RHR_DURATION_MS as RHR_MAX_MS,
-  RHR_FIXED_ALGORITHM_VERSION as RHR_ALGORITHM_VERSION,
+  RHR_RESTORED_ALGORITHM_VERSION as RHR_ALGORITHM_VERSION,
   RHR_POSITIONS,
-  RHR_FIXED_VERSION as RHR_VERSION,
+  RHR_RESTORED_VERSION as RHR_VERSION,
   rhrReason,
   type PpgSample,
   type RhrPosition,
@@ -33,13 +32,17 @@ import {
 import {
   enableCameraLight,
   configurePulseCamera,
-  adjustPulseExposure,
   primaryRearCamera,
   type TorchState,
 } from '@/lib/rhr/camera'
 import { analyzeRhrRecord, type RhrSessionView } from '@/lib/rhr/session'
-import { FixedRhrSession as RhrSession } from '@/lib/rhr/fixed'
-import { sampleVideo, contactHint, opticalTrace } from '@/lib/rhr/sampling'
+import { RestoredRhrSession as RhrSession } from '@/lib/rhr/restored'
+import { fingerPresent } from '@/lib/rhr/original'
+import {
+  sampleOriginalVideo as sampleVideo,
+  contactHint,
+  opticalTrace,
+} from '@/lib/rhr/sampling'
 import { parseRhrAnswer, type RhrAnswer } from '@/lib/rhr/options'
 import '../pvt/pvt-focus.css'
 import './rhr.css'
@@ -257,20 +260,15 @@ export default function RhrQuestion({
       window.removeEventListener('orientationchange', orientation)
     }
   }, [phase])
-  // Preflight uses real frames before the player explicitly starts quality-guided capture.
-  // Exposure adjustments stop when this effect leaves 'ready'; no tuning mid-capture.
+  // Observe contact before capture; retain the original camera exposure behavior.
   useEffect(() => {
     if (phase !== 'ready') return
     let cancelled = false,
-      busy = false,
-      attempts = 0,
       stable = 0,
-      previousTime = -1,
-      lastTune = 0
+      previousTime = -1
     const inspect = async () => {
       if (
         cancelled ||
-        busy ||
         !video.current ||
         !canvas.current ||
         video.current.currentTime === previousTime
@@ -284,31 +282,6 @@ export default function RhrQuestion({
       setContactReady(stable >= 6)
       setContact(covered)
       setHint(contactHint(sample))
-      const track = stream.current?.getVideoTracks()[0]
-      if (
-        track &&
-        attempts < 4 &&
-        performance.now() - lastTune > 1000 &&
-        (sample.clipped > 0.1 ||
-          (sample.r > 245 && sample.g > 245) ||
-          sample.r < 35)
-      ) {
-        attempts++
-        lastTune = performance.now()
-        busy = true
-        setExposureBusy(true)
-        try {
-          const changed = await adjustPulseExposure(track, sample)
-          if (!cancelled && changed) {
-            stable = 0
-            setContactReady(false)
-          }
-          if (!changed) attempts = 4
-        } finally {
-          busy = false
-          if (!cancelled) setExposureBusy(false)
-        }
-      }
     }
     const timer = setInterval(() => {
       void inspect()
@@ -787,16 +760,11 @@ export default function RhrQuestion({
                                 : 'MEASURING'}
                           </span>
                           <span className="rhr-pulse-time">
-                            <span data-testid="rhr-countdown">
-                              {Math.ceil(progress.remainingMs / 1000)}
-                            </span>
-                            s left
+                            15-second measurement
                           </span>
                           <div className="rhr-live-bpm">
-                            <strong data-testid="rhr-live-bpm">
-                              {contact && progress.provisionalBpm !== null
-                                ? progress.provisionalBpm
-                                : '—'}
+                            <strong data-testid="rhr-countdown">
+                              {Math.ceil(progress.remainingMs / 1000)}
                             </strong>
                             <span
                               ref={heart}
@@ -807,9 +775,7 @@ export default function RhrQuestion({
                             </span>
                           </div>
                           <span className="rhr-provisional-label">
-                            {progress.provisionalBpm === null
-                              ? 'Finding your pulse'
-                              : 'BPM · Live estimate'}
+                            seconds remaining · BPM shown at completion
                           </span>
                           <svg
                             viewBox="0 0 300 80"

@@ -13,6 +13,8 @@ for (const name of [
   'sampling',
   'session',
   'fixed',
+  'original',
+  'restored',
 ])
   fs.writeFileSync(
     path.join(dir, name + '.js'),
@@ -809,4 +811,65 @@ test('fixed deadline rejects late loss, conflicting channels and data exceeding 
   over.elapsedMs = 16000
   for (const r of [late, conflict, over])
     assert.equal(analyzeRhrRecord(r).quality, 'REPEAT')
+})
+
+test('restored estimator is byte-identical to the first iPhone-working source', () => {
+  const crypto = require('node:crypto')
+  const source = fs.readFileSync(
+    path.join(__dirname, '../src/lib/rhr/original.ts'),
+  )
+  // SHA256 of 332c6f7:src/lib/rhr/protocol.ts; independent of clone depth.
+  assert.equal(
+    crypto.createHash('sha256').update(source).digest('hex'),
+    '494db7151e0d9e6950933b17eb064c609f2d7c31f173cc37f9a7b077f61c3089',
+  )
+})
+test('restored server route reproduces original results and reasons without new thresholds', () => {
+  const { analyzeRhr: original } = require(path.join(dir, 'original.js'))
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  for (const bpm of [30, 40, 55, 72, 110, 170])
+    for (const fps of [15, 30, 60]) {
+      const r = { ...signal(bpm, { fps }), protocolVersion: 'camera-rhr-v4' }
+      const expected = original(r),
+        actual = analyzeRhrRecord(r)
+      for (const k of Object.keys(expected))
+        assert.deepEqual(actual[k], expected[k], k + ' ' + bpm + ' ' + fps)
+    }
+})
+test('restored capture has no provisional BPM or resets and ends at 15s', () => {
+  const { RestoredRhrSession } = require(path.join(dir, 'restored.js'))
+  const session = new RestoredRhrSession()
+  for (const s of signal(72).samples) {
+    const view = session.push(s)
+    assert.equal(view.provisionalBpm, null)
+    assert.equal(view.restarts, 0)
+    assert.equal(view.lastPeakAt, null)
+  }
+  const done = session.advanceTo(15000)
+  assert.equal(done.stage, 'complete')
+  assert.ok(Math.abs(done.analysis.bpm - 72) <= 2)
+})
+test('restored capture retains interruption/light checks and rejects extended captures', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  const r = { ...signal(72), protocolVersion: 'camera-rhr-v4' }
+  for (const patch of [
+    { interruption: 'hidden' },
+    { torch: false },
+    { elapsedMs: 16000 },
+  ])
+    assert.equal(analyzeRhrRecord({ ...r, ...patch }).quality, 'REPEAT')
+})
+test('original sampling uses full spatial range and red-plus-green clipping', () => {
+  const { sampleOriginalPixels } = require(path.join(dir, 'sampling.js'))
+  const pixels = new Uint8ClampedArray([
+    255, 255, 40, 255, 180, 75, 45, 255, 170, 70, 40, 255,
+  ])
+  assert.deepEqual(sampleOriginalPixels(pixels, 10), {
+    t: 10,
+    r: 605 / 3,
+    g: 400 / 3,
+    b: 125 / 3,
+    clipped: 1 / 3,
+    spread: 85 / 255,
+  })
 })

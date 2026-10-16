@@ -35,3 +35,9 @@ The normal wellness submission revalidates the receipt and stores the server-sig
 ## Verification
 
 `node --test tests/rhr.test.cjs` covers synthetic pulse rates, drift/jitter/noise, low frame rates, gaps, flat/saturated/uncovered signals and scoped signed results. Native integration tests use only the explicit loopback fixture and synthetic accounts. Physical-device checks must compare repeated measurements against a suitable reference, including low resting pulse, camera lens choice, skin/contact/lighting conditions and repeatability. Until that work is completed the feature remains labeled a camera estimate with device validation pending.
+
+## iPhone camera-light compatibility correction
+
+A real iPhone report exposed a startup bug: the initial code called `.includes(true)` on `getCapabilities().torch`, which some WebKit versions return as a boolean. Startup now accepts both the boolean and array shapes and probes constraints when capability reporting is absent. Automatic selection prefers the main rear lens over ultrawide/telephoto/virtual candidates; manual choices remain explicit. Video playback starts visibly before enabling the light. The light helper tries both direct and advanced constraint forms and checks settings after each successful call.
+
+A resolved `applyConstraints` promise is not treated as proof that the lamp physically lit. When settings report true, the UI says light enabled. If state is absent/stale false, Start remains disabled until the player explicitly confirms seeing the rear light on; a retry-light action is available. Unsupported tracks and rejected constraints remain errors. No synthetic camera/pulse data or fallback BPM are added to the product. Software regression tests now include the boolean shape, stale/ignored settings and lens fallback; they are not physical-device verification.

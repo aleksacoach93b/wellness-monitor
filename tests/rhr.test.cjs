@@ -1119,3 +1119,123 @@ test('red exposure repair is bounded, preserves constraints/light and reports ig
     /stopped/,
   )
 })
+
+test('Android camera hold retains metered controls, preserves light/rate, and leaves iPhone untouched', async () => {
+  const { holdAndroidPulseCamera, releasePulseExposureHold } = require(
+    path.join(dir, 'camera.js'),
+  )
+  const calls = []
+  let settings = {
+    torch: true,
+    focusMode: 'continuous',
+    whiteBalanceMode: 'continuous',
+    exposureMode: 'continuous',
+    focusDistance: 0.11,
+    exposureTime: 80,
+  }
+  let constraints = { width: { ideal: 160 }, frameRate: { min: 20, ideal: 30 } }
+  const track = {
+    readyState: 'live',
+    getSettings: () => settings,
+    getConstraints: () => constraints,
+    getCapabilities: () => ({
+      focusMode: ['continuous', 'manual'],
+      whiteBalanceMode: ['continuous', 'manual'],
+      exposureMode: ['continuous', 'manual'],
+    }),
+    applyConstraints: async (q) => {
+      calls.push(q)
+      constraints = q
+      for (const key of [
+        'focusMode',
+        'whiteBalanceMode',
+        'exposureMode',
+        'focusDistance',
+        'exposureTime',
+      ])
+        if (q[key] !== undefined) settings = { ...settings, [key]: q[key] }
+    },
+  }
+  const iphone = await holdAndroidPulseCamera(
+    {
+      ...track,
+      getCapabilities: () => {
+        throw Error('iPhone controls must not be queried')
+      },
+    },
+    'Mozilla/5.0 (iPhone)',
+  )
+  assert.equal(iphone.controls.length, 0)
+  assert.equal(calls.length, 0)
+  const report = await holdAndroidPulseCamera(
+    track,
+    'Mozilla/5.0 (Linux; Android 15) Chrome/155',
+  )
+  assert.equal(calls.length, 3)
+  assert.ok(report.controls.every((c) => c.status === 'confirmed'))
+  assert.equal(calls[1].focusDistance, 0.11)
+  assert.equal(calls[2].exposureTime, 80)
+  assert.ok(
+    calls.every(
+      (q) =>
+        q.torch === true && q.frameRate.min === 20 && q.width.ideal === 160,
+    ),
+  )
+  assert.ok(
+    calls.every((q) => q.iso === undefined && q.colorTemperature === undefined),
+  )
+  await releasePulseExposureHold(track)
+  assert.equal(settings.exposureMode, 'continuous')
+  assert.equal(settings.whiteBalanceMode, 'manual')
+  assert.equal(settings.focusMode, 'manual')
+})
+
+test('Android hold distinguishes unsupported, failed and unconfirmed controls without invented numeric settings', async () => {
+  const { holdAndroidPulseCamera } = require(path.join(dir, 'camera.js'))
+  const calls = []
+  const track = {
+    readyState: 'live',
+    getSettings: () => ({
+      whiteBalanceMode: 'continuous',
+      exposureMode: 'continuous',
+    }),
+    getCapabilities: () => ({
+      whiteBalanceMode: ['manual', 'continuous'],
+      exposureMode: ['manual', 'continuous'],
+      focusMode: ['manual'],
+    }),
+    applyConstraints: async (q) => {
+      calls.push(q)
+      if (q.exposureMode) throw Error('Unsupported exposure hold')
+    },
+  }
+  const report = await holdAndroidPulseCamera(track, 'Android')
+  assert.deepEqual(
+    report.controls.map((c) => c.status),
+    ['requested', 'unsupported', 'failed'],
+  )
+  assert.equal(calls.length, 2)
+  assert.equal(calls[1].exposureTime, undefined)
+  assert.equal(calls[1].iso, undefined)
+  const modeOnly = await holdAndroidPulseCamera(
+    { ...track, applyConstraints: async () => {} },
+    'Android',
+  )
+  assert.deepEqual(
+    modeOnly.controls.map((c) => c.status),
+    ['requested', 'unsupported', 'requested'],
+  )
+})
+
+test('Android color settling detects slow processing drift without vetoing ordinary pulse variation', () => {
+  const { checkCamera } = require(path.join(dir, 'compatibility.js'))
+  const samples = signal(65).samples.filter((s) => s.t <= 3000)
+  assert.equal(checkCamera(samples, 3000, true).status, 'ready')
+  const drift = samples.map((s) => ({ ...s, g: 30 + s.t / 100 }))
+  assert.equal(checkCamera(drift, 3000, true).code, 'settling-colors')
+  assert.equal(
+    checkCamera(drift, 3000).status,
+    'ready',
+    'The default iPhone camera check is unchanged',
+  )
+})

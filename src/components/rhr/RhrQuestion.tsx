@@ -33,6 +33,11 @@ import {
   configurePulseCamera,
   primaryRearCamera,
   reducePulseExposure,
+  holdAndroidPulseCamera,
+  releasePulseExposureHold,
+  needsAndroidCameraHold,
+  RHR_ACQUISITION_VERSION,
+  type CameraHold,
   type ExposureAdjustment,
   type TorchState,
 } from '@/lib/rhr/camera'
@@ -134,6 +139,7 @@ export default function RhrQuestion({
       typeof cameraDetails
     > | null>(null),
     [exposureNote, setExposureNote] = useState(''),
+    [holdNote, setHoldNote] = useState(''),
     [diagnostics, setDiagnostics] = useState<RhrAnalysis | null>(null)
   const video = useRef<HTMLVideoElement>(null),
     canvas = useRef<HTMLCanvasElement>(null),
@@ -144,6 +150,7 @@ export default function RhrQuestion({
     frame = useRef(0),
     videoFrame = useRef<number | null>(null),
     running = useRef(false),
+    cameraChanging = useRef(false),
     deadline = useRef<ReturnType<typeof setTimeout> | null>(null),
     qualityClock = useRef<ReturnType<typeof setInterval> | null>(null),
     lastCapture = useRef<RhrRecord | null>(null),
@@ -152,6 +159,7 @@ export default function RhrQuestion({
     exposureAdjustments = useRef<
       (ExposureAdjustment & { stats: ReturnType<typeof frameSummary> })[]
     >([]),
+    cameraHold = useRef<CameraHold | null>(null),
     captureInfo = useRef<{
       camera: ReturnType<typeof cameraDetails>
       preflight: CameraCheck
@@ -159,6 +167,12 @@ export default function RhrQuestion({
       lightConfirmed: boolean
       compactStream: boolean
       exposureAdjustments: typeof exposureAdjustments.current
+      acquisitionVersion: string
+      cameraHold: CameraHold | null
+      settingsTrace: {
+        t: number
+        settings: ReturnType<typeof cameraDetails>['settings']
+      }[]
     } | null>(null),
     pending = useRef<{
       record: RhrRecord
@@ -173,6 +187,7 @@ export default function RhrQuestion({
     completed = parseRhrAnswer(value)
   const stopCamera = () => {
     running.current = false
+    cameraChanging.current = false
     generation.current++
     if (deadline.current) clearTimeout(deadline.current)
     deadline.current = null
@@ -216,6 +231,8 @@ export default function RhrQuestion({
     setupSamples.current = []
     exposureAdjustments.current = []
     setExposureNote('')
+    cameraHold.current = null
+    setHoldNote('')
   }
   const save = async (
     record: RhrRecord,
@@ -349,10 +366,72 @@ export default function RhrQuestion({
       samples: PpgSample[] = []
     setupSamples.current = samples
     setCameraCheck(checkCamera([], 0))
+    const android = needsAndroidCameraHold(navigator.userAgent)
+    const stabilize = async (releaseExposure = false) => {
+      const track = stream.current?.getVideoTracks()[0]
+      if (!track || adjusting || cancelled) return
+      // Record the one-shot attempt before awaiting, including when modes are ignored.
+      if (releaseExposure) {
+        if (!cameraHold.current) return
+        cameraHold.current.exposureReleased = true
+      } else cameraHold.current = { controls: [], exposureReleased: false }
+      adjusting = true
+      cameraChanging.current = true
+      setCameraCheck({
+        ...checkCamera([], 0),
+        code: 'camera-stabilizing',
+        message: 'Stabilizing camera settings before measurement…',
+      })
+      setHoldNote(
+        releaseExposure
+          ? 'Restoring automatic exposure and checking the image…'
+          : 'Stabilizing camera colors, focus and exposure. Keep your fingertip still…',
+      )
+      try {
+        if (releaseExposure) await releasePulseExposureHold(track)
+        else {
+          const report = await holdAndroidPulseCamera(
+            track,
+            navigator.userAgent,
+          )
+          if (cancelled) return
+          cameraHold.current = report
+        }
+        if (cancelled) return
+        const state =
+          (track.getSettings() as MediaTrackSettings & { torch?: boolean })
+            .torch === true
+            ? 'on'
+            : await enableCameraLight(track)
+        if (cancelled) return
+        setLight(state)
+        setLightConfirmed(state === 'on')
+        setActiveCamera(cameraDetails(track, camera, state))
+        setHoldNote(
+          'Camera settings checked. Waiting for fresh, stable colors before the 15-second measurement.',
+        )
+      } catch {
+        if (cancelled) return
+        setHoldNote(
+          'The browser could not confirm stable camera controls. Check the image or download camera diagnostics.',
+        )
+        setLight('unconfirmed')
+        setLightConfirmed(false)
+      } finally {
+        if (!cancelled) {
+          samples.length = 0
+          lastAdjustment = performance.now() - started
+          lastPaint = -Infinity
+          cameraChanging.current = false
+        }
+        adjusting = false
+      }
+    }
     const calibrate = async (stats: ReturnType<typeof frameSummary>) => {
       const track = stream.current?.getVideoTracks()[0]
       if (!track || adjusting || blocked || cancelled) return
       adjusting = true
+      cameraChanging.current = true
       setExposureNote('Adjusting camera lighting. Keep your fingertip still…')
       try {
         const adjustment = await reducePulseExposure(track)
@@ -401,6 +480,7 @@ export default function RhrQuestion({
           samples.length = 0
           lastAdjustment = performance.now() - started
           lastPaint = -Infinity
+          cameraChanging.current = false
         }
         adjusting = false
       }
@@ -417,14 +497,36 @@ export default function RhrQuestion({
                 message: 'Adjusting lighting and checking fresh frames…',
                 stats: frameSummary(samples),
               }
-            : checkCamera(samples, t)
+            : checkCamera(samples, t, android)
         setCameraCheck(checked)
         const latest = samples.at(-1)
         const covered = !!latest && t - latest.t <= 400 && fingerPresent(latest)
         setContact(covered)
         setHint(checked.message)
         lastPaint = t
-        if (checked.code === 'red-ceiling' && lightConfirmed && !blocked) {
+        if (
+          !adjusting &&
+          checked.status === 'problem' &&
+          cameraHold.current &&
+          !cameraHold.current.exposureReleased &&
+          cameraHold.current.controls.some(
+            (c) => c.mode === 'exposureMode' && c.status !== 'unsupported',
+          ) &&
+          [
+            'too-dark',
+            'too-bright',
+            'red-ceiling',
+            'slow-frames',
+            'no-frames',
+            'frame-gaps',
+          ].includes(checked.code)
+        ) {
+          void stabilize(true)
+        } else if (
+          checked.code === 'red-ceiling' &&
+          lightConfirmed &&
+          !blocked
+        ) {
           if (exposureAdjustments.current.length < 4)
             void calibrate(checked.stats)
           else
@@ -439,6 +541,18 @@ export default function RhrQuestion({
             'Camera lighting checked after adjustment. Pulse is assessed during the 15-second measurement.',
           )
         }
+        if (
+          !adjusting &&
+          android &&
+          lightConfirmed &&
+          !cameraHold.current &&
+          ['ready', 'settling-colors'].includes(checked.code)
+        )
+          void stabilize()
+        if (checked.status === 'ready' && cameraHold.current && !adjusting)
+          setHoldNote(
+            'Camera check complete. Keep the same fingertip contact throughout the 15-second measurement.',
+          )
       }
     }
     const schedule = () => {
@@ -494,6 +608,8 @@ export default function RhrQuestion({
     setupSamples.current = []
     exposureAdjustments.current = []
     setExposureNote('')
+    cameraHold.current = null
+    setHoldNote('')
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext)
         throw new Error(
@@ -660,6 +776,7 @@ export default function RhrQuestion({
   const begin = async () => {
     if (
       !position ||
+      cameraChanging.current ||
       !rested ||
       !stream.current ||
       !lightConfirmed ||
@@ -735,6 +852,14 @@ export default function RhrQuestion({
           lightConfirmed,
           compactStream: compactStream.current,
           exposureAdjustments: [...exposureAdjustments.current],
+          acquisitionVersion: RHR_ACQUISITION_VERSION,
+          cameraHold: cameraHold.current,
+          settingsTrace: [
+            {
+              t: 0,
+              settings: cameraDetails(liveTrack, camera, light).settings,
+            },
+          ],
         }
       setPhase('scan')
       navigator.wakeLock
@@ -760,9 +885,22 @@ export default function RhrQuestion({
       finishScan.current = end
       qualityClock.current = setInterval(() => {
         if (!running.current) return
-        const view = session.advanceTo(
-          Math.min(RHR_MAX_MS, performance.now() - start),
-        )
+        const elapsed = Math.min(RHR_MAX_MS, performance.now() - start)
+        if (
+          liveTrack &&
+          captureInfo.current &&
+          elapsed - (captureInfo.current.settingsTrace.at(-1)?.t ?? 0) >= 1000
+        ) {
+          try {
+            captureInfo.current.settingsTrace.push({
+              t: elapsed,
+              settings: cameraDetails(liveTrack, camera, light).settings,
+            })
+          } catch {
+            /* Optical capture remains independent of optional diagnostics. */
+          }
+        }
+        const view = session.advanceTo(elapsed)
         publish(view)
         if (view.stage === 'complete' || view.stage === 'timeout') end(null)
       }, 250)
@@ -1404,6 +1542,15 @@ export default function RhrQuestion({
                               {exposureNote}
                             </p>
                           )}
+                          {holdNote && (
+                            <p
+                              className="rhr-lens-note"
+                              role="status"
+                              data-testid="rhr-hold-note"
+                            >
+                              {holdNote}
+                            </p>
+                          )}
                           {cameraCheck.status === 'problem' &&
                             ['slow-frames', 'frame-gaps'].includes(
                               cameraCheck.code,
@@ -1483,6 +1630,8 @@ export default function RhrQuestion({
                                     compactStream: compactStream.current,
                                     exposureAdjustments:
                                       exposureAdjustments.current,
+                                    acquisitionVersion: RHR_ACQUISITION_VERSION,
+                                    cameraHold: cameraHold.current,
                                   },
                                   'resting-hr-camera.json',
                                 )

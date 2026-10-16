@@ -49,6 +49,7 @@ export type CameraCheck = {
 export function checkCamera(
   samples: PpgSample[],
   elapsedMs: number,
+  stableColors = false,
 ): CameraCheck {
   const recent = samples.filter((s) => s.t >= Math.max(0, elapsedMs - 2500))
   const stats = frameSummary(recent)
@@ -107,6 +108,25 @@ export function checkCamera(
       'red-ceiling',
       'The red image is near its upper limit and the other colors are almost empty. Camera lighting needs adjustment before measuring.',
     )
+  if (stableColors) {
+    const end = recent.at(-1)!.t,
+      start = recent[0].t
+    const average = (key: 'r' | 'g', points: PpgSample[]) =>
+      points.reduce((sum, s) => sum + s[key], 0) / Math.max(1, points.length)
+    const first = recent.filter((s) => s.t <= start + 750)
+    const last = recent.filter((s) => s.t >= end - 750)
+    if (
+      Math.abs(average('r', first) - average('r', last)) >
+        Math.max(12, stats.red * 0.1) ||
+      Math.abs(average('g', first) - average('g', last)) >
+        Math.max(8, stats.green * 0.2)
+    )
+      return result(
+        'problem',
+        'settling-colors',
+        'Camera brightness and colors are still changing. Keep your fingertip still while the camera settles.',
+      )
+  }
   return result(
     'ready',
     'ready',
@@ -185,7 +205,9 @@ export function cameraDetails(
     'focusDistance',
     'exposureMode',
     'exposureCompensation',
+    'exposureTime',
     'whiteBalanceMode',
+    'colorTemperature',
     'iso',
   ]
   const pick = (source: Record<string, unknown>) =>

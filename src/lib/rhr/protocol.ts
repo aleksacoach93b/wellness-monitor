@@ -1,6 +1,8 @@
 /** Contact camera PPG estimate. Requires device/reference validation before operational use. */
 export const RHR_LEGACY_VERSION = 'camera-rhr-v1'
 export const RHR_VERSION = 'camera-rhr-v2'
+export const RHR_FIXED_VERSION = 'camera-rhr-v3'
+export const RHR_FIXED_ALGORITHM_VERSION = 'fixed-rgb-v4'
 export const RHR_LEGACY_ALGORITHM_VERSION = 'adaptive-rgb-v2'
 export const RHR_ALGORITHM_VERSION = 'quality-window-v3'
 export const RHR_DETECT_MS = 5_000
@@ -28,7 +30,8 @@ export type PpgSample = {
   blueClipped?: number
 }
 export type RhrRecord = {
-  protocolVersion?: typeof RHR_VERSION | typeof RHR_LEGACY_VERSION
+  protocolVersion?:
+    typeof RHR_VERSION | typeof RHR_LEGACY_VERSION | typeof RHR_FIXED_VERSION
   samples: PpgSample[]
   elapsedMs: number
   interruption: string | null
@@ -79,6 +82,7 @@ export function validateRhrRecord(record: RhrRecord): boolean {
       (record.protocolVersion === RHR_VERSION ? RHR_MAX_MS : 15_000) ||
     (record.protocolVersion !== undefined &&
       record.protocolVersion !== RHR_VERSION &&
+      record.protocolVersion !== RHR_FIXED_VERSION &&
       record.protocolVersion !== RHR_LEGACY_VERSION)
   )
     return false
@@ -117,13 +121,21 @@ function correlation(a: number[], lag: number) {
   }
   return xx && yy ? xy / Math.sqrt(xx * yy) : 0
 }
-function analyzeChannel(samples: PpgSample[], key: 'r' | 'g' | 'b', trim = 30) {
+export function analyzeChannel(
+  samples: PpgSample[],
+  key: 'r' | 'g' | 'b',
+  trim = 30,
+  adaptive = false,
+) {
   const clippingKey =
     key === 'r' ? 'redClipped' : key === 'g' ? 'greenClipped' : 'blueClipped'
   // Reject a damaged channel without discarding usable independent channels.
   if (
     samples.filter(
-      (s) => (s[clippingKey] ?? 0) > 0.1 || s[key] >= 250 || s[key] <= 3,
+      (s) =>
+        (s[clippingKey] ?? 0) > (adaptive ? 0.4 : 0.1) ||
+        s[key] >= (adaptive ? 253 : 250) ||
+        s[key] <= 3,
     ).length /
       samples.length >
       0.05 ||
@@ -161,7 +173,15 @@ function analyzeChannel(samples: PpgSample[], key: 'r' | 'g' | 'b', trim = 30) {
       candidates.push({ lag, value })
   }
   const best = candidates.sort((a, b) => b.value - a.value)[0]
-  if (!best || rms < Math.max(0.025, mean(raw) * 0.0002)) return null
+  if (
+    !best ||
+    rms <
+      Math.max(
+        adaptive ? 0.01 : 0.025,
+        mean(raw) * (adaptive ? 0.00005 : 0.0002),
+      )
+  )
+    return null
   // Prefer the shortest similarly strong period to avoid selecting an integer multiple.
   const period =
     candidates
@@ -179,7 +199,11 @@ function analyzeChannel(samples: PpgSample[], key: 'r' | 'g' | 'b', trim = 30) {
     if (signal[i] < rms * 0.25) continue
     let local = true
     for (let j = i - half; j <= i + half; j++)
-      if (j !== i && signal[j] >= signal[i]) {
+      if (
+        j !== i &&
+        (signal[j] > signal[i] ||
+          (signal[j] === signal[i] && (!adaptive || j < i)))
+      ) {
         local = false
         break
       }
@@ -242,7 +266,11 @@ export function analyzeRhr(record: RhrRecord): RhrAnalysis {
     correlation: null,
     channel: null,
   }
-  if (!validateRhrRecord(record) || record.protocolVersion === RHR_VERSION) {
+  if (
+    !validateRhrRecord(record) ||
+    (record.protocolVersion !== undefined &&
+      record.protocolVersion !== RHR_LEGACY_VERSION)
+  ) {
     reasons.push('invalid-record')
     return empty
   }

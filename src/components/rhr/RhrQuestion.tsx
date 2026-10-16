@@ -20,10 +20,10 @@ import {
 } from '@/lib/surveyFormAppearance'
 import {
   fingerPresent,
-  RHR_MAX_MS,
-  RHR_ALGORITHM_VERSION,
+  RHR_DURATION_MS as RHR_MAX_MS,
+  RHR_FIXED_ALGORITHM_VERSION as RHR_ALGORITHM_VERSION,
   RHR_POSITIONS,
-  RHR_VERSION,
+  RHR_FIXED_VERSION as RHR_VERSION,
   rhrReason,
   type PpgSample,
   type RhrPosition,
@@ -37,11 +37,8 @@ import {
   primaryRearCamera,
   type TorchState,
 } from '@/lib/rhr/camera'
-import {
-  RhrSession,
-  analyzeRhrRecord,
-  type RhrSessionView,
-} from '@/lib/rhr/session'
+import { analyzeRhrRecord, type RhrSessionView } from '@/lib/rhr/session'
+import { FixedRhrSession as RhrSession } from '@/lib/rhr/fixed'
 import { sampleVideo, contactHint, opticalTrace } from '@/lib/rhr/sampling'
 import { parseRhrAnswer, type RhrAnswer } from '@/lib/rhr/options'
 import '../pvt/pvt-focus.css'
@@ -113,6 +110,7 @@ export default function RhrQuestion({
     running = useRef(false),
     deadline = useRef<ReturnType<typeof setTimeout> | null>(null),
     qualityClock = useRef<ReturnType<typeof setInterval> | null>(null),
+    lastCapture = useRef<RhrRecord | null>(null),
     pending = useRef<{
       record: RhrRecord
       ticket: string
@@ -164,12 +162,14 @@ export default function RhrQuestion({
     setError('')
     pending.current = null
     setResult(null)
+    lastCapture.current = null
   }
   const save = async (
     record: RhrRecord,
     ticket: string,
     measuredPosition: RhrPosition,
   ) => {
+    lastCapture.current = record
     stopCamera()
     const current = generation.current
     setPhase('saving')
@@ -193,8 +193,6 @@ export default function RhrQuestion({
           rested: true,
           durationSeconds: Math.round(record.elapsedMs / 100) / 10,
           targetDurationSeconds: 15,
-          detectionSeconds: 5,
-          stableWindowSeconds: 10,
           restarts: analysis.restarts!,
           protocolVersion: RHR_VERSION,
           algorithmVersion: RHR_ALGORITHM_VERSION,
@@ -332,6 +330,7 @@ export default function RhrQuestion({
     setContactReady(false)
     setExposureBusy(false)
     setDiagnostics(null)
+    lastCapture.current = null
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext)
         throw new Error(
@@ -606,7 +605,7 @@ export default function RhrQuestion({
           </span>
           <span className="rhr-time-chip">
             <Timer size={13} />
-            15s TYPICAL
+            15s CHECK
           </span>
         </div>
         <div className="rhr-question-orbit" aria-hidden="true">
@@ -635,7 +634,7 @@ export default function RhrQuestion({
             <div className="rhr-question-facts">
               <span>
                 <Timer size={15} />
-                5s + 10s
+                15 seconds
               </span>
               <span>
                 <Camera size={15} />
@@ -711,7 +710,7 @@ export default function RhrQuestion({
                       </span>
                       <div>
                         <span>Resting heart rate</span>
-                        <small>QUALITY-GUIDED CAMERA CHECK</small>
+                        <small>15-SECOND CAMERA CHECK</small>
                       </div>
                     </div>
                     {phase !== 'scan' && phase !== 'saving' && (
@@ -745,13 +744,9 @@ export default function RhrQuestion({
                       <div
                         className="rhr-pulse-circle"
                         role="progressbar"
-                        aria-label={
-                          progress.stage === 'detecting'
-                            ? 'Detection countdown'
-                            : 'Stable measurement countdown'
-                        }
+                        aria-label="15-second measurement countdown"
                         aria-valuemin={0}
-                        aria-valuemax={progress.stage === 'detecting' ? 5 : 10}
+                        aria-valuemax={15}
                         aria-valuenow={Math.ceil(progress.remainingMs / 1000)}
                         data-stage={progress.stage}
                       >
@@ -775,13 +770,7 @@ export default function RhrQuestion({
                             strokeDasharray="1"
                             strokeDashoffset={Math.min(
                               1,
-                              Math.max(
-                                0,
-                                progress.remainingMs /
-                                  (progress.stage === 'detecting'
-                                    ? 5000
-                                    : 10000),
-                              ),
+                              Math.max(0, progress.remainingMs / 15000),
                             )}
                             transform="rotate(-90 130 130)"
                           />
@@ -798,20 +787,10 @@ export default function RhrQuestion({
                                 : 'MEASURING'}
                           </span>
                           <span className="rhr-pulse-time">
-                            {progress.stage === 'detecting' &&
-                            progress.remainingMs === 0 ? (
-                              'Waiting for a clear signal'
-                            ) : (
-                              <>
-                                <span data-testid="rhr-countdown">
-                                  {Math.ceil(progress.remainingMs / 1000)}
-                                </span>
-                                s{' '}
-                                {progress.stage === 'recovering'
-                                  ? 'stable needed'
-                                  : 'left'}
-                              </>
-                            )}
+                            <span data-testid="rhr-countdown">
+                              {Math.ceil(progress.remainingMs / 1000)}
+                            </span>
+                            s left
                           </span>
                           <div className="rhr-live-bpm">
                             <strong data-testid="rhr-live-bpm">
@@ -849,18 +828,6 @@ export default function RhrQuestion({
                       <span className="rhr-contact-chip" data-contact={contact}>
                         {contact ? 'Contact detected' : 'Adjust fingertip'}
                       </span>
-                      {progress.restarts > 0 && (
-                        <p
-                          className="rhr-restart-note"
-                          role="status"
-                          data-testid="rhr-auto-restart"
-                        >
-                          {progress.reason === 'pulse-changed'
-                            ? 'Pulse estimate changed.'
-                            : 'Signal needs another check.'}{' '}
-                          Countdown restarted · {progress.restarts}
-                        </p>
-                      )}
                       <p className="rhr-scan-instruction">
                         Keep your hand relaxed and still.
                         <br />
@@ -895,7 +862,7 @@ export default function RhrQuestion({
                         {hint}
                       </p>
                       <p className="rhr-scan-limit">
-                        Usually 15s · Restarts if unclear · 60s limit
+                        15 seconds · No automatic restarts
                       </p>
                       <button
                         type="button"
@@ -969,6 +936,39 @@ export default function RhrQuestion({
                             {diagnostics.usableSeconds.toFixed(1)}s analyzed
                           </p>
                           <p>{diagnostics.reasons.join(' · ')}</p>
+                          {lastCapture.current && (
+                            <button
+                              type="button"
+                              className="pvt-stop"
+                              onClick={() => {
+                                const record = lastCapture.current
+                                if (!record) return
+                                const blob = new Blob(
+                                  [
+                                    JSON.stringify({
+                                      algorithmVersion: RHR_ALGORITHM_VERSION,
+                                      record,
+                                      analysis: diagnostics,
+                                    }),
+                                  ],
+                                  { type: 'application/json' },
+                                )
+                                const url = URL.createObjectURL(blob)
+                                const a = document.createElement('a')
+                                a.href = url
+                                a.download = 'resting-hr-signal.json'
+                                a.click()
+                                setTimeout(() => URL.revokeObjectURL(url), 1000)
+                              }}
+                            >
+                              Download signal diagnostics
+                            </button>
+                          )}
+                          <p>
+                            Diagnostics contain timing and averaged camera
+                            colors, without video or player identity. Download
+                            only if you want to share them for troubleshooting.
+                          </p>
                           <p>
                             If this repeats, try another rear lens near the
                             flash. Open this page in Chrome on Android or Safari
@@ -1060,10 +1060,9 @@ export default function RhrQuestion({
                       <p className="pvt-consistency-note">
                         <ShieldCheck size={16} />
                         <span>
-                          Usually 15 seconds: 5 seconds of detection, then 10
-                          stable seconds. An unclear signal restarts the
-                          countdown automatically. The attempt stops after 60
-                          seconds. Video stays on your phone.
+                          One 15-second measurement, including camera settling.
+                          The countdown never restarts. Video stays on your
+                          phone.
                         </span>
                       </p>
                       {phase === 'ready' && (

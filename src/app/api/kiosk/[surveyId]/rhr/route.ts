@@ -11,6 +11,8 @@ import {
 } from '@/lib/pvt/server'
 import {
   RHR_VERSION,
+  RHR_FIXED_VERSION,
+  RHR_FIXED_ALGORITHM_VERSION,
   RHR_ALGORITHM_VERSION,
   RHR_LEGACY_VERSION,
   RHR_LEGACY_ALGORITHM_VERSION,
@@ -30,7 +32,9 @@ const json = (body: unknown, status = 200) =>
 const schema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('start'),
-    protocolVersion: z.enum([RHR_VERSION, RHR_LEGACY_VERSION]).optional(),
+    protocolVersion: z
+      .enum([RHR_VERSION, RHR_LEGACY_VERSION, RHR_FIXED_VERSION])
+      .optional(),
     playerId: z.string().min(1).max(100),
     questionId: z.string().min(1).max(100),
     password: z.string().max(100).optional(),
@@ -64,7 +68,9 @@ export async function POST(
       }
       if (
         ticket.surveyId !== surveyId ||
-        ![RHR_VERSION, RHR_LEGACY_VERSION].includes(String(ticket.version)) ||
+        ![RHR_VERSION, RHR_LEGACY_VERSION, RHR_FIXED_VERSION].includes(
+          String(ticket.version),
+        ) ||
         ticket.version !==
           (body.record.protocolVersion ?? RHR_LEGACY_VERSION) ||
         !ticket.iat
@@ -106,9 +112,11 @@ export async function POST(
             : 15,
         protocolVersion: String(ticket.version),
         algorithmVersion:
-          ticket.version === RHR_VERSION
-            ? RHR_ALGORITHM_VERSION
-            : RHR_LEGACY_ALGORITHM_VERSION,
+          ticket.version === RHR_FIXED_VERSION
+            ? RHR_FIXED_ALGORITHM_VERSION
+            : ticket.version === RHR_VERSION
+              ? RHR_ALGORITHM_VERSION
+              : RHR_LEGACY_ALGORITHM_VERSION,
         ...(ticket.version === RHR_VERSION
           ? {
               targetDurationSeconds: 15 as const,
@@ -116,6 +124,9 @@ export async function POST(
               stableWindowSeconds: 10 as const,
               restarts: analysis.restarts!,
             }
+          : {}),
+        ...(ticket.version === RHR_FIXED_VERSION
+          ? { targetDurationSeconds: 15 as const, restarts: 0 }
           : {}),
         measuredAt: new Date(
           ticket.iat * 1000 + body.record.elapsedMs,

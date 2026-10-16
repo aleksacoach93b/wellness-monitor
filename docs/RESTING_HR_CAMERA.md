@@ -1,52 +1,46 @@
-# Resting HR: quality-guided contact camera PPG
+# Resting HR: fixed 15-second contact camera PPG
 
-This opt-in wellness question estimates pulse rate, not HRV, blood pressure, oxygen saturation, readiness or a diagnosis. Physical/reference accuracy is not established by software tests. A user reported successful but inconsistent iPhone acquisition and unsuccessful Honor acquisition; device compatibility remains subject to real-device validation.
+Estimates pulse rate, not HRV or a fatigue/medical score. Real-device accuracy is unverified. The user supplied a 150-second screen recording of repeated failed attempts: contact was detected while the previous rolling countdown repeatedly reset. This confirms poor acquisition usability, not a reference heart rate or a raw optical recording.
 
-## Current player protocol (camera-rhr-v2 / quality-window-v3)
+## Current protocol: camera-rhr-v3 / fixed-rgb-v4
 
-Rest quietly for at least five minutes. Choose Seated, Standing, Reclined or Lying down and confirm prior rest. Compare consistent positions and conditions. Enable a rear camera and continuous light. Cover the active lens lightly with a fingertip near the light; covering only the flash is insufficient. The live preview identifies which lens is active.
+Rest quietly for five minutes; select Seated, Standing, Reclined or Lying down and confirm rest. Enable a rear camera/light. Cover the active lens near the light with light fingertip pressure; covering only the flash cannot image the finger. Setup/permissions are separate from capture.
 
-The normal target is **5 seconds of detection followed by 10 continuous stable seconds**. Setup/permissions are separate. Detection can take longer if a usable pulse is not yet found. Missing contact, frame gaps, low-quality optical estimates or a material change in the provisional estimate invalidate the current measurement window. The countdown returns to a new 10-second window once a usable signal is available. Contact loss also requires reacquisition. The attempt is bounded to **60 seconds**; timeout, cancellation, backgrounding, orientation changes and camera termination produce no result. Camera, light, animation/frame callbacks, timers and wake lock are released on finish, close, error and unmount. An idle ready camera expires after 30 seconds.
+**Capture stops after 15 seconds. No quality-triggered extension or automatic restart.** The first two seconds allow exposure settling. A preview estimate appears when available, without gating final analysis or resetting the clock. At 15 seconds the server independently checks the record and derives the final BPM. A genuinely unusable signal returns no reading and offers a manual repeat. Cancelling, backgrounding, losing the camera or changing orientation invalidates the attempt. All camera/light/timer/frame callbacks and wake locks are released. An idle ready camera expires after 30 seconds.
 
-The circle shows the phase countdown, a clearly labeled **live BPM estimate** when a usable period is found, and the actual optical trace. This is PPG, not ECG. The heart icon animates only when a new detected optical peak is reported; no synthetic beat timer is used. Reduced-motion preference disables beat/progress animation. Preliminary BPM can change; only the verified final result can be submitted.
+The circle contains remaining time, provisional BPM, the actual optical trace and a heart animated on newly detected peaks. No synthetic pulse animation or invented BPM. Reduced-motion is respected. A normalized visible waveform or red preview does not prove a usable pulse.
 
-## Capture and quality screens
+## Signal processing
 
-A fixed central 55% square ROI is downsampled to 32×32. RGB means, per-channel saturation and red spatial 5th–95th percentile range are extracted from real frames. Prefer video-frame callbacks and otherwise sample only distinct video timestamps. Video is not recorded or uploaded. Capability checks support boolean and array torch shapes. Request a useful frame rate before final torch verification. Unconfirmed torch settings require visual confirmation. Optional bounded exposure adjustments happen before the timed attempt, never during it. Unknown/ignored hardware controls are not proof of successful illumination or correction.
+Sample the central 55% square ROI at 32×32, using distinct real video frames. Extract averaged RGB, per-channel saturation and spatial percentiles. Video is never recorded/uploaded. Preserve boolean/array torch capability support, main rear-lens preference, stream configuration before final torch verification, manual light confirmation when settings are inconclusive, and bounded exposure adjustment before capture.
 
-`RhrSession` runs a deterministic 250ms quality clock shared by the UI and server replay. A clock tick uses only frames captured at or before that tick. The live window is 5 seconds; final acceptance uses a new 10-second window after initial detection. There is no accumulation of isolated good fragments.
+V3 uses contiguous recent suffixes starting at 2, 4, 6 or 7 seconds, preferring the longest accepted suffix. These allow early settling/artifacts to be excluded without extending acquisition or stitching isolated good fragments. Every candidate needs at least 7.7 seconds of samples and a tail within 300ms of the 15-second deadline. Short previews are informative only.
 
-Engineering screens (not validated clinical cutoffs):
+Engineering screens, **not validated clinical thresholds**:
 
-- At least 96% contact-screen samples, average ≥14.5 fps (nominal 15 fps) and gaps ≤200ms; live/final windows must span their target minus at most 250ms and have a recent tail.
-- Detrend illumination drift, interpolate onto 30Hz and smooth camera noise. Exclude clipped or abruptly jumping channels individually. Assess red, green and blue channels.
-- Normal candidates require autocorrelation ≥0.7, independent peak-period agreement within 5 BPM, interval MAD ≤0.16 and estimates in 30–180 BPM. The final window requires at least four detected peaks and stable autocorrelation periods in both halves within 7 BPM of the full-window estimate. Qualified channels must agree within 5 BPM.
-- A low-rate **provisional preview only** may use one interior peak with correlation ≥0.85 and at least 2.2 observed periods when the 5-second window is too short for an interior peak interval. It exposes no fabricated peak agreement; final acceptance still requires four peaks and both estimators.
-- Preview changes exceeding max(8 BPM, 12% of the acquisition anchor) restart the window. Failed final checks or a final estimate differing from the latest preview by >5 BPM restart it as well. High pulse itself is not treated as an error or capped toward a normal value.
-- Fully clipped, flat, noisy, uncovered, interrupted or inconsistent streams do not receive a final BPM. Periodic movement/light can resemble PPG; this algorithm does not attest sensor authenticity or diagnose irregular rhythms.
+- Average frame rate ≥12 fps and no gap >300ms in the selected suffix. Broad optical-contact screen on ≥85% of samples, allowing device-dependent red ratios.
+- Assess RGB separately. Exclude substantially saturated/dark or abruptly jumping channels. Interpolate to 30Hz, remove local illumination drift, smooth, and trim half a second at each end.
+- Detect both autocorrelation period and peak intervals. Handle tied/quantized peaks deterministically. Require correlation ≥0.6, interval MAD ≤0.25, at least four peaks, and period/peak agreement within max(8 BPM, 10%). Estimate range 30–180 BPM. Low amplitude is allowed only above the adaptive noise floor.
+- Rank channels by correlation and estimator agreement. A weak channel no longer vetoes a stronger usable channel; similarly strong conflicting channels still reject the result. Require the final five-second autocorrelation period to be reasonably consistent with the selected suffix, protecting against stale early-only pulse data.
+- High HR is not itself an error and is never pulled toward a presumed normal value. Flat, noisy, missing, uncovered or interrupted data do not automatically receive a BPM. Periodic movement/light can imitate PPG; no camera-only algorithm authenticates a physiological source.
 
-## Server, storage and exports
+A failed attempt offers **Download signal diagnostics** inside Scan details: explicit local JSON download of averaged RGB/timing and analysis, without video/player identifiers. It is not automatically uploaded, persisted or included in a survey response. Cleared on closing or starting another capture. This enables analysis of physical-device signals that a screen recording cannot provide.
 
-The widget remains existing NUMBER with options `{widget:"RHR_CAMERA", protocolVersion, durationSeconds:15}`. Both v1 and v2 definitions are accepted. Current clients explicitly request v2 at start; cached clients without a version retain v1 behavior. No enum/table/schema migration or live survey modification is needed.
+## Data compatibility and exports
 
-Start tickets bind player, team/survey/question, posture, rest confirmation and protocol version. Finish validates bounded timestamps/values, replays the entire recorded session on the server and independently derives the accepted window, BPM and restart count. A v1 ticket cannot authorize a v2 record. Full capture is bounded to 60 seconds / 3600 aggregate samples / 1MB request text. Wall time must support the claimed duration. Completion must be within 750ms of the replay-derived accepted window, so an old good segment cannot be submitted after later inactivity.
+Keep existing NUMBER widget definitions valid for v1/v2/v3. Current clients explicitly request v3. Cached clients without a version retain v1 behavior; v2 clients retain their historical rolling-window replay. Preserve all scoped outstanding receipts and stored historical answers. No database migration or live survey edits.
 
-Accepted v2 snapshots store the actual elapsed `durationSeconds`, `targetDurationSeconds:15`, `detectionSeconds:5`, `stableWindowSeconds:10`, restart count, versions, posture, rest confirmation and quality metrics. Only accepted results get a scoped signed receipt. Wellness submission revalidates the receipt and strips it before storing. Editing displayed BPM, duration or restart count cannot alter signed values. Raw video and aggregate samples are not retained. Mandatory HR questions cannot be skipped or impersonated by a plain numeric entry.
+Start tickets bind player/survey/question, posture, rest confirmation and protocol. Finish checks protocol matching, wall time, bounded RGB/timestamps/record size and interruption/light status. V3 is limited to 15 seconds / 1500 samples; v2 retains 60 seconds / 3600. Only accepted results get signed receipts. V3 stores durationSeconds:15, targetDurationSeconds:15, restarts:0, protocol/algorithm, posture, rest and quality metrics. V2 retains its actual elapsed duration and 5+10 metadata; v1 retains its old 15-second format. Wellness submission trusts signed values and strips the receipt. Raw samples are not stored by the server.
 
-CSV headers are unchanged. Existing Duration s now contains the actual duration for v2 answers; Protocol contains protocol/algorithm revisions. Legacy values/answers/receipts are preserved. Power BI and Live Ops retain the existing integration. No HR value is folded into readiness scoring. `/rhr/demo` uses real camera capture without API writes or saved player data; synthetic signals are injected only by isolated browser tests.
+Main CSV headers remain unchanged, with the existing BPM, posture, duration and protocol fields. Power BI and Live Ops continue through normal wellness submission. HR is not folded into readiness. `/rhr/demo` captures real camera data without API writes or saved player data.
 
-## Legacy compatibility
+## Validation limits
 
-`camera-rhr-v1 / adaptive-rgb-v2` retains its fixed 15-second capture, first two seconds discarded, ≥12.5-second analyzed span and at least five peaks. Legacy samples without per-channel clipping fields and existing 48-hour signed receipts remain supported. They do not silently acquire the new repeat/elapsed-time semantics.
+Unit/native integration and synthetic browser captures check deadline, channel selection, timing, signatures, exports, controls and cleanup. They cannot establish iPhone/Honor accuracy. Test repeated real-device captures against an independent reference before operational reliance. If failures persist, use explicit signal diagnostics to investigate saturation, amplitude, frame cadence and estimator rejection rather than lowering thresholds blindly.
 
-## Verification and references
-
-Tests cover legacy behavior, low/high stable rates, 110→80 BPM changes, contact loss, timeout, frame gaps/rates, malformed/stale records, channel clipping, low-amplitude noise, camera controls, scoped receipts, exports and the real-time browser flow. Browser signals are synthetic and establish software behavior, not accuracy on an iPhone or Honor. Compare repeated physical-device results with a suitable reference before operational reliance.
-
-Primary references informing signal-quality screening and hardware controls; they do not validate these particular thresholds or durations:
+Primary references inform the approach; they do not validate our durations or cutoffs:
 
 - Smartphone PPG quality screening: https://www.mdpi.com/1424-8220/20/7/1923
 - Device/channel/ROI differences: https://www.mdpi.com/1424-8220/17/10/2385
-- Camera/flash reflection PPG: https://pubmed.ncbi.nlm.nih.gov/24618594/
-- Torch, exposure and capability API: https://www.w3.org/TR/image-capture/
-- WebKit stale light-settings caveat: https://bugs.webkit.org/show_bug.cgi?id=280970
+- Camera/light API: https://www.w3.org/TR/image-capture/
+- WebKit light settings: https://bugs.webkit.org/show_bug.cgi?id=280970

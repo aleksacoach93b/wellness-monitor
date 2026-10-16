@@ -1,8 +1,13 @@
-import { RHR_VERSION, RHR_LEGACY_VERSION, type RhrPosition } from './protocol'
+import {
+  RHR_VERSION,
+  RHR_LEGACY_VERSION,
+  RHR_FIXED_VERSION,
+  type RhrPosition,
+} from './protocol'
 export const rhrOptions = () =>
   JSON.stringify({
     widget: 'RHR_CAMERA',
-    protocolVersion: RHR_VERSION,
+    protocolVersion: RHR_FIXED_VERSION,
     durationSeconds: 15,
   })
 export function isRhrQuestion(q: { type: string; options?: string | null }) {
@@ -20,7 +25,9 @@ export function validRhrOptions(raw: unknown) {
     const x = JSON.parse(String(raw))
     return (
       x.widget === 'RHR_CAMERA' &&
-      [RHR_VERSION, RHR_LEGACY_VERSION].includes(x.protocolVersion) &&
+      [RHR_VERSION, RHR_LEGACY_VERSION, RHR_FIXED_VERSION].includes(
+        x.protocolVersion,
+      ) &&
       x.durationSeconds === 15
     )
   } catch {

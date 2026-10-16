@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   RHR_POSITIONS,
   RHR_VERSION,
+  RHR_FIXED_VERSION,
   RHR_LEGACY_VERSION,
   RHR_MAX_MS,
   RHR_MAX_SAMPLES,
@@ -22,7 +23,9 @@ export const rhrContextSchema = z.object({
   rested: z.literal(true),
 })
 export const rhrRecordSchema = z.object({
-  protocolVersion: z.enum([RHR_VERSION, RHR_LEGACY_VERSION]).optional(),
+  protocolVersion: z
+    .enum([RHR_VERSION, RHR_LEGACY_VERSION, RHR_FIXED_VERSION])
+    .optional(),
   elapsedMs: z.number().finite().min(0).max(RHR_MAX_MS),
   interruption: z
     .enum(['hidden', 'blur', 'cancelled', 'camera-ended', 'orientation'])
@@ -50,7 +53,8 @@ export async function rhrTicket(data: {
   questionId: string
   position: string
   rested: true
-  protocolVersion?: typeof RHR_VERSION | typeof RHR_LEGACY_VERSION
+  protocolVersion?:
+    typeof RHR_VERSION | typeof RHR_LEGACY_VERSION | typeof RHR_FIXED_VERSION
 }) {
   return new SignJWT({ ...data, version: data.protocolVersion ?? RHR_VERSION })
     .setProtectedHeader({ alg: 'HS256' })
@@ -93,9 +97,9 @@ export async function verifyRhrAnswer(
       p.surveyId !== scope.surveyId ||
       p.playerId !== scope.playerId ||
       p.questionId !== scope.questionId ||
-      !([RHR_VERSION, RHR_LEGACY_VERSION] as unknown[]).includes(
-        p.protocolVersion,
-      ) ||
+      !(
+        [RHR_VERSION, RHR_LEGACY_VERSION, RHR_FIXED_VERSION] as unknown[]
+      ).includes(p.protocolVersion) ||
       p.kind !== 'RHR' ||
       p.quality !== 'ACCEPTED' ||
       typeof p.bpm !== 'number' ||
@@ -103,8 +107,10 @@ export async function verifyRhrAnswer(
       p.bpm > 180 ||
       !RHR_POSITIONS.includes(p.position as (typeof RHR_POSITIONS)[number]) ||
       p.rested !== true ||
-      (p.protocolVersion === RHR_LEGACY_VERSION
-        ? p.durationSeconds !== 15
+      (p.protocolVersion !== RHR_VERSION
+        ? p.durationSeconds !== 15 ||
+          (p.protocolVersion === RHR_FIXED_VERSION &&
+            (p.targetDurationSeconds !== 15 || p.restarts !== 0))
         : typeof p.durationSeconds !== 'number' ||
           !Number.isFinite(p.durationSeconds) ||
           p.durationSeconds < 15 ||
@@ -132,6 +138,9 @@ export async function verifyRhrAnswer(
             stableWindowSeconds: 10 as const,
             restarts: Number(p.restarts),
           }
+        : {}),
+      ...(p.protocolVersion === RHR_FIXED_VERSION
+        ? { targetDurationSeconds: 15 as const, restarts: 0 }
         : {}),
       ...(typeof p.algorithmVersion === 'string'
         ? { algorithmVersion: p.algorithmVersion }

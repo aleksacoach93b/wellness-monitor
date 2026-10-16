@@ -1,9 +1,11 @@
+import { analyzeFixedRhr } from './fixed'
 import {
   analyzeRhr,
   analyzeOpticalWindow,
   fingerPresent,
   validateRhrRecord,
   RHR_VERSION,
+  RHR_FIXED_VERSION,
   RHR_DETECT_MS,
   RHR_CAPTURE_MS,
   RHR_MAX_MS,
@@ -155,6 +157,8 @@ export class RhrSession {
 }
 
 export function analyzeRhrRecord(record: RhrRecord): RhrAnalysis {
+  if (record.protocolVersion === RHR_FIXED_VERSION)
+    return analyzeFixedRhr(record)
   if (record.protocolVersion !== RHR_VERSION) return analyzeRhr(record)
   const empty: RhrAnalysis = {
     bpm: null,

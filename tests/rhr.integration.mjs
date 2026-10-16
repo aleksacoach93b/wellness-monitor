@@ -348,7 +348,7 @@ try {
   const temporary = fs.mkdtempSync(p.join(os.tmpdir(), 'rhr-native-replay-'))
   let v2Record, localAnalysis
   try {
-    for (const name of ['protocol', 'session'])
+    for (const name of ['protocol', 'session', 'fixed'])
       fs.writeFileSync(
         p.join(temporary, name + '.cjs'),
         ts.default
@@ -367,7 +367,8 @@ try {
           .outputText.replace(
             'require("./protocol")',
             'require("./protocol.cjs")',
-          ),
+          )
+          .replace('require("./fixed")', 'require("./fixed.cjs")'),
       )
     const { default: sessionModule } = await import(
       'file://' + p.join(temporary, 'session.cjs')
@@ -456,6 +457,102 @@ try {
     v2Csv.includes('camera-rhr-v2/quality-window-v3') &&
       v2Csv.includes(String(v2Answer.durationSeconds)),
     'main CSV exports the current protocol and actual duration',
+  )
+  const v3Start = await request(path, {
+    ...start,
+    protocolVersion: 'camera-rhr-v3',
+  })
+  check(
+    v3Start.status === 200,
+    'fixed v3 starts on an existing question without schema changes',
+  )
+  const fixedPayload = decodeJwt(v3Start.data.ticket)
+  const fixedTicket = await new SignJWT({ ...fixedPayload })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt(Math.floor(Date.now() / 1000) - 20)
+    .setExpirationTime('10m')
+    .sign(key)
+  const fixedRecord = { ...signal(72), protocolVersion: 'camera-rhr-v3' }
+  const fixedGood = await request(path, {
+    action: 'finish',
+    ticket: fixedTicket,
+    record: fixedRecord,
+    bpm: 150,
+  })
+  check(
+    fixedGood.data.accepted &&
+      Math.abs(fixedGood.data.result.bpm - 72) <= 2 &&
+      fixedGood.data.result.durationSeconds === 15 &&
+      fixedGood.data.result.restarts === 0,
+    'server derives a fixed 15s result independently of supplied BPM',
+  )
+  check(
+    (
+      await request(path, {
+        action: 'finish',
+        ticket: v2Ticket,
+        record: fixedRecord,
+      })
+    ).status === 401,
+    'fixed and rolling-window tickets cannot be interchanged',
+  )
+  const fixedFlatRecord = {
+    ...fixedRecord,
+    samples: fixedRecord.samples.map((s) => ({ ...s, r: 180, g: 75, b: 45 })),
+  }
+  const fixedFlat = await request(path, {
+    action: 'finish',
+    ticket: fixedTicket,
+    record: fixedFlatRecord,
+  })
+  check(
+    fixedFlat.status === 200 &&
+      !fixedFlat.data.accepted &&
+      fixedFlat.data.analysis.bpm === null,
+    'fixed deadline does not create BPM from flat signal',
+  )
+  const fixedSaved = await request('/api/responses', {
+    ...wellness,
+    answers: [
+      {
+        questionId,
+        value: JSON.stringify({
+          ...fixedGood.data.result,
+          bpm: 150,
+          durationSeconds: 60,
+          restarts: 99,
+        }),
+      },
+      { questionId: 'rhr-number', value: '30' },
+    ],
+  })
+  const fixedAnswer = JSON.parse(
+    fixedSaved.data.answers.find((a) => a.questionId === questionId).value,
+  )
+  check(
+    fixedSaved.status === 200 &&
+      fixedAnswer.bpm === 72 &&
+      fixedAnswer.durationSeconds === 15 &&
+      fixedAnswer.restarts === 0 &&
+      !fixedAnswer.receipt,
+    'wellness preserves signed fixed duration/BPM and strips receipt',
+  )
+  const fixedCsv = await fetch(
+    base + `/api/surveys/${surveyId}/export/csv`,
+  ).then((r) => r.text())
+  check(
+    fixedCsv.includes('camera-rhr-v3/fixed-rgb-v4'),
+    'main CSV carries the fixed-capture algorithm revision',
+  )
+  const fixedOps = await request(
+    `/api/ops/today?surveyId=${surveyId}`,
+    null,
+    true,
+  )
+  check(
+    fixedOps.data.players.find((p) => p.id === 'test-player').restingHr[0]
+      .bpm === 72,
+    'Live Ops receives the fixed capture through normal wellness submission',
   )
   fs.writeFileSync('/tmp/rhr-test-admin-cookie', 'wm_admin_session=' + admin, {
     mode: 0o600,

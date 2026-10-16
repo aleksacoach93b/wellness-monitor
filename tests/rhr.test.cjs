@@ -12,6 +12,7 @@ for (const name of [
   'camera',
   'sampling',
   'session',
+  'fixed',
 ])
   fs.writeFileSync(
     path.join(dir, name + '.js'),
@@ -588,4 +589,224 @@ test('discrete camera levels do not discard a stable pulse solely because of fla
   const finished = finishQuality(record)
   assert.equal(finished.view.stage, 'complete', JSON.stringify(finished.view))
   assert.ok(Math.abs(analyzeRhrRecord(finished.record).bpm - 55) <= 3)
+})
+
+function fixedSignal(bpm = 60, opts = {}) {
+  const { RHR_FIXED_VERSION } = require(path.join(dir, 'protocol.js'))
+  const r = signal(bpm, opts)
+  return { ...r, protocolVersion: RHR_FIXED_VERSION }
+}
+for (const bpm of [30, 40, 55, 80, 110, 170])
+  test(`fixed deadline estimates ${bpm} BPM at 15s, without extending capture`, () => {
+    const { FixedRhrSession } = require(path.join(dir, 'fixed.js'))
+    const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+    const r = fixedSignal(bpm),
+      session = new FixedRhrSession()
+    for (const sample of r.samples) {
+      const v = session.push(sample)
+      if (sample.t < 15000)
+        assert.ok(!['complete', 'timeout'].includes(v.stage))
+      assert.equal(v.restarts, 0)
+      assert.ok(Math.abs(v.remainingMs - Math.max(0, 15000 - sample.t)) < 1)
+    }
+    assert.equal(session.advanceTo(15000).stage, 'complete')
+    const a = analyzeRhrRecord(r)
+    assert.equal(a.quality, 'ACCEPTED', JSON.stringify(a))
+    assert.ok(Math.abs(a.bpm - bpm) <= 3, JSON.stringify(a))
+    assert.equal(a.completeAtMs, 15000)
+  })
+test('fixed deadline tolerates early settling and a saturated red channel with usable green', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  const r = fixedSignal(72)
+  r.samples.forEach((s) => {
+    s.r = 255
+    s.redClipped = 1
+    if (s.t < 5000) {
+      s.g = 75 + 15 * Math.sin(s.t / 85)
+      s.b = 45 + Math.sin(s.t / 41)
+    }
+  })
+  const a = analyzeRhrRecord(r)
+  assert.equal(a.quality, 'ACCEPTED', JSON.stringify(a))
+  assert.equal(a.channel, 'green')
+  assert.ok(Math.abs(a.bpm - 72) <= 3)
+  assert.ok(a.windowStartMs >= 6000)
+})
+test('fixed deadline accepts small quantised camera variation and inverted pulse', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  for (const invert of [1, -1]) {
+    const r = fixedSignal(55)
+    r.samples.forEach((s) => {
+      s.r =
+        180 +
+        (invert * Math.round(4 * Math.sin((2 * Math.PI * 55 * s.t) / 60000))) /
+          16
+      s.g = 75
+      s.b = 45
+    })
+    const a = analyzeRhrRecord(r)
+    assert.equal(a.quality, 'ACCEPTED', JSON.stringify(a))
+    assert.ok(Math.abs(a.bpm - 55) <= 3, JSON.stringify(a))
+  }
+})
+test('flat, noise, uncovered, interrupted and missing frames end at 15s with no invented BPM', () => {
+  const { FixedRhrSession } = require(path.join(dir, 'fixed.js'))
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  let seed = 12345
+  const rand = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+    return seed / 4294967296
+  }
+  for (const mode of [
+    'flat',
+    'noise',
+    'uncovered',
+    'interrupted',
+    'missing',
+    'light',
+    'stale',
+  ]) {
+    const r = fixedSignal()
+    if (mode === 'flat')
+      r.samples.forEach((s) => {
+        s.r = 180
+        s.g = 75
+        s.b = 45
+      })
+    if (mode === 'noise')
+      r.samples.forEach((s) => {
+        s.r = 180 + 5 * (rand() - 0.5)
+        s.g = 75 + 3 * (rand() - 0.5)
+      })
+    if (mode === 'uncovered')
+      r.samples.forEach((s) => {
+        s.r = 30
+        s.g = 100
+        s.b = 90
+      })
+    if (mode === 'interrupted') r.interruption = 'hidden'
+    if (mode === 'light') r.torch = false
+    if (mode === 'missing') r.samples = []
+    if (mode === 'stale') r.samples = r.samples.filter((s) => s.t < 12000)
+    const a = analyzeRhrRecord(r)
+    assert.equal(a.quality, 'REPEAT', mode + JSON.stringify(a))
+    assert.equal(a.bpm, null)
+    const session = new FixedRhrSession()
+    if (!['interrupted', 'light'].includes(mode)) {
+      for (const s of r.samples) session.push(s)
+      const end = session.advanceTo(15000)
+      assert.equal(end.stage, 'timeout', mode)
+      assert.equal(end.remainingMs, 0)
+      assert.equal(end.restarts, 0)
+    }
+  }
+})
+test('fixed capture accepts 15, 24 and 60 fps without a preview quality gate', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  for (const fps of [15, 24, 60]) {
+    const a = analyzeRhrRecord(fixedSignal(65, { fps }))
+    assert.equal(a.quality, 'ACCEPTED', JSON.stringify(a))
+    assert.ok(Math.abs(a.bpm - 65) <= 3)
+  }
+})
+test('fixed receipts preserve 15s duration and reject signed invalid duration / restart metadata', async () => {
+  process.env.ADMIN_JWT_SECRET = 'rhr-unit-secret-only'
+  const { signRhrResult, verifyRhrAnswer } = require(
+    path.join(dir, 'server.js'),
+  )
+  const scope = { surveyId: 's', questionId: 'q', playerId: 'p' }
+  const result = {
+    kind: 'RHR',
+    bpm: 62,
+    position: 'seated',
+    rested: true,
+    durationSeconds: 15,
+    targetDurationSeconds: 15,
+    restarts: 0,
+    protocolVersion: 'camera-rhr-v3',
+    algorithmVersion: 'fixed-rgb-v4',
+    quality: 'ACCEPTED',
+    torch: true,
+    fps: 30,
+    beats: 12,
+    correlation: 0.9,
+    measuredAt: new Date().toISOString(),
+  }
+  const receipt = await signRhrResult(result, scope)
+  const verified = await verifyRhrAnswer(
+    JSON.stringify({ ...result, bpm: 140, receipt }),
+    scope,
+  )
+  assert.equal(verified.bpm, 62)
+  assert.equal(verified.durationSeconds, 15)
+  assert.equal(verified.restarts, 0)
+  for (const override of [{ durationSeconds: 16 }, { restarts: 1 }]) {
+    const bad = await signRhrResult({ ...result, ...override }, scope)
+    assert.equal(
+      await verifyRhrAnswer(JSON.stringify({ receipt: bad }), scope),
+      null,
+    )
+  }
+})
+test('fixed channel selection handles pulse modulation, noise and distinct channel quality', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  const r = fixedSignal(65)
+  let seed = 39,
+    phase = 0
+  const rand = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+    return seed / 4294967296
+  }
+  r.samples.forEach((s) => {
+    phase += ((2 * Math.PI * 65) / 60 / 30) * (1 + 0.025 * Math.sin(s.t / 2200))
+    s.r = 180 + 6 * (rand() - 0.5)
+    s.g =
+      75 +
+      0.3 *
+        (1 + 0.2 * Math.sin(s.t / 1900)) *
+        (Math.sin(phase) + 0.25 * Math.sin(2 * phase + 0.3)) +
+      0.08 * (rand() - 0.5) +
+      0.2 * Math.sin(s.t / 3000)
+    s.b = 45
+  })
+  const a = analyzeRhrRecord(r)
+  assert.equal(a.quality, 'ACCEPTED', JSON.stringify(a))
+  assert.equal(a.channel, 'green')
+  assert.ok(Math.abs(a.bpm - 65) <= 3)
+})
+test('relaxed acquisition does not turn random camera noise into accepted pulses across seeds', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  for (let seed = 1; seed <= 25; seed++) {
+    let state = seed
+    const rand = () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+      return state / 4294967296
+    }
+    const r = fixedSignal()
+    r.samples.forEach((s) => {
+      s.r = 180 + 2 * (rand() - 0.5)
+      s.g = 75 + 0.5 * (rand() - 0.5)
+      s.b = 45 + 0.25 * (rand() - 0.5)
+    })
+    assert.equal(analyzeRhrRecord(r).quality, 'REPEAT', 'noise seed ' + seed)
+  }
+})
+test('fixed deadline rejects late loss, conflicting channels and data exceeding 15 seconds', () => {
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  const late = fixedSignal(),
+    conflict = fixedSignal(),
+    over = fixedSignal()
+  late.samples.forEach((s) => {
+    if (s.t > 10500) {
+      s.r = 180
+      s.g = 75
+      s.b = 45
+    }
+  })
+  conflict.samples.forEach((s) => {
+    s.g = 75 + 3 * Math.sin((2 * Math.PI * 90 * s.t) / 60000)
+  })
+  over.elapsedMs = 16000
+  for (const r of [late, conflict, over])
+    assert.equal(analyzeRhrRecord(r).quality, 'REPEAT')
 })

@@ -1001,3 +1001,121 @@ test('local camera diagnostics are allowlisted and exclude unrelated metadata', 
   assert.ok(!JSON.stringify(d).includes('secret-group'))
   assert.ok(!JSON.stringify(d).includes('do-not-copy'))
 })
+
+test('near-flat red-only camera frames are diagnosed even when legacy clipping is zero', () => {
+  const {
+    checkCamera,
+    frameSummary,
+    redCeilingPattern,
+    captureFailure,
+  } = require(path.join(dir, 'compatibility.js'))
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  const r = { ...signal(60), protocolVersion: 'camera-rhr-v4' }
+  // Representative of the Honor diagnostic, without committing a player's signal or device ID.
+  r.samples = r.samples.map((s) => ({
+    ...s,
+    r: 253.4 + 0.3 * Math.sin(s.t / 1100),
+    g: 0,
+    b: 0.001,
+    clipped: 0,
+  }))
+  const check = checkCamera(
+    r.samples.filter((s) => s.t <= 3000),
+    3000,
+  )
+  assert.equal(check.code, 'red-ceiling')
+  assert.equal(check.status, 'problem')
+  assert.ok(check.stats.fps >= 29)
+  assert.equal(check.stats.clipped, 0)
+  assert.equal(redCeilingPattern(frameSummary(r.samples)), true)
+  const a = analyzeRhrRecord(r)
+  assert.equal(a.bpm, null)
+  assert.match(captureFailure(a, r), /almost flat red image/)
+  assert.equal(
+    redCeilingPattern(frameSummary(r.samples.map((s) => ({ ...s, g: 50 })))),
+    false,
+  )
+  assert.equal(
+    redCeilingPattern(frameSummary(r.samples.map((s) => ({ ...s, b: 10 })))),
+    false,
+  )
+  assert.equal(
+    redCeilingPattern(
+      frameSummary(
+        r.samples.map((s) => ({ ...s, r: 253 + 2 * Math.sin(s.t / 180) })),
+      ),
+    ),
+    false,
+  )
+  assert.equal(checkCamera(r.samples.slice(0, 3), 3000).status, 'problem')
+})
+
+test('red exposure repair is bounded, preserves constraints/light and reports ignored controls', async () => {
+  const { reducePulseExposure, enableCameraLight } = require(
+    path.join(dir, 'camera.js'),
+  )
+  let ev = 0,
+    constraints = {
+      frameRate: { min: 20, ideal: 30 },
+      width: { ideal: 160 },
+      advanced: [{ torch: true }],
+    }
+  const calls = []
+  const track = {
+    readyState: 'live',
+    getConstraints: () => constraints,
+    getSettings: () => ({ exposureCompensation: ev, torch: true }),
+    getCapabilities: () => ({
+      torch: true,
+      exposureCompensation: { min: -4, max: 4, step: 1 / 6 },
+    }),
+    applyConstraints: async (q) => {
+      calls.push(q)
+      constraints = q
+      if (typeof q.exposureCompensation === 'number')
+        ev = q.exposureCompensation
+    },
+  }
+  for (let i = 0; i < 4; i++) {
+    const result = await reducePulseExposure(track)
+    assert.equal(result.status, 'requested')
+    assert.ok(Math.abs(result.requested + i + 1) < 1e-6)
+    await enableCameraLight(track)
+    assert.ok(Math.abs(ev + i + 1) < 1e-6)
+  }
+  assert.equal((await reducePulseExposure(track)).status, 'limit')
+  assert.ok(
+    calls.every(
+      (q) =>
+        q.frameRate.min === 20 && q.width.ideal === 160 && q.torch === true,
+    ),
+  )
+  assert.ok(
+    calls.every((q) =>
+      q.advanced.every(
+        (a) =>
+          a.torch === true &&
+          (a.exposureCompensation === undefined ||
+            a.exposureCompensation === q.exposureCompensation),
+      ),
+    ),
+  )
+  assert.equal(
+    (await reducePulseExposure({ ...track, getCapabilities: () => ({}) }))
+      .status,
+    'unsupported',
+  )
+  ev = 0
+  const ignored = await reducePulseExposure({
+    ...track,
+    applyConstraints: async () => {},
+  })
+  assert.equal(ignored.status, 'ignored')
+  assert.equal(ignored.before, 0)
+  assert.ok(Math.abs(ignored.requested + 1) < 1e-6)
+  assert.equal(ignored.reported, 0)
+  await assert.rejects(
+    reducePulseExposure({ ...track, readyState: 'ended' }),
+    /stopped/,
+  )
+})

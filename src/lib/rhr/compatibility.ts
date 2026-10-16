@@ -9,6 +9,11 @@ export function frameSummary(samples: PpgSample[]) {
   )
   const average = (key: 'r' | 'g' | 'b' | 'clipped') =>
     samples.reduce((n, s) => n + s[key], 0) / Math.max(1, samples.length)
+  const range = (key: 'r' | 'g' | 'b') =>
+    samples.length
+      ? Math.max(...samples.map((s) => s[key])) -
+        Math.min(...samples.map((s) => s[key]))
+      : 0
   return {
     frames: samples.length,
     seconds: span / 1000,
@@ -20,7 +25,20 @@ export function frameSummary(samples: PpgSample[]) {
     green: average('g'),
     blue: average('b'),
     clipped: average('clipped'),
+    redRange: range('r'),
+    greenRange: range('g'),
+    blueRange: range('b'),
+    redCeilingFraction:
+      samples.filter((s) => s.r >= 250 && s.g <= 2 && s.b <= 2).length /
+      Math.max(1, samples.length),
   }
+}
+/** Narrow acquisition warning, not a physiological threshold or proof of sensor clipping.
+ * Legacy red+green clipping misses a near-ceiling red-only image (observed on Honor).
+ * Leave streams with a usable-looking green/blue channel or varying red untouched.
+ */
+export function redCeilingPattern(stats: ReturnType<typeof frameSummary>) {
+  return stats.redCeilingFraction >= 0.95 && stats.redRange < 2
 }
 export type CameraCheck = {
   status: 'checking' | 'ready' | 'problem'
@@ -63,6 +81,8 @@ export function checkCamera(
       'frame-gaps',
       'Camera frames are arriving with interruptions. Close other camera apps or reopen the camera.',
     )
+  if (stats.seconds < 1.5)
+    return result('checking', 'settling', 'Checking fresh camera frames…')
   if (stats.red < 35)
     return result(
       'problem',
@@ -80,6 +100,12 @@ export function checkCamera(
       'problem',
       'contact',
       'Cover the active lens gently. Cover one lens at a time and watch which one changes the preview.',
+    )
+  if (redCeilingPattern(stats))
+    return result(
+      'problem',
+      'red-ceiling',
+      'The red image is near its upper limit and the other colors are almost empty. Camera lighting needs adjustment before measuring.',
     )
   return result(
     'ready',
@@ -109,6 +135,8 @@ export function captureFailure(analysis: RhrAnalysis, record: RhrRecord) {
     return 'The camera brightness changed abruptly during capture. Keep your finger still; check the light and camera setup before repeating.'
   if (reasons.includes('finger-contact'))
     return 'The optical contact was inconsistent. Confirm the active lens using the preview, then cover it gently.'
+  if (redCeilingPattern(stats))
+    return 'The camera captured an almost flat red image near its upper limit, with almost no green or blue signal. No heart rate was saved. Reopen the camera to adjust its exposure before repeating.'
   if (
     reasons.includes('channel-disagreement') ||
     reasons.includes('unstable-pulse')

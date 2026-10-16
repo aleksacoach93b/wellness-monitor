@@ -25,6 +25,7 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       window.__light = false
       window.__optimized = false
       window.__scanStart = null
+      window.__exposureCalls = 0
       document.addEventListener(
         'click',
         (e) => {
@@ -56,6 +57,8 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
         canvas.height = 128
         const x = canvas.getContext('2d'),
           created = performance.now()
+        let ev = 0,
+          applied = {}
         const draw = () => {
           const t = (performance.now() - (window.__scanStart ?? created)) / 1000
           const phase = (2 * Math.PI * 55 * t) / 60
@@ -63,7 +66,11 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
             mode === 'flat' || (mode === 'switch' && id === 'main')
               ? 0
               : Math.sin(phase) + 0.3 * Math.sin(phase * 2 + 0.4)
-          x.fillStyle = `rgb(${Math.round(180 + 8 * v)},${Math.round(75 + 5 * v)},45)`
+          const redCeiling =
+            mode.startsWith('exposure') && (mode !== 'exposure' || ev > -2)
+          x.fillStyle = redCeiling
+            ? 'rgb(253,0,0)'
+            : `rgb(${Math.round(180 + 8 * v)},${Math.round(75 + 5 * v)},45)`
           x.fillRect(0, 0, 128, 128)
         }
         draw()
@@ -87,12 +94,22 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           width: 320,
           height: 240,
           torch: window.__light,
+          exposureCompensation: ev,
         })
+        track.getConstraints = () => applied
         track.getCapabilities = () => ({
           torch: true,
           frameRate: { min: 15, max: 60 },
+          ...(mode !== 'exposure-unsupported'
+            ? { exposureCompensation: { min: -4, max: 4, step: 1 / 6 } }
+            : {}),
         })
         track.applyConstraints = async (q) => {
+          applied = q
+          if (typeof q.exposureCompensation === 'number') {
+            window.__exposureCalls++
+            if (mode !== 'exposure-ignored') ev = q.exposureCompensation
+          }
           window.__light =
             q.torch === true || !!q.advanced?.some((a) => a.torch === true)
           if (q.width?.ideal === 160 && mode !== 'ignored') {
@@ -147,7 +164,63 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       assert.equal(await page.evaluate(() => window.__light), false)
     }
     await setup()
-    if (mode === 'slow' || mode === 'ignored') {
+    if (mode.startsWith('exposure')) {
+      await page.getByTestId('rhr-exposure-note').waitFor({ timeout: 10000 })
+      if (mode === 'exposure') {
+        await ready()
+        assert.equal(await page.evaluate(() => window.__exposureCalls), 2)
+        await finish()
+      } else {
+        await page
+          .getByTestId('rhr-exposure-note')
+          .filter({
+            hasText:
+              mode === 'exposure-no-effect' ? 'still almost flat' : /could not/,
+          })
+          .waitFor({ timeout: 15000 })
+        if (mode !== 'exposure-no-effect')
+          await page
+            .getByTestId('rhr-preflight-hint')
+            .filter({ hasText: 'fresh frames' })
+            .waitFor()
+        await page
+          .getByTestId('rhr-preflight-hint')
+          .filter({ hasText: 'red image is near' })
+          .waitFor()
+        assert.equal(
+          await page
+            .getByRole('button', { name: 'Start measurement', exact: true })
+            .isEnabled(),
+          false,
+        )
+        await page.getByText('Camera details', { exact: true }).click()
+        const saving = page.waitForEvent('download')
+        await page
+          .getByRole('button', {
+            name: 'Download camera diagnostics',
+            exact: true,
+          })
+          .click()
+        const data = JSON.parse(
+          require('node:fs').readFileSync(await (await saving).path(), 'utf8'),
+        )
+        assert.equal(data.check.code, 'red-ceiling')
+        assert.equal(data.check.stats.clipped, 0)
+        assert.ok(data.check.stats.redCeilingFraction > 0.95)
+        assert.equal(
+          data.exposureAdjustments.length,
+          mode === 'exposure-no-effect' ? 4 : 1,
+        )
+        assert.equal(
+          data.exposureAdjustments.at(-1).status,
+          mode === 'exposure-no-effect'
+            ? 'requested'
+            : mode === 'exposure-ignored'
+              ? 'ignored'
+              : 'unsupported',
+        )
+      }
+    } else if (mode === 'slow' || mode === 'ignored') {
       await page.getByTestId('rhr-improve-stream').waitFor({ timeout: 12000 })
       assert.equal(
         await page
@@ -273,6 +346,7 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
         }
       } else {
         await finish()
+        assert.equal(await page.evaluate(() => window.__exposureCalls), 0)
       }
     }
     assert.equal(errors.length, 0, errors.join(';'))

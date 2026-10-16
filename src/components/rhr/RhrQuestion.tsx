@@ -152,6 +152,8 @@ export default function RhrQuestion({
     frame = useRef(0),
     videoFrame = useRef<number | null>(null),
     running = useRef(false),
+    starting = useRef(false),
+    saving = useRef(false),
     cameraChanging = useRef(false),
     deadline = useRef<ReturnType<typeof setTimeout> | null>(null),
     qualityClock = useRef<ReturnType<typeof setInterval> | null>(null),
@@ -197,6 +199,8 @@ export default function RhrQuestion({
     completed = parseRhrAnswer(value)
   const stopCamera = () => {
     running.current = false
+    starting.current = false
+    saving.current = false
     cameraChanging.current = false
     generation.current++
     if (deadline.current) clearTimeout(deadline.current)
@@ -209,6 +213,10 @@ export default function RhrQuestion({
     videoFrame.current = null
     stream.current?.getTracks().forEach((t) => t.stop())
     stream.current = null
+    if (video.current) {
+      video.current.pause()
+      video.current.srcObject = null
+    }
     void wake.current?.release().catch(() => {})
     wake.current = null
   }
@@ -250,8 +258,10 @@ export default function RhrQuestion({
     ticket: string,
     measuredPosition: RhrPosition,
   ) => {
+    if (saving.current) return
     lastCapture.current = record
     stopCamera()
+    saving.current = true
     const current = generation.current
     setPhase('saving')
     setError('')
@@ -262,6 +272,7 @@ export default function RhrQuestion({
       setError(captureFailure(analysis, record))
       setPhase('repeat')
       pending.current = null
+      saving.current = false
       return
     }
     try {
@@ -295,6 +306,7 @@ export default function RhrQuestion({
           },
         )
         const data = await response.json()
+        if (current !== generation.current) return
         if (!response.ok)
           throw new Error(
             data.error || 'Unable to save. Retry this measurement.',
@@ -340,6 +352,8 @@ export default function RhrQuestion({
           : 'Unable to save. Retry this measurement.',
       )
       setPhase('retry-save')
+    } finally {
+      if (current === generation.current) saving.current = false
     }
   }
   const finishScan = useRef<(reason: string | null) => void>(() => {})
@@ -749,6 +763,10 @@ export default function RhrQuestion({
       )
         throw new Error('Select a rear camera to measure your pulse.')
       const devices = await navigator.mediaDevices.enumerateDevices()
+      if (current !== generation.current) {
+        media.getTracks().forEach((t) => t.stop())
+        return
+      }
       setCameras(
         devices.filter(
           (d) =>
@@ -826,7 +844,13 @@ export default function RhrQuestion({
       track.addEventListener(
         'ended',
         () => {
+          if (current !== generation.current) return
           if (running.current) finishScan.current('camera-ended')
+          else {
+            stopCamera()
+            setPhase('setup')
+            setError('Camera disconnected. Enable it again to measure.')
+          }
         },
         { once: true },
       )
@@ -888,6 +912,9 @@ export default function RhrQuestion({
   const begin = async () => {
     if (
       !position ||
+      phase !== 'ready' ||
+      starting.current ||
+      running.current ||
       cameraChanging.current ||
       !rested ||
       !stream.current ||
@@ -897,6 +924,10 @@ export default function RhrQuestion({
       stream.current.getVideoTracks()[0]?.readyState !== 'live'
     )
       return
+    starting.current = true
+    // Inactivity ends when Start is pressed, not when the network replies.
+    if (deadline.current) clearTimeout(deadline.current)
+    deadline.current = null
     setError('')
     setPhase('opening')
     const current = generation.current
@@ -920,12 +951,14 @@ export default function RhrQuestion({
           },
         )
         const data = await response.json()
+        if (current !== generation.current) return
         if (response.status === 401) setNeedsCode(true)
         if (!response.ok) throw new Error(data.error || 'Unable to start.')
         ticket = data.ticket
       }
       if (current !== generation.current) return
-      if (deadline.current) clearTimeout(deadline.current)
+      if (stream.current?.getVideoTracks()[0]?.readyState !== 'live')
+        throw new Error('Camera disconnected. Enable it again to measure.')
       const context = canvas.current?.getContext('2d', {
         willReadFrequently: true,
       })
@@ -978,12 +1011,13 @@ export default function RhrQuestion({
       navigator.wakeLock
         ?.request('screen')
         .then((lock) => {
-          if (!running.current) void lock.release()
+          if (current !== generation.current || !running.current)
+            void lock.release().catch(() => {})
           else wake.current = lock
         })
         .catch(() => {})
       const end = (reason: string | null) => {
-        if (!running.current) return
+        if (current !== generation.current || !running.current) return
         running.current = false
         const elapsedMs = Math.min(RHR_MAX_MS, performance.now() - start)
         const record: RhrRecord = {
@@ -997,7 +1031,7 @@ export default function RhrQuestion({
       }
       finishScan.current = end
       qualityClock.current = setInterval(() => {
-        if (!running.current) return
+        if (current !== generation.current || !running.current) return
         const elapsed = Math.min(RHR_MAX_MS, performance.now() - start)
         if (
           liveTrack &&
@@ -1018,11 +1052,12 @@ export default function RhrQuestion({
         if (view.stage === 'complete' || view.stage === 'timeout') end(null)
       }, 250)
       deadline.current = setTimeout(() => {
+        if (current !== generation.current || !running.current) return
         publish(session.advanceTo(RHR_MAX_MS))
         end(null)
       }, RHR_MAX_MS)
       const sample = () => {
-        if (!running.current) return
+        if (current !== generation.current || !running.current) return
         const t = performance.now() - start
         if (t >= RHR_MAX_MS) {
           end(null)
@@ -1064,6 +1099,7 @@ export default function RhrQuestion({
         schedule()
       }
       const schedule = () => {
+        if (current !== generation.current || !running.current) return
         if (video.current?.requestVideoFrameCallback)
           videoFrame.current = video.current.requestVideoFrameCallback(sample)
         else frame.current = requestAnimationFrame(sample)
@@ -1072,7 +1108,15 @@ export default function RhrQuestion({
     } catch (e) {
       if (current !== generation.current) return
       setError(e instanceof Error ? e.message : 'Unable to start.')
-      setPhase('ready')
+      if (stream.current?.getVideoTracks()[0]?.readyState === 'live') {
+        setPhase('ready')
+        armCameraIdle()
+      } else {
+        stopCamera()
+        setPhase('setup')
+      }
+    } finally {
+      if (current === generation.current) starting.current = false
     }
   }
   const retry = () => {

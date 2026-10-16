@@ -2,6 +2,9 @@
 const { spawn } = require('node:child_process')
 const path = require('node:path')
 const scenarios = [
+  'android-samsung-metadata',
+  'android-samsung-after-hold',
+  'android-samsung-flat',
   'stable',
   'slow',
   'ignored',

@@ -385,9 +385,10 @@ export default function RhrQuestion({
       video.current.srcObject = media
       await video.current.play()
       if (current !== generation.current) return
-      const lightState = await enableCameraLight(track)
-      if (current !== generation.current) return
       await configurePulseCamera(track)
+      if (current !== generation.current) return
+      // Verify light after configuring the stream: some engines reset settings.
+      const lightState = await enableCameraLight(track)
       if (current !== generation.current) return
       setLight(lightState)
       setLightConfirmed(lightState === 'on')

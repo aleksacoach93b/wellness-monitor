@@ -155,13 +155,14 @@ export async function adjustPulseExposure(
   if (Math.abs(target - current) < step * 0.5) return false
   try {
     await track.applyConstraints({
+      torch: true,
       advanced: [
         {
           torch: true,
           exposureCompensation: target,
         } as MediaTrackConstraintSet,
       ],
-    })
+    } as MediaTrackConstraints)
     return true
   } catch {
     return false

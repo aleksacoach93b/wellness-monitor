@@ -27,6 +27,11 @@ import {
   type RhrPosition,
   type RhrRecord,
 } from '@/lib/rhr/protocol'
+import {
+  enableCameraLight,
+  primaryRearCamera,
+  type TorchState,
+} from '@/lib/rhr/camera'
 import { parseRhrAnswer, type RhrAnswer } from '@/lib/rhr/options'
 import '../pvt/pvt-focus.css'
 import './rhr.css'
@@ -75,7 +80,9 @@ export default function RhrQuestion({
     [contact, setContact] = useState(false),
     [result, setResult] = useState<RhrAnswer | null>(null),
     [cameras, setCameras] = useState<MediaDeviceInfo[]>([]),
-    [camera, setCamera] = useState('')
+    [camera, setCamera] = useState(''),
+    [light, setLight] = useState<TorchState | 'off'>('off'),
+    [lightConfirmed, setLightConfirmed] = useState(false)
   const video = useRef<HTMLVideoElement>(null),
     canvas = useRef<HTMLCanvasElement>(null),
     wave = useRef<SVGPolylineElement>(null),
@@ -229,12 +236,14 @@ export default function RhrQuestion({
     setPhase('opening')
     setError('')
     setContact(false)
+    setLight('off')
+    setLightConfirmed(false)
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext)
         throw new Error(
           'Open this page over HTTPS in Safari on your phone to use the rear camera.',
         )
-      const media = await navigator.mediaDevices.getUserMedia({
+      let media = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           facingMode: { exact: 'environment' },
@@ -249,10 +258,7 @@ export default function RhrQuestion({
         return
       }
       stream.current = media
-      const track = media.getVideoTracks()[0],
-        caps = track.getCapabilities?.() as MediaTrackCapabilities & {
-          torch?: boolean[]
-        }
+      let track = media.getVideoTracks()[0]
       if (
         track.getSettings().facingMode &&
         track.getSettings().facingMode !== 'environment'
@@ -266,22 +272,42 @@ export default function RhrQuestion({
             (!d.label || !/front|user|facetime/i.test(d.label)),
         ),
       )
-      if (!caps?.torch?.includes(true))
-        throw new Error(
-          'This camera/browser cannot enable the camera light. Try Safari on a supported phone or choose another rear camera.',
-        )
-      await track.applyConstraints({
-        advanced: [{ torch: true } as MediaTrackConstraintSet],
-      })
-      if (current !== generation.current) {
+      const primary = !camera
+        ? primaryRearCamera(devices.filter((d) => d.kind === 'videoinput'))
+        : null
+      if (primary && primary !== track.getSettings().deviceId) {
         media.getTracks().forEach((t) => t.stop())
-        return
+        media = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            deviceId: { exact: primary },
+            facingMode: { exact: 'environment' },
+            width: { ideal: 320 },
+            height: { ideal: 240 },
+            frameRate: { ideal: 30, max: 60 },
+          },
+        })
+        if (current !== generation.current) {
+          media.getTracks().forEach((t) => t.stop())
+          return
+        }
+        stream.current = media
+        track = media.getVideoTracks()[0]
+        if (
+          track.getSettings().facingMode &&
+          track.getSettings().facingMode !== 'environment'
+        )
+          throw new Error('Select a rear camera to measure your pulse.')
       }
       if (!video.current)
         throw new Error('Camera preview could not start. Please retry.')
       video.current.srcObject = media
       await video.current.play()
       if (current !== generation.current) return
+      const lightState = await enableCameraLight(track)
+      if (current !== generation.current) return
+      setLight(lightState)
+      setLightConfirmed(lightState === 'on')
       track.addEventListener(
         'ended',
         () => {
@@ -311,7 +337,14 @@ export default function RhrQuestion({
     }
   }
   const begin = async () => {
-    if (!position || !rested || !stream.current) return
+    if (
+      !position ||
+      !rested ||
+      !stream.current ||
+      !lightConfirmed ||
+      light === 'off'
+    )
+      return
     setError('')
     setPhase('opening')
     const current = generation.current
@@ -552,13 +585,18 @@ export default function RhrQuestion({
                       </button>
                     )}
                   </header>
-                  <video
-                    ref={video}
-                    muted
-                    playsInline
-                    className="rhr-video"
-                    aria-hidden="true"
-                  />
+                  <div
+                    className="rhr-camera-preview"
+                    data-active={['opening', 'ready', 'scan'].includes(phase)}
+                  >
+                    <video
+                      ref={video}
+                      muted
+                      playsInline
+                      className="rhr-video"
+                      aria-hidden="true"
+                    />
+                  </div>
                   <canvas ref={canvas} width={32} height={32} hidden />
                   {phase === 'scan' ? (
                     <div className="pvt-result-panel">
@@ -734,6 +772,62 @@ export default function RhrQuestion({
                           your phone; only signal samples are checked.
                         </span>
                       </p>
+                      {phase === 'ready' && (
+                        <div
+                          className="rhr-light-status"
+                          role="status"
+                          data-testid="rhr-light-status"
+                        >
+                          <p>
+                            {light === 'on'
+                              ? 'Camera light enabled. Cover the lens shown in the live preview.'
+                              : 'Camera light requested. Check that the rear light is actually on.'}
+                          </p>
+                          {light !== 'on' && (
+                            <>
+                              <label className="rhr-rest-confirm">
+                                <input
+                                  type="checkbox"
+                                  checked={lightConfirmed}
+                                  onChange={(e) =>
+                                    setLightConfirmed(e.target.checked)
+                                  }
+                                />
+                                <span>
+                                  I can see the rear camera light is on.
+                                </span>
+                              </label>
+                              <button
+                                type="button"
+                                className="pvt-stop"
+                                onClick={async () => {
+                                  const track =
+                                      stream.current?.getVideoTracks()[0],
+                                    current = generation.current
+                                  if (!track) return
+                                  setLightConfirmed(false)
+                                  setError('')
+                                  try {
+                                    const state = await enableCameraLight(track)
+                                    if (current !== generation.current) return
+                                    setLight(state)
+                                    setLightConfirmed(state === 'on')
+                                  } catch (e) {
+                                    if (current !== generation.current) return
+                                    setError(
+                                      e instanceof Error
+                                        ? e.message
+                                        : 'Unable to switch on the camera light.',
+                                    )
+                                  }
+                                }}
+                              >
+                                Try switching the light on again
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
                       {cameras.length > 1 && (
                         <label className="rhr-camera-label">
                           Rear camera
@@ -776,7 +870,12 @@ export default function RhrQuestion({
                       <button
                         type="button"
                         className={button}
-                        disabled={!position || !rested || phase === 'opening'}
+                        disabled={
+                          !position ||
+                          !rested ||
+                          phase === 'opening' ||
+                          (phase === 'ready' && !lightConfirmed)
+                        }
                         onClick={() =>
                           phase === 'ready' ? void begin() : void enableCamera()
                         }

@@ -5,7 +5,7 @@ const { test, after } = require('node:test'),
   path = require('node:path'),
   ts = require('typescript')
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rhr-test-'))
-for (const name of ['protocol', 'options', 'server'])
+for (const name of ['protocol', 'options', 'server', 'camera'])
   fs.writeFileSync(
     path.join(dir, name + '.js'),
     ts.transpileModule(
@@ -174,4 +174,91 @@ test('signed results bind player, question and survey and ignore forged displaye
 
 test('a measurement cannot silently extend beyond 15 seconds', () => {
   assert.equal(validateRhrRecord({ ...signal(60), elapsedMs: 15001 }), false)
+})
+
+test('camera light accepts Safari boolean and standard array capabilities', async () => {
+  const { enableCameraLight, torchCapability } = require(
+    path.join(dir, 'camera.js'),
+  )
+  for (const capability of [true, [true], [false, true]]) {
+    let enabled = false
+    const track = {
+      readyState: 'live',
+      getCapabilities: () => ({ torch: capability }),
+      getSettings: () => ({ torch: enabled }),
+      applyConstraints: async (q) => {
+        enabled = q.torch === true || q.advanced?.some((x) => x.torch === true)
+      },
+    }
+    assert.equal(await enableCameraLight(track), 'on')
+    assert.equal(enabled, true)
+  }
+  for (const value of [false, [false]])
+    assert.equal(torchCapability(value), 'unsupported')
+  for (const value of [undefined, null, {}, [], 1, 'true'])
+    assert.equal(torchCapability(value), 'unknown')
+})
+test('resolved constraints without positive settings require physical light confirmation', async () => {
+  const { enableCameraLight } = require(path.join(dir, 'camera.js'))
+  for (const reported of [false, undefined])
+    assert.equal(
+      await enableCameraLight({
+        readyState: 'live',
+        getCapabilities: () => ({ torch: true }),
+        getSettings: () => ({ torch: reported }),
+        applyConstraints: async () => {},
+      }),
+      'unconfirmed',
+    )
+})
+test('camera light rejects unsupported/failed/stopped tracks and supports alternate constraint forms', async () => {
+  const { enableCameraLight } = require(path.join(dir, 'camera.js'))
+  const base = {
+    readyState: 'live',
+    getSettings: () => ({ torch: true }),
+    getCapabilities: () => ({ torch: false }),
+    applyConstraints: async () => {
+      throw Error('must not apply')
+    },
+  }
+  await assert.rejects(() => enableCameraLight(base), /does not support/)
+  await assert.rejects(
+    () => enableCameraLight({ ...base, readyState: 'ended' }),
+    /stopped/,
+  )
+  await assert.rejects(
+    () =>
+      enableCameraLight({ ...base, getCapabilities: () => ({ torch: true }) }),
+    /could not be switched on/,
+  )
+  let calls = 0
+  const directOnly = {
+    ...base,
+    getCapabilities: () => ({ torch: true }),
+    applyConstraints: async (q) => {
+      calls++
+      if (q.advanced) throw Error('unsupported advanced')
+    },
+  }
+  assert.equal(await enableCameraLight(directOnly), 'on')
+  assert.equal(calls, 3)
+})
+
+test('automatic rear selection prefers the main lens and never a named front/ultrawide lens', () => {
+  const { primaryRearCamera } = require(path.join(dir, 'camera.js'))
+  assert.equal(
+    primaryRearCamera([
+      { deviceId: 'front', label: 'Front Camera' },
+      { deviceId: 'ultra', label: 'Back Ultra Wide Camera' },
+      { deviceId: 'back', label: 'Back Camera' },
+    ]),
+    'back',
+  )
+  assert.equal(
+    primaryRearCamera([
+      { deviceId: 'front', label: 'Front Camera' },
+      { deviceId: 'ultra', label: 'Back Ultra Wide Camera' },
+    ]),
+    null,
+  )
 })

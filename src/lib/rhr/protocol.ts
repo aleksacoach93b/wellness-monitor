@@ -1,6 +1,12 @@
 /** Contact camera PPG estimate. Requires device/reference validation before operational use. */
-export const RHR_VERSION = 'camera-rhr-v1'
-export const RHR_ALGORITHM_VERSION = 'adaptive-rgb-v2'
+export const RHR_LEGACY_VERSION = 'camera-rhr-v1'
+export const RHR_VERSION = 'camera-rhr-v2'
+export const RHR_LEGACY_ALGORITHM_VERSION = 'adaptive-rgb-v2'
+export const RHR_ALGORITHM_VERSION = 'quality-window-v3'
+export const RHR_DETECT_MS = 5_000
+export const RHR_CAPTURE_MS = 10_000
+export const RHR_MAX_MS = 60_000
+export const RHR_MAX_SAMPLES = 3600
 export const RHR_DURATION_MS = 15_000
 export const RHR_SETTLE_MS = 2_000
 export const RHR_POSITIONS = [
@@ -22,6 +28,7 @@ export type PpgSample = {
   blueClipped?: number
 }
 export type RhrRecord = {
+  protocolVersion?: typeof RHR_VERSION | typeof RHR_LEGACY_VERSION
   samples: PpgSample[]
   elapsedMs: number
   interruption: string | null
@@ -38,6 +45,9 @@ export type RhrAnalysis = {
   agreementBpm: number | null
   correlation: number | null
   channel: 'red' | 'green' | 'blue' | null
+  windowStartMs?: number
+  completeAtMs?: number
+  restarts?: number
 }
 const mean = (a: number[]) =>
   a.reduce((s, v) => s + v, 0) / Math.max(1, a.length)
@@ -61,10 +71,15 @@ export function fingerPresent(s: PpgSample) {
 export function validateRhrRecord(record: RhrRecord): boolean {
   if (
     !Array.isArray(record.samples) ||
-    record.samples.length > 1500 ||
+    record.samples.length >
+      (record.protocolVersion === RHR_VERSION ? RHR_MAX_SAMPLES : 1500) ||
     !Number.isFinite(record.elapsedMs) ||
     record.elapsedMs < 0 ||
-    record.elapsedMs > 15_000
+    record.elapsedMs >
+      (record.protocolVersion === RHR_VERSION ? RHR_MAX_MS : 15_000) ||
+    (record.protocolVersion !== undefined &&
+      record.protocolVersion !== RHR_VERSION &&
+      record.protocolVersion !== RHR_LEGACY_VERSION)
   )
     return false
   let previous = -1
@@ -102,7 +117,7 @@ function correlation(a: number[], lag: number) {
   }
   return xx && yy ? xy / Math.sqrt(xx * yy) : 0
 }
-function analyzeChannel(samples: PpgSample[], key: 'r' | 'g' | 'b') {
+function analyzeChannel(samples: PpgSample[], key: 'r' | 'g' | 'b', trim = 30) {
   const clippingKey =
     key === 'r' ? 'redClipped' : key === 'g' ? 'greenClipped' : 'blueClipped'
   // Reject a damaged channel without discarding usable independent channels.
@@ -134,7 +149,7 @@ function analyzeChannel(samples: PpgSample[], key: 'r' | 'g' | 'b') {
   )
   const signal = detrended
     .map((_, i) => mean(detrended.slice(Math.max(0, i - 1), i + 2)))
-    .slice(30, -30)
+    .slice(trim, -trim)
   const rms = Math.sqrt(mean(signal.map((x) => x * x)))
   const candidates: { lag: number; value: number }[] = []
   for (let lag = 9; lag <= 62; lag++) {
@@ -201,6 +216,10 @@ function analyzeChannel(samples: PpgSample[], key: 'r' | 'g' | 'b') {
     beats: peaks.length,
     deviation,
     rms,
+    acBpm,
+    lastPeakAt: refined.length
+      ? start + ((trim + refined.at(-1)!) / hz) * 1000
+      : null,
     channel:
       key === 'r'
         ? ('red' as const)
@@ -223,7 +242,7 @@ export function analyzeRhr(record: RhrRecord): RhrAnalysis {
     correlation: null,
     channel: null,
   }
-  if (!validateRhrRecord(record)) {
+  if (!validateRhrRecord(record) || record.protocolVersion === RHR_VERSION) {
     reasons.push('invalid-record')
     return empty
   }
@@ -307,7 +326,9 @@ export function rhrReason(reasons: string[]) {
   if (reasons.includes('camera-light'))
     return 'The camera light was unavailable. Choose a supported rear camera and try again.'
   if (reasons.includes('interrupted'))
-    return 'The scan was interrupted. Keep this screen open for all 15 seconds.'
+    return 'The scan was interrupted. Keep this screen open until measurement is complete.'
+  if (reasons.includes('signal-timeout'))
+    return 'A stable pulse could not be confirmed within 60 seconds. Rest your hand, check the active lens and start a new attempt.'
   if (reasons.includes('too-dark'))
     return 'The lens is too dark. Check that the rear light is on and cover the active camera lens with your fingertip, close to the light.'
   if (reasons.includes('overexposed'))
@@ -322,4 +343,108 @@ export function rhrReason(reasons: string[]) {
   )
     return 'The optical signals were inconsistent. Rest your hand, avoid pressing hard and repeat.'
   return 'The pulse signal was not clear or steady enough. Rest your hand, adjust your fingertip and repeat.'
+}
+
+/** Quality screen for the live detection window or the final 10-second window. */
+export function analyzeOpticalWindow(
+  samples: PpgSample[],
+  targetMs: number,
+  endMs: number,
+  verifyHalves = false,
+): RhrAnalysis & { lastPeakAt: number | null } {
+  const reasons: string[] = [],
+    span = samples.length > 1 ? samples.at(-1)!.t - samples[0].t : 0
+  const result = {
+    bpm: null,
+    quality: 'REPEAT' as 'ACCEPTED' | 'REPEAT',
+    reasons,
+    samples: samples.length,
+    fps: span > 0 ? ((samples.length - 1) * 1000) / span : 0,
+    usableSeconds: span / 1000,
+    beats: 0,
+    agreementBpm: null as number | null,
+    correlation: null as number | null,
+    channel: null as RhrAnalysis['channel'],
+    lastPeakAt: null as number | null,
+  }
+  if (
+    span < targetMs - 250 ||
+    !samples.length ||
+    endMs - samples.at(-1)!.t > 200
+  )
+    reasons.push('incomplete-signal')
+  if (result.fps < 14.5) reasons.push('low-frame-rate')
+  if (samples.some((s, i) => i > 0 && s.t - samples[i - 1].t > 200))
+    reasons.push('frame-gaps')
+  if (
+    !samples.length ||
+    samples.filter(fingerPresent).length / samples.length < 0.96
+  )
+    reasons.push('finger-contact')
+  if (samples.filter((s) => s.clipped > 0.65).length / samples.length > 0.04)
+    reasons.push('overexposed')
+  if (samples.filter((s) => s.r < 35).length / samples.length > 0.1)
+    reasons.push('too-dark')
+  if (reasons.length) return result
+  const candidates = (['r', 'g', 'b'] as const)
+    .map((k) => analyzeChannel(samples, k, 15))
+    .filter((c): c is NonNullable<typeof c> => !!c)
+    .map((c) => {
+      // A 5s rolling preview can contain only one interior peak at a low resting rate.
+      // Its strong repeated period is provisional; final acceptance still needs 4 peaks and estimator agreement.
+      const previewOnly =
+        !verifyHalves &&
+        c.beats === 1 &&
+        c.acBpm <= 50 &&
+        c.correlation >= 0.85 &&
+        span >= (2.2 * 60000) / c.acBpm
+      return { ...c, previewOnly, bpm: previewOnly ? c.acBpm : c.bpm }
+    })
+    .filter(
+      (c) =>
+        c.correlation >= 0.7 &&
+        (c.previewOnly ||
+          (c.agreement <= 5 &&
+            c.deviation <= 0.16 &&
+            c.beats >= (verifyHalves ? 4 : 2))) &&
+        Math.round(c.bpm) >= 30 &&
+        Math.round(c.bpm) <= 180,
+    )
+  const best = candidates.sort((a, b) => b.correlation - a.correlation)[0]
+  if (!best) {
+    reasons.push('weak-or-irregular-pulse')
+    return result
+  }
+  if (candidates.some((c) => Math.abs(c.bpm - best.bpm) > 5)) {
+    reasons.push('channel-disagreement')
+    return result
+  }
+  if (verifyHalves) {
+    const middle = (samples[0].t + samples.at(-1)!.t) / 2,
+      key = best.channel === 'red' ? 'r' : best.channel === 'green' ? 'g' : 'b'
+    const halves = [
+      samples.filter((s) => s.t <= middle),
+      samples.filter((s) => s.t >= middle),
+    ].map((s) => analyzeChannel(s, key, 15))
+    // Short halves may contain only one complete peak interval at a low resting rate.
+    // Check their autocorrelation period against the full-window dual-estimator result.
+    if (
+      halves.some(
+        (h) => !h || h.correlation < 0.6 || Math.abs(h.acBpm - best.bpm) > 7,
+      )
+    ) {
+      reasons.push('unstable-pulse')
+      return result
+    }
+  }
+  return {
+    ...result,
+    bpm: Math.round(best.bpm),
+    quality: 'ACCEPTED',
+    beats: best.beats,
+    correlation: best.correlation,
+    agreementBpm: best.previewOnly ? null : best.agreement,
+    channel: best.channel,
+    lastPeakAt: best.lastPeakAt,
+  }
 }

@@ -14,7 +14,7 @@ export default function RhrDemo() {
       <div className="mx-auto max-w-xl">
         <h1 className="text-2xl font-semibold">Resting heart rate</h1>
         <p className="my-3 text-sm text-slate-300">
-          15-second rear-camera preview · No player data saved
+          5s detection + 10s stable measurement · No player data saved
         </p>
         <label className="text-sm">
           App theme{' '}

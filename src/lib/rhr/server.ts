@@ -1,6 +1,13 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { z } from 'zod'
-import { RHR_POSITIONS, RHR_VERSION, type RhrRecord } from './protocol'
+import {
+  RHR_POSITIONS,
+  RHR_VERSION,
+  RHR_LEGACY_VERSION,
+  RHR_MAX_MS,
+  RHR_MAX_SAMPLES,
+  type RhrRecord,
+} from './protocol'
 import type { RhrAnswer } from './options'
 const secret = () => {
   const value =
@@ -15,7 +22,8 @@ export const rhrContextSchema = z.object({
   rested: z.literal(true),
 })
 export const rhrRecordSchema = z.object({
-  elapsedMs: z.number().finite().min(0).max(15000),
+  protocolVersion: z.enum([RHR_VERSION, RHR_LEGACY_VERSION]).optional(),
+  elapsedMs: z.number().finite().min(0).max(RHR_MAX_MS),
   interruption: z
     .enum(['hidden', 'blur', 'cancelled', 'camera-ended', 'orientation'])
     .nullable(),
@@ -34,7 +42,7 @@ export const rhrRecordSchema = z.object({
         blueClipped: z.number().min(0).max(1).optional(),
       }),
     )
-    .max(1500),
+    .max(RHR_MAX_SAMPLES),
 }) satisfies z.ZodType<RhrRecord>
 export async function rhrTicket(data: {
   playerId: string
@@ -42,8 +50,9 @@ export async function rhrTicket(data: {
   questionId: string
   position: string
   rested: true
+  protocolVersion?: typeof RHR_VERSION | typeof RHR_LEGACY_VERSION
 }) {
-  return new SignJWT({ ...data, version: RHR_VERSION })
+  return new SignJWT({ ...data, version: data.protocolVersion ?? RHR_VERSION })
     .setProtectedHeader({ alg: 'HS256' })
     .setAudience('rhr-start')
     .setIssuedAt()
@@ -84,7 +93,9 @@ export async function verifyRhrAnswer(
       p.surveyId !== scope.surveyId ||
       p.playerId !== scope.playerId ||
       p.questionId !== scope.questionId ||
-      p.protocolVersion !== RHR_VERSION ||
+      !([RHR_VERSION, RHR_LEGACY_VERSION] as unknown[]).includes(
+        p.protocolVersion,
+      ) ||
       p.kind !== 'RHR' ||
       p.quality !== 'ACCEPTED' ||
       typeof p.bpm !== 'number' ||
@@ -92,7 +103,19 @@ export async function verifyRhrAnswer(
       p.bpm > 180 ||
       !RHR_POSITIONS.includes(p.position as (typeof RHR_POSITIONS)[number]) ||
       p.rested !== true ||
-      p.durationSeconds !== 15
+      (p.protocolVersion === RHR_LEGACY_VERSION
+        ? p.durationSeconds !== 15
+        : typeof p.durationSeconds !== 'number' ||
+          !Number.isFinite(p.durationSeconds) ||
+          p.durationSeconds < 15 ||
+          p.durationSeconds > 60 ||
+          p.targetDurationSeconds !== 15 ||
+          p.detectionSeconds !== 5 ||
+          p.stableWindowSeconds !== 10 ||
+          typeof p.restarts !== 'number' ||
+          !Number.isInteger(p.restarts) ||
+          p.restarts < 0 ||
+          p.restarts > 240)
     )
       return null
     return {
@@ -100,8 +123,16 @@ export async function verifyRhrAnswer(
       bpm: p.bpm,
       position: p.position as RhrAnswer['position'],
       rested: true,
-      durationSeconds: 15,
-      protocolVersion: RHR_VERSION,
+      durationSeconds: Number(p.durationSeconds),
+      protocolVersion: String(p.protocolVersion),
+      ...(p.protocolVersion === RHR_VERSION
+        ? {
+            targetDurationSeconds: 15 as const,
+            detectionSeconds: 5 as const,
+            stableWindowSeconds: 10 as const,
+            restarts: Number(p.restarts),
+          }
+        : {}),
       ...(typeof p.algorithmVersion === 'string'
         ? { algorithmVersion: p.algorithmVersion }
         : {}),

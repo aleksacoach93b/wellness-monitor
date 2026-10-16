@@ -10,10 +10,12 @@ import {
   surveyOpen,
 } from '@/lib/pvt/server'
 import {
-  analyzeRhr,
   RHR_VERSION,
   RHR_ALGORITHM_VERSION,
+  RHR_LEGACY_VERSION,
+  RHR_LEGACY_ALGORITHM_VERSION,
 } from '@/lib/rhr/protocol'
+import { analyzeRhrRecord } from '@/lib/rhr/session'
 import { isRhrQuestion, type RhrAnswer } from '@/lib/rhr/options'
 import {
   rhrContextSchema,
@@ -28,6 +30,7 @@ const json = (body: unknown, status = 200) =>
 const schema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('start'),
+    protocolVersion: z.enum([RHR_VERSION, RHR_LEGACY_VERSION]).optional(),
     playerId: z.string().min(1).max(100),
     questionId: z.string().min(1).max(100),
     password: z.string().max(100).optional(),
@@ -47,7 +50,7 @@ export async function POST(
   try {
     const { surveyId } = await params,
       raw = await request.text()
-    if (raw.length > 300000) return json({ error: 'Record too large.' }, 413)
+    if (raw.length > 1_000_000) return json({ error: 'Record too large.' }, 413)
     const body = schema.parse(JSON.parse(raw))
     if (body.action === 'finish') {
       let ticket
@@ -61,7 +64,9 @@ export async function POST(
       }
       if (
         ticket.surveyId !== surveyId ||
-        ticket.version !== RHR_VERSION ||
+        ![RHR_VERSION, RHR_LEGACY_VERSION].includes(String(ticket.version)) ||
+        ticket.version !==
+          (body.record.protocolVersion ?? RHR_LEGACY_VERSION) ||
         !ticket.iat
       )
         return json({ error: 'Invalid measurement session.' }, 401)
@@ -87,7 +92,7 @@ export async function POST(
         )
       )
         return json({ error: 'Measurement is no longer available.' }, 403)
-      const analysis = analyzeRhr(body.record)
+      const analysis = analyzeRhrRecord(body.record)
       if (analysis.quality !== 'ACCEPTED' || analysis.bpm === null)
         return json({ accepted: false, analysis })
       const result: RhrAnswer = {
@@ -95,10 +100,26 @@ export async function POST(
         bpm: analysis.bpm,
         position: context.position,
         rested: true,
-        durationSeconds: 15,
-        protocolVersion: RHR_VERSION,
-        algorithmVersion: RHR_ALGORITHM_VERSION,
-        measuredAt: new Date(ticket.iat * 1000 + 15000).toISOString(),
+        durationSeconds:
+          ticket.version === RHR_VERSION
+            ? Math.round(body.record.elapsedMs / 100) / 10
+            : 15,
+        protocolVersion: String(ticket.version),
+        algorithmVersion:
+          ticket.version === RHR_VERSION
+            ? RHR_ALGORITHM_VERSION
+            : RHR_LEGACY_ALGORITHM_VERSION,
+        ...(ticket.version === RHR_VERSION
+          ? {
+              targetDurationSeconds: 15 as const,
+              detectionSeconds: 5 as const,
+              stableWindowSeconds: 10 as const,
+              restarts: analysis.restarts!,
+            }
+          : {}),
+        measuredAt: new Date(
+          ticket.iat * 1000 + body.record.elapsedMs,
+        ).toISOString(),
         quality: 'ACCEPTED',
         torch: body.record.torch,
         fps: Math.round(analysis.fps * 10) / 10,
@@ -157,6 +178,7 @@ export async function POST(
         surveyId,
         questionId: body.questionId,
         ...body.context,
+        protocolVersion: body.protocolVersion ?? RHR_LEGACY_VERSION,
       }),
     })
   } catch (error) {

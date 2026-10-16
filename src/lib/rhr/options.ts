@@ -1,4 +1,4 @@
-import { RHR_VERSION, type RhrPosition } from './protocol'
+import { RHR_VERSION, RHR_LEGACY_VERSION, type RhrPosition } from './protocol'
 export const rhrOptions = () =>
   JSON.stringify({
     widget: 'RHR_CAMERA',
@@ -20,7 +20,7 @@ export function validRhrOptions(raw: unknown) {
     const x = JSON.parse(String(raw))
     return (
       x.widget === 'RHR_CAMERA' &&
-      x.protocolVersion === RHR_VERSION &&
+      [RHR_VERSION, RHR_LEGACY_VERSION].includes(x.protocolVersion) &&
       x.durationSeconds === 15
     )
   } catch {
@@ -32,7 +32,11 @@ export type RhrAnswer = {
   bpm: number
   position: RhrPosition
   rested: true
-  durationSeconds: 15
+  durationSeconds: number
+  targetDurationSeconds?: 15
+  detectionSeconds?: 5
+  stableWindowSeconds?: 10
+  restarts?: number
   protocolVersion: string
   algorithmVersion?: string
   measuredAt: string
@@ -59,7 +63,9 @@ export function parseRhrAnswer(raw: string): RhrAnswer | null {
 }
 export const rhrAnswerText = (raw: string) => {
   const x = parseRhrAnswer(raw)
-  return x ? `${x.bpm} bpm · ${x.position} · 15 seconds · Camera estimate` : '—'
+  return x
+    ? `${x.bpm} bpm · ${x.position} · ${x.durationSeconds} seconds · Camera estimate`
+    : '—'
 }
 export const RHR_EXPORT_FIELDS = [
   'HR bpm',

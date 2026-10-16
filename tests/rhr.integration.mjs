@@ -311,6 +311,152 @@ try {
       (await db.response.count({ where: { id: submitted.data.id } })) === 1,
     'invalid receipt cannot replace existing wellness',
   )
+  // Explicit v2 start keeps the old question definition and exercises server replay.
+  const v2Start = await request(path, {
+    ...start,
+    protocolVersion: 'camera-rhr-v2',
+  })
+  check(
+    v2Start.status === 200,
+    'v2 start accepts an existing v1 widget definition',
+  )
+  const v2Payload = decodeJwt(v2Start.data.ticket)
+  const v2Ticket = await new SignJWT({ ...v2Payload })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt(Math.floor(Date.now() / 1000) - 40)
+    .setExpirationTime('10m')
+    .sign(key)
+  const v2Samples = []
+  let phase = 0
+  for (let t = 0; t <= 30000; t += 1000 / 30) {
+    const bpm = t < 10000 ? 110 : 80
+    phase += (2 * Math.PI * bpm) / 60 / 30
+    const v = Math.sin(phase) + 0.3 * Math.sin(phase * 2 + 0.4)
+    v2Samples.push({
+      t,
+      r: 180 + 3 * v,
+      g: 75 + 2 * v,
+      b: 45,
+      clipped: 0,
+      spread: 0.05,
+    })
+  }
+  // Find the deterministic completion using the same independently transpiled source as the unit harness.
+  const ts = await import('typescript'),
+    os = await import('node:os'),
+    p = await import('node:path')
+  const temporary = fs.mkdtempSync(p.join(os.tmpdir(), 'rhr-native-replay-'))
+  let v2Record, localAnalysis
+  try {
+    for (const name of ['protocol', 'session'])
+      fs.writeFileSync(
+        p.join(temporary, name + '.cjs'),
+        ts.default
+          .transpileModule(
+            fs.readFileSync(
+              new URL('../src/lib/rhr/' + name + '.ts', import.meta.url),
+              'utf8',
+            ),
+            {
+              compilerOptions: {
+                module: ts.default.ModuleKind.CommonJS,
+                target: ts.default.ScriptTarget.ES2022,
+              },
+            },
+          )
+          .outputText.replace(
+            'require("./protocol")',
+            'require("./protocol.cjs")',
+          ),
+      )
+    const { default: sessionModule } = await import(
+      'file://' + p.join(temporary, 'session.cjs')
+    )
+    const engine = new sessionModule.RhrSession(),
+      used = []
+    for (const sample of v2Samples) {
+      used.push(sample)
+      const v = engine.push(sample)
+      if (v.stage === 'complete') {
+        v2Record = {
+          protocolVersion: 'camera-rhr-v2',
+          samples: used,
+          elapsedMs: sample.t,
+          torch: true,
+          interruption: null,
+        }
+        localAnalysis = v.analysis
+        break
+      }
+    }
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true })
+  }
+  check(
+    v2Record && localAnalysis.restarts >= 1 && v2Record.elapsedMs > 20000,
+    'changed signal requires a fresh complete stable window',
+  )
+  check(
+    (await request(path, { action: 'finish', ticket, record: v2Record }))
+      .status === 401,
+    'legacy ticket cannot authorize the longer protocol',
+  )
+  const v2Good = await request(path, {
+    action: 'finish',
+    ticket: v2Ticket,
+    record: v2Record,
+    bpm: 110,
+    restarts: 0,
+  })
+  check(
+    v2Good.status === 200 &&
+      v2Good.data.accepted &&
+      Math.abs(v2Good.data.result.bpm - 80) <= 2,
+    'server independently accepts the new stable 80 BPM window',
+  )
+  check(
+    v2Good.data.result.restarts === localAnalysis.restarts &&
+      v2Good.data.result.stableWindowSeconds === 10 &&
+      v2Good.data.result.durationSeconds > 20,
+    'server signs actual elapsed duration, stable window and restarts',
+  )
+  const v2Saved = await request('/api/responses', {
+    ...wellness,
+    answers: [
+      {
+        questionId,
+        value: JSON.stringify({
+          ...v2Good.data.result,
+          bpm: 110,
+          durationSeconds: 15,
+          restarts: 0,
+        }),
+      },
+      { questionId: 'rhr-number', value: '30' },
+    ],
+  })
+  check(
+    v2Saved.status === 200,
+    'v2 result submits through the existing wellness questionnaire',
+  )
+  const v2Answer = JSON.parse(
+    v2Saved.data.answers.find((a) => a.questionId === questionId).value,
+  )
+  check(
+    v2Answer.bpm === 80 &&
+      v2Answer.durationSeconds > 20 &&
+      v2Answer.restarts >= 1 &&
+      !v2Answer.receipt,
+    'tampered displayed values cannot replace signed quality metadata',
+  )
+  const v2Csv = await fetch(base + `/api/surveys/${surveyId}/export/csv`).then(
+    (r) => r.text(),
+  )
+  check(
+    v2Csv.includes('camera-rhr-v2/quality-window-v3') &&
+      v2Csv.includes(String(v2Answer.durationSeconds)),
+    'main CSV exports the current protocol and actual duration',
+  )
   fs.writeFileSync('/tmp/rhr-test-admin-cookie', 'wm_admin_session=' + admin, {
     mode: 0o600,
   })

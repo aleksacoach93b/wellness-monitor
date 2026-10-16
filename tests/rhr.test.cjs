@@ -1245,7 +1245,12 @@ test('Android dim manual image is flagged independently of heart rate or estimat
   const s = signal(55)
     .samples.filter((s) => s.t <= 3000)
     .map((s) => ({ ...s, r: 87 + Math.sin(s.t / 200) * 0.2, g: 9, b: 0 }))
-  assert.equal(checkCamera(s, 3000, true).code, 'weak-light')
+  assert.equal(checkCamera(s, 3000, true, true).code, 'weak-light')
+  assert.equal(
+    checkCamera(s, 3000, true, false).status,
+    'ready',
+    'Automatic/unsupported Android exposure retains the original light check',
+  )
   assert.equal(
     checkCamera(s, 3000).status,
     'ready',

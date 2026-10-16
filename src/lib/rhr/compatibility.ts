@@ -50,6 +50,7 @@ export function checkCamera(
   samples: PpgSample[],
   elapsedMs: number,
   stableColors = false,
+  manualLightCheck = false,
 ): CameraCheck {
   const recent = samples.filter((s) => s.t >= Math.max(0, elapsedMs - 2500))
   const stats = frameSummary(recent)
@@ -109,7 +110,7 @@ export function checkCamera(
       'The red image is near its upper limit and the other colors are almost empty. Camera lighting needs adjustment before measuring.',
     )
   if (stableColors) {
-    if (stats.red < 120 && stats.green < 20)
+    if (manualLightCheck && stats.red < 120 && stats.green < 20)
       return result(
         'problem',
         'weak-light',

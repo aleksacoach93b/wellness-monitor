@@ -37,6 +37,8 @@ import {
   releasePulseExposureHold,
   needsAndroidCameraHold,
   RHR_ACQUISITION_VERSION,
+  adjustAndroidPulseGain,
+  type GainAdjustment,
   type CameraHold,
   type ExposureAdjustment,
   type TorchState,
@@ -160,6 +162,13 @@ export default function RhrQuestion({
       (ExposureAdjustment & { stats: ReturnType<typeof frameSummary> })[]
     >([]),
     cameraHold = useRef<CameraHold | null>(null),
+    gainAdjustments = useRef<
+      (GainAdjustment & {
+        stats: ReturnType<typeof frameSummary>
+        after?: ReturnType<typeof frameSummary>
+        imageResponse?: 'matched' | 'no-response'
+      })[]
+    >([]),
     captureInfo = useRef<{
       camera: ReturnType<typeof cameraDetails>
       preflight: CameraCheck
@@ -169,6 +178,7 @@ export default function RhrQuestion({
       exposureAdjustments: typeof exposureAdjustments.current
       acquisitionVersion: string
       cameraHold: CameraHold | null
+      gainAdjustments: typeof gainAdjustments.current
       settingsTrace: {
         t: number
         settings: ReturnType<typeof cameraDetails>['settings']
@@ -232,6 +242,7 @@ export default function RhrQuestion({
     exposureAdjustments.current = []
     setExposureNote('')
     cameraHold.current = null
+    gainAdjustments.current = []
     setHoldNote('')
   }
   const save = async (
@@ -360,6 +371,9 @@ export default function RhrQuestion({
       lastAdjustment = -Infinity,
       blocked = exposureAdjustments.current.some(
         (a) => a.status !== 'requested',
+      ),
+      gainBlocked = gainAdjustments.current.some(
+        (a) => a.status !== 'requested' || a.imageResponse === 'no-response',
       )
     const element = video.current
     const started = performance.now(),
@@ -367,6 +381,59 @@ export default function RhrQuestion({
     setupSamples.current = samples
     setCameraCheck(checkCamera([], 0))
     const android = needsAndroidCameraHold(navigator.userAgent)
+    const adjustGain = async (stats: ReturnType<typeof frameSummary>) => {
+      const track = stream.current?.getVideoTracks()[0]
+      if (!track || adjusting || cancelled) return
+      adjusting = true
+      cameraChanging.current = true
+      setCameraCheck({
+        ...checkCamera([], 0),
+        code: 'gain-calibration',
+        message: 'Optimizing camera sensitivity from real image brightness…',
+      })
+      setHoldNote('Optimizing camera lighting. Keep your fingertip still…')
+      try {
+        const adjustment = await adjustAndroidPulseGain(track, stats.red)
+        if (cancelled) return
+        gainAdjustments.current.push({ ...adjustment, stats })
+        gainBlocked = adjustment.status !== 'requested'
+        const state =
+          (track.getSettings() as MediaTrackSettings & { torch?: boolean })
+            .torch === true
+            ? 'on'
+            : await enableCameraLight(track)
+        if (cancelled) return
+        setLight(state)
+        setLightConfirmed(state === 'on')
+        setActiveCamera(cameraDetails(track, camera, state))
+        setHoldNote(
+          gainBlocked
+            ? 'Camera sensitivity could not be confirmed. Checking the image and automatic exposure fallback.'
+            : 'Sensitivity adjustment requested. Checking its effect in fresh camera frames…',
+        )
+      } catch {
+        if (cancelled) return
+        gainBlocked = true
+        gainAdjustments.current.push({
+          status: 'unsupported',
+          before: null,
+          requested: null,
+          reported: null,
+          stats,
+        })
+        setHoldNote(
+          'This browser could not adjust sensitivity. Checking automatic exposure fallback.',
+        )
+      } finally {
+        if (!cancelled) {
+          samples.length = 0
+          lastAdjustment = performance.now() - started
+          lastPaint = -Infinity
+          cameraChanging.current = false
+        }
+        adjusting = false
+      }
+    }
     const stabilize = async (releaseExposure = false) => {
       const track = stream.current?.getVideoTracks()[0]
       if (!track || adjusting || cancelled) return
@@ -504,7 +571,50 @@ export default function RhrQuestion({
         setContact(covered)
         setHint(checked.message)
         lastPaint = t
+        const lastGain = gainAdjustments.current.at(-1)
         if (
+          !adjusting &&
+          t - lastAdjustment >= 1500 &&
+          checked.stats.seconds >= 1.5 &&
+          checked.stats.contactFraction >= 0.8 &&
+          lastGain &&
+          lastGain.status === 'requested' &&
+          !lastGain.after
+        ) {
+          lastGain.after = checked.stats
+          const delta = checked.stats.red - lastGain.stats.red
+          const increasing = (lastGain.requested ?? 0) > (lastGain.before ?? 0)
+          lastGain.imageResponse =
+            (increasing ? delta : -delta) >
+            Math.max(2, lastGain.stats.red * 0.05)
+              ? 'matched'
+              : 'no-response'
+          if (lastGain.imageResponse === 'no-response') gainBlocked = true
+        }
+        const manualExposure =
+          cameraHold.current &&
+          !cameraHold.current.exposureReleased &&
+          cameraHold.current.controls.some(
+            (c) => c.mode === 'exposureMode' && c.status !== 'unsupported',
+          )
+        const needsGain =
+          android &&
+          manualExposure &&
+          lightConfirmed &&
+          checked.stats.red >= 35 &&
+          checked.stats.contactFraction >= 0.8 &&
+          (['weak-light', 'red-ceiling'].includes(checked.code) ||
+            (checked.status === 'ready' &&
+              checked.stats.red < 140 &&
+              checked.stats.green < 20))
+        if (
+          !adjusting &&
+          needsGain &&
+          !gainBlocked &&
+          gainAdjustments.current.length < 4
+        ) {
+          void adjustGain(checked.stats)
+        } else if (
           !adjusting &&
           checked.status === 'problem' &&
           cameraHold.current &&
@@ -514,6 +624,7 @@ export default function RhrQuestion({
           ) &&
           [
             'too-dark',
+            'weak-light',
             'too-bright',
             'red-ceiling',
             'slow-frames',
@@ -546,7 +657,7 @@ export default function RhrQuestion({
           android &&
           lightConfirmed &&
           !cameraHold.current &&
-          ['ready', 'settling-colors'].includes(checked.code)
+          ['ready', 'settling-colors', 'weak-light'].includes(checked.code)
         )
           void stabilize()
         if (checked.status === 'ready' && cameraHold.current && !adjusting)
@@ -609,6 +720,7 @@ export default function RhrQuestion({
     exposureAdjustments.current = []
     setExposureNote('')
     cameraHold.current = null
+    gainAdjustments.current = []
     setHoldNote('')
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext)
@@ -854,6 +966,7 @@ export default function RhrQuestion({
           exposureAdjustments: [...exposureAdjustments.current],
           acquisitionVersion: RHR_ACQUISITION_VERSION,
           cameraHold: cameraHold.current,
+          gainAdjustments: gainAdjustments.current,
           settingsTrace: [
             {
               t: 0,
@@ -1632,6 +1745,7 @@ export default function RhrQuestion({
                                       exposureAdjustments.current,
                                     acquisitionVersion: RHR_ACQUISITION_VERSION,
                                     cameraHold: cameraHold.current,
+                                    gainAdjustments: gainAdjustments.current,
                                   },
                                   'resting-hr-camera.json',
                                 )

@@ -1239,3 +1239,89 @@ test('Android color settling detects slow processing drift without vetoing ordin
     'The default iPhone camera check is unchanged',
   )
 })
+
+test('Android dim manual image is flagged independently of heart rate or estimator thresholds', () => {
+  const { checkCamera } = require(path.join(dir, 'compatibility.js'))
+  const s = signal(55)
+    .samples.filter((s) => s.t <= 3000)
+    .map((s) => ({ ...s, r: 87 + Math.sin(s.t / 200) * 0.2, g: 9, b: 0 }))
+  assert.equal(checkCamera(s, 3000, true).code, 'weak-light')
+  assert.equal(
+    checkCamera(s, 3000).status,
+    'ready',
+    'iPhone acquisition remains unchanged',
+  )
+})
+
+test('adaptive ISO steps use measured light, advertised bounds and preserve exposure/light/rate', async () => {
+  const { adjustAndroidPulseGain } = require(path.join(dir, 'camera.js'))
+  let iso = 100,
+    constraints = {
+      frameRate: { min: 20, ideal: 30 },
+      advanced: [{ torch: true, exposureMode: 'manual', exposureTime: 300 }],
+    }
+  const calls = [],
+    track = {
+      readyState: 'live',
+      getSettings: () => ({ iso, exposureMode: 'none' }),
+      getCapabilities: () => ({ iso: { min: 100, max: 203936, step: 1 } }),
+      getConstraints: () => constraints,
+      applyConstraints: async (q) => {
+        calls.push(q)
+        constraints = q
+        iso = q.iso
+      },
+    }
+  assert.equal((await adjustAndroidPulseGain(track, 87)).requested, 200)
+  assert.equal((await adjustAndroidPulseGain(track, 123)).requested, 400)
+  assert.equal((await adjustAndroidPulseGain(track, 174)).status, 'limit')
+  assert.equal((await adjustAndroidPulseGain(track, 253)).requested, 200)
+  assert.ok(
+    calls.every(
+      (q) =>
+        q.frameRate.min === 20 &&
+        q.torch &&
+        q.exposureMode === 'manual' &&
+        q.advanced.every(
+          (a) => a.exposureTime === 300 || a.exposureTime === undefined,
+        ),
+    ),
+  )
+  for (let i = 0; i < 8; i++) await adjustAndroidPulseGain(track, 87)
+  assert.equal(iso, 1600)
+  assert.equal((await adjustAndroidPulseGain(track, 87)).status, 'limit')
+  iso = 3200
+  assert.equal(
+    (await adjustAndroidPulseGain(track, 87)).status,
+    'limit',
+    'Do not reduce already-high ISO while trying to brighten',
+  )
+  iso = 100
+  assert.equal(
+    (
+      await adjustAndroidPulseGain(
+        { ...track, applyConstraints: async () => {} },
+        87,
+      )
+    ).status,
+    'ignored',
+  )
+  assert.equal(
+    (
+      await adjustAndroidPulseGain(
+        { ...track, getCapabilities: () => ({}) },
+        87,
+      )
+    ).status,
+    'unsupported',
+  )
+  assert.equal(
+    (
+      await adjustAndroidPulseGain(
+        { ...track, getSettings: () => ({ iso, exposureMode: 'continuous' }) },
+        87,
+      )
+    ).status,
+    'unsupported',
+  )
+})

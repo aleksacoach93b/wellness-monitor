@@ -109,6 +109,12 @@ export function checkCamera(
       'The red image is near its upper limit and the other colors are almost empty. Camera lighting needs adjustment before measuring.',
     )
   if (stableColors) {
+    if (stats.red < 120 && stats.green < 20)
+      return result(
+        'problem',
+        'weak-light',
+        'The camera image is too dim for this setup. Adjusting camera sensitivity before measuring.',
+      )
     const end = recent.at(-1)!.t,
       start = recent[0].t
     const average = (key: 'r' | 'g', points: PpgSample[]) =>

@@ -41,6 +41,7 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       window.__holdCalls = []
       window.__releaseCalls = 0
       window.__changesInCapture = 0
+      window.__gainCalls = []
       document.addEventListener(
         'click',
         (e) => {
@@ -73,7 +74,8 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
         const x = canvas.getContext('2d'),
           created = performance.now()
         let ev = 0,
-          applied = {}
+          applied = {},
+          iso = 100
         const controls = {
           whiteBalanceMode: 'continuous',
           focusMode: 'continuous',
@@ -99,6 +101,19 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
             x.fillStyle = `rgb(180,${Math.round(40 + ((t * 10) % 40))},15)`
           if (mode === 'android-rollback' && controls.exposureMode === 'manual')
             x.fillStyle = 'rgb(5,1,0)'
+          if (mode.startsWith('android-gain')) {
+            const flat = [
+              'android-gain-ignored',
+              'android-gain-no-effect',
+            ].includes(mode)
+            const w = flat ? 0 : v
+            if (controls.exposureMode === 'manual') {
+              const gain =
+                mode === 'android-gain-no-effect' ? 1 : Math.sqrt(iso / 100)
+              x.fillStyle = `rgb(${Math.round((87 + 2 * w) * gain)},${Math.round((9 + 0.5 * w) * gain)},0)`
+            } else
+              x.fillStyle = `rgb(${Math.round(180 + 8 * w)},${Math.round(75 + 5 * w)},45)`
+          }
           x.fillRect(0, 0, 128, 128)
         }
         draw()
@@ -124,11 +139,29 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           torch: window.__light,
           exposureCompensation: ev,
           ...controls,
+          ...(mode.startsWith('android-gain')
+            ? {
+                iso,
+                exposureMode:
+                  controls.exposureMode === 'manual'
+                    ? 'none'
+                    : controls.exposureMode,
+              }
+            : {}),
         })
         track.getConstraints = () => applied
         track.getCapabilities = () => ({
           torch: true,
           frameRate: { min: 15, max: 60 },
+          ...(mode.startsWith('android-gain')
+            ? {
+                iso: {
+                  min: 100,
+                  max: mode === 'android-gain-limit' ? 100 : 203936,
+                  step: 1,
+                },
+              }
+            : {}),
           ...(mode.startsWith('android') || mode === 'iphone-controls'
             ? {
                 whiteBalanceMode:
@@ -153,7 +186,13 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           if (window.__scanStart !== null) window.__changesInCapture++
           if (mode === 'android-cancel' && q.whiteBalanceMode === 'manual')
             await new Promise((resolve) => setTimeout(resolve, 800))
+          if (mode === 'android-gain-cancel' && q.iso !== undefined)
+            await new Promise((resolve) => setTimeout(resolve, 800))
           if (track.readyState !== 'live') throw Error('Camera stopped')
+          if (q.iso !== undefined) {
+            window.__gainCalls.push(q.iso)
+            if (mode !== 'android-gain-ignored') iso = q.iso
+          }
           for (const k of ['whiteBalanceMode', 'focusMode', 'exposureMode']) {
             if (q[k] !== undefined && q[k] !== controls[k]) {
               window.__holdCalls.push({ mode: k, requested: q[k] })
@@ -221,7 +260,62 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
       assert.equal(await page.evaluate(() => window.__light), false)
     }
     await setup()
-    if (mode.startsWith('android')) {
+    if (mode === 'android-gain-cancel') {
+      await page
+        .getByTestId('rhr-hold-note')
+        .filter({ hasText: 'Optimizing camera lighting' })
+        .waitFor({ timeout: 12000 })
+      await page
+        .getByRole('button', { name: 'Close resting HR', exact: true })
+        .click()
+      await page.waitForTimeout(1000)
+      assert.equal(await page.getByRole('dialog').count(), 0)
+    } else if (mode.startsWith('android-gain')) {
+      await ready()
+      if (['android-gain-ignored', 'android-gain-no-effect'].includes(mode)) {
+        await page
+          .getByRole('button', { name: 'Start measurement', exact: true })
+          .click()
+        await page.getByTestId('rhr-repeat').waitFor({ timeout: 20000 })
+        await page.getByText('Scan details', { exact: true }).click()
+        const downloading = page.waitForEvent('download')
+        await page
+          .getByRole('button', { name: 'Download signal diagnostics' })
+          .click()
+        const data = JSON.parse(
+          require('node:fs').readFileSync(
+            await (await downloading).path(),
+            'utf8',
+          ),
+        )
+        assert.equal(
+          data.capture.acquisitionVersion,
+          'android-adaptive-gain-v2',
+        )
+        assert.equal(data.capture.gainAdjustments.length, 1)
+        assert.equal(data.capture.cameraHold.exposureReleased, true)
+        assert.equal(data.analysis.bpm, null)
+        assert.equal(data.record.elapsedMs, 15000)
+        if (mode === 'android-gain-no-effect')
+          assert.equal(
+            data.capture.gainAdjustments[0].imageResponse,
+            'no-response',
+          )
+        else assert.equal(data.capture.gainAdjustments[0].status, 'ignored')
+      } else {
+        await finish()
+        if (mode === 'android-gain')
+          assert.deepEqual(
+            await page.evaluate(() => [...new Set(window.__gainCalls)]),
+            [200, 400],
+          )
+      }
+      assert.equal(await page.evaluate(() => window.__changesInCapture), 0)
+      assert.equal(
+        await page.evaluate(() => window.__releaseCalls),
+        mode === 'android-gain' ? 0 : 1,
+      )
+    } else if (mode.startsWith('android')) {
       await page.getByTestId('rhr-hold-note').waitFor({ timeout: 12000 })
       if (mode === 'android-cancel') {
         await page
@@ -249,7 +343,7 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
           )
           assert.equal(
             data.capture.acquisitionVersion,
-            'android-camera-hold-v1',
+            'android-adaptive-gain-v2',
           )
           assert.ok(
             data.capture.cameraHold.controls.some(

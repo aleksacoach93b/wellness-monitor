@@ -28,7 +28,7 @@ export async function enableCameraLight(
   }
   if (torchCapability(capability) === 'unsupported')
     throw new Error(
-      'This rear camera does not support the camera light. Choose another rear camera or open this page in Safari.',
+      'This rear camera does not support the camera light. Choose another rear camera or a browser that supports its camera light.',
     )
   const constraints = [
     { torch: true, advanced: [{ torch: true }] },
@@ -56,7 +56,7 @@ export async function enableCameraLight(
   }
   if (!applied)
     throw new Error(
-      'The camera light could not be switched on. Choose another rear camera or try Safari.',
+      'The camera light could not be switched on. Choose another rear camera or a browser that supports its camera light.',
     )
   if (track.readyState !== 'live')
     throw new Error('The rear camera has stopped. Enable it again.')

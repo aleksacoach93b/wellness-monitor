@@ -15,6 +15,7 @@ for (const name of [
   'fixed',
   'original',
   'restored',
+  'compatibility',
 ])
   fs.writeFileSync(
     path.join(dir, name + '.js'),
@@ -872,4 +873,131 @@ test('original sampling uses full spatial range and red-plus-green clipping', ()
     clipped: 1 / 3,
     spread: 85 / 255,
   })
+})
+
+test('camera setup measures actual delivered cadence and distinguishes missing/light/contact problems', () => {
+  const { checkCamera } = require(path.join(dir, 'compatibility.js'))
+  const frames = (fps, r = 180, g = 75, b = 45) =>
+    Array.from({ length: Math.floor(3 * fps) + 1 }, (_, i) => ({
+      t: (i * 1000) / fps,
+      r,
+      g,
+      b,
+      clipped: 0,
+      spread: 0.05,
+    }))
+  assert.equal(checkCamera(frames(30), 2000).status, 'checking')
+  assert.equal(checkCamera(frames(30), 3000).status, 'ready')
+  const slow = checkCamera(frames(15), 3000)
+  assert.equal(slow.code, 'slow-frames')
+  assert.match(slow.message, /15(\.0+)? fps/)
+  assert.equal(checkCamera([], 3000).code, 'no-frames')
+  assert.equal(checkCamera(frames(30, 10, 5, 5), 3000).code, 'too-dark')
+  assert.equal(checkCamera(frames(30, 200, 200, 200), 3000).code, 'contact')
+  assert.equal(
+    checkCamera(
+      frames(30).map((s) => ({ ...s, clipped: 0.9 })),
+      3000,
+    ).code,
+    'too-bright',
+  )
+  const gapped = frames(30).filter((s) => s.t < 2000 || s.t > 2250)
+  assert.equal(checkCamera(gapped, 3000).code, 'frame-gaps')
+  assert.equal(
+    checkCamera(
+      frames(30).filter((s) => s.t < 2000),
+      3000,
+    ).code,
+    'no-frames',
+  )
+})
+test('repeat failure explains actual low frame rate even when original analysis returns zero fps', () => {
+  const { captureFailure, frameSummary } = require(
+    path.join(dir, 'compatibility.js'),
+  )
+  const { analyzeRhrRecord } = require(path.join(dir, 'session.js'))
+  const r = { ...signal(60, { fps: 15 }), protocolVersion: 'camera-rhr-v4' }
+  const a = analyzeRhrRecord(r)
+  assert.equal(a.fps, 0)
+  assert.ok(Math.abs(frameSummary(r.samples).fps - 15) < 0.1)
+  assert.match(captureFailure(a, r), /15(\.0+)? fps/)
+  assert.match(
+    captureFailure({ ...a, reasons: ['interrupted'] }, r),
+    /interrupted/,
+  )
+})
+test('alternate camera skips the active ID, deduplicates entries and has no fake fallback', () => {
+  const { nextRearCamera, verifySelectedCamera } = require(
+    path.join(dir, 'compatibility.js'),
+  )
+  const ds = [{ deviceId: 'main' }, { deviceId: 'wide' }, { deviceId: 'main' }]
+  assert.equal(nextRearCamera(ds, 'main'), 'wide')
+  assert.equal(nextRearCamera(ds, 'wide'), 'main')
+  assert.equal(nextRearCamera([{ deviceId: 'main' }], 'main'), null)
+  assert.throws(
+    () =>
+      verifySelectedCamera('wide', {
+        deviceId: 'main',
+        facingMode: 'environment',
+      }),
+    /could not be verified/,
+  )
+  assert.throws(
+    () =>
+      verifySelectedCamera('main', { deviceId: 'main', facingMode: 'user' }),
+    /front camera/,
+  )
+  assert.doesNotThrow(() =>
+    verifySelectedCamera('wide', {
+      deviceId: 'wide',
+      facingMode: 'environment',
+    }),
+  )
+})
+test('explicit stream repair requests a minimum of 20 fps without changing estimator thresholds', async () => {
+  const { improveFrameStream } = require(path.join(dir, 'compatibility.js'))
+  let request = null
+  const track = {
+    getCapabilities: () => ({ frameRate: { min: 15, max: 60 } }),
+    applyConstraints: async (r) => {
+      request = r
+    },
+  }
+  await improveFrameStream(track)
+  assert.equal(request.frameRate.min, 20)
+  assert.equal(request.frameRate.ideal, 30)
+  assert.equal(request.width.ideal, 160)
+  await assert.rejects(
+    improveFrameStream({
+      ...track,
+      getCapabilities: () => ({ frameRate: { max: 15 } }),
+    }),
+    /below 20/,
+  )
+})
+test('local camera diagnostics are allowlisted and exclude unrelated metadata', () => {
+  const { cameraDetails } = require(path.join(dir, 'compatibility.js'))
+  const d = cameraDetails(
+    {
+      label: 'Back Camera',
+      getSettings: () => ({
+        deviceId: 'main',
+        groupId: 'secret-group',
+        frameRate: 15,
+        torch: true,
+      }),
+      getCapabilities: () => ({
+        torch: [false, true],
+        frameRate: { max: 60 },
+        unrelated: 'do-not-copy',
+      }),
+    },
+    'main',
+    'on',
+  )
+  assert.equal(d.actualId, 'main')
+  assert.equal(d.settings.frameRate, 15)
+  assert.deepEqual(d.capabilities.torch, [false, true])
+  assert.ok(!JSON.stringify(d).includes('secret-group'))
+  assert.ok(!JSON.stringify(d).includes('do-not-copy'))
 })

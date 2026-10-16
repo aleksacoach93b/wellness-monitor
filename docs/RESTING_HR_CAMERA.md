@@ -54,3 +54,17 @@ Primary references inform the approach; they do not validate our durations or cu
 - Device/channel/ROI differences: https://www.mdpi.com/1424-8220/17/10/2385
 - Camera/light API: https://www.w3.org/TR/image-capture/
 - WebKit light settings: https://bugs.webkit.org/show_bug.cgi?id=280970
+
+## Camera compatibility check (estimator unchanged)
+
+A three-second setup check counts distinct video frames, independently of advertised frameRate. It reports missing/stale frames, delivered rate below the original estimator's 20 fps requirement, gaps, dark/saturated frames and inconsistent optical coverage. The check is separate from the unchanged 15-second capture. A passed camera check is not a validated pulse or a guarantee of final acceptance. Setup remains bounded by the existing 30-second camera inactivity timeout.
+
+The explicit Improve camera stream action requests a compact 160×120 ideal stream with a minimum 20 fps and re-verifies the light afterwards. It never lowers estimator thresholds or modifies a working stream automatically. Unsupported/ignored constraints remain visible through measured setup failure. A compact preference is restored only after a complete accepted measurement used it.
+
+The picker opens the chosen camera immediately and compares the requested ID with the reported actual device ID, rejecting a reported mismatch or front camera. IDs are browser camera entries, not proof of distinct physical lenses: the player confirms the active lens using the preview. After a failed scan, Repeat with this camera preserves the selection; Try another rear camera requests a distinct exposed ID. If no alternative is exposed, the UI states that rather than suggesting a nonexistent alternate lens. Only accepted measurements remember the working camera ID locally.
+
+Setup Camera details offers a local download even when the camera check blocks starting; failed measurements retain the full signal download. Local diagnostic downloads now include requested/actual camera IDs, allowlisted settings/capabilities, user agent, light confirmation, setup statistics and actual captured-frame statistics. They contain no video/player identity, are never uploaded automatically and are never added to signed wellness answers. This distinguishes an early estimator rejection with fps:0 from an actual low-rate stream. The first working estimator and original sampling remain byte-identical/unchanged.
+
+Run owned synthetic camera cases with Playwright available through RHR_PLAYWRIGHT_MODULE, optional RHR_BROWSER, and RHR_SCENARIO=stable/slow/ignored/mismatch/flat/switch. `node tests/rhr.camera-browser.cjs` targets explicit RHR_BASE or loopback by default and blocks non-GET API requests. These tests establish UI/capture behavior only. Physical Honor Magic6 Pro/iPhone verification is still required.
+
+Vercel uses the same Webpack production build validated locally to avoid the recurring Turbopack Google-font query resolver failure. Fonts and dependencies are unchanged.

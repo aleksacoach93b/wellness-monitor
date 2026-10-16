@@ -23,7 +23,6 @@ import {
   RHR_RESTORED_ALGORITHM_VERSION as RHR_ALGORITHM_VERSION,
   RHR_POSITIONS,
   RHR_RESTORED_VERSION as RHR_VERSION,
-  rhrReason,
   type PpgSample,
   type RhrPosition,
   type RhrRecord,
@@ -40,12 +39,39 @@ import { RestoredRhrSession as RhrSession } from '@/lib/rhr/restored'
 import { fingerPresent } from '@/lib/rhr/original'
 import {
   sampleOriginalVideo as sampleVideo,
-  contactHint,
   opticalTrace,
 } from '@/lib/rhr/sampling'
+import {
+  cameraDetails,
+  captureFailure,
+  checkCamera,
+  frameSummary,
+  improveFrameStream,
+  nextRearCamera,
+  verifySelectedCamera,
+  type CameraCheck,
+} from '@/lib/rhr/compatibility'
 import { parseRhrAnswer, type RhrAnswer } from '@/lib/rhr/options'
 import '../pvt/pvt-focus.css'
 import './rhr.css'
+function downloadDiagnostics(payload: unknown, filename: string) {
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(payload)], { type: 'application/json' }),
+  )
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+function cameraName(devices: MediaDeviceInfo[], id: string) {
+  const index = devices.findIndex((d) => d.deviceId === id)
+  if (index < 0) return 'Rear camera'
+  const name = devices[index].label || 'Rear camera'
+  return `Camera ${index + 1} · ${name.length > 60 ? name.slice(0, 60) + '…' : name}`
+}
 const positionLabels = {
   seated: 'Seated',
   standing: 'Standing',
@@ -99,8 +125,12 @@ export default function RhrQuestion({
     [hint, setHint] = useState(
       'Cover the active camera lens with your fingertip',
     ),
-    [contactReady, setContactReady] = useState(false),
-    [exposureBusy, setExposureBusy] = useState(false),
+    [cameraCheck, setCameraCheck] = useState<CameraCheck>(() =>
+      checkCamera([], 0),
+    ),
+    [activeCamera, setActiveCamera] = useState<ReturnType<
+      typeof cameraDetails
+    > | null>(null),
     [diagnostics, setDiagnostics] = useState<RhrAnalysis | null>(null)
   const video = useRef<HTMLVideoElement>(null),
     canvas = useRef<HTMLCanvasElement>(null),
@@ -114,6 +144,15 @@ export default function RhrQuestion({
     deadline = useRef<ReturnType<typeof setTimeout> | null>(null),
     qualityClock = useRef<ReturnType<typeof setInterval> | null>(null),
     lastCapture = useRef<RhrRecord | null>(null),
+    compactStream = useRef(false),
+    setupSamples = useRef<PpgSample[]>([]),
+    captureInfo = useRef<{
+      camera: ReturnType<typeof cameraDetails>
+      preflight: CameraCheck
+      userAgent: string
+      lightConfirmed: boolean
+      compactStream: boolean
+    } | null>(null),
     pending = useRef<{
       record: RhrRecord
       ticket: string
@@ -166,6 +205,8 @@ export default function RhrQuestion({
     pending.current = null
     setResult(null)
     lastCapture.current = null
+    captureInfo.current = null
+    setupSamples.current = []
   }
   const save = async (
     record: RhrRecord,
@@ -181,7 +222,7 @@ export default function RhrQuestion({
     const analysis = analyzeRhrRecord(record)
     setDiagnostics(analysis)
     if (analysis.quality !== 'ACCEPTED') {
-      setError(rhrReason(analysis.reasons))
+      setError(captureFailure(analysis, record))
       setPhase('repeat')
       pending.current = null
       return
@@ -222,7 +263,8 @@ export default function RhrQuestion({
             data.error || 'Unable to save. Retry this measurement.',
           )
         if (!data.accepted) {
-          setError(rhrReason(data.analysis?.reasons || []))
+          setDiagnostics(data.analysis ?? analysis)
+          setError(captureFailure(data.analysis ?? analysis, record))
           setPhase('repeat')
           pending.current = null
           return
@@ -230,6 +272,26 @@ export default function RhrQuestion({
         answer = data.result
       }
       if (current !== generation.current) return
+      try {
+        if (captureInfo.current?.camera.actualId)
+          localStorage.setItem(
+            'rhr-working-camera-v1',
+            captureInfo.current.camera.actualId,
+          )
+        if (
+          captureInfo.current?.camera.actualId &&
+          captureInfo.current.compactStream
+        )
+          localStorage.setItem(
+            'rhr-working-stream-v1',
+            JSON.stringify({
+              deviceId: captureInfo.current.camera.actualId,
+              compact: true,
+            }),
+          )
+      } catch {
+        /* Optional device preference. */
+      }
       setResult(answer)
       setPhase('result')
       pending.current = null
@@ -260,39 +322,69 @@ export default function RhrQuestion({
       window.removeEventListener('orientationchange', orientation)
     }
   }, [phase])
-  // Observe contact before capture; retain the original camera exposure behavior.
+  // Count distinct real video frames; a polling interval would underreport camera FPS.
   useEffect(() => {
     if (phase !== 'ready') return
     let cancelled = false,
-      stable = 0,
-      previousTime = -1
-    const inspect = async () => {
-      if (
-        cancelled ||
-        !video.current ||
-        !canvas.current ||
-        video.current.currentTime === previousTime
-      )
-        return
-      previousTime = video.current.currentTime
-      const sample = sampleVideo(video.current, canvas.current, 0)
-      if (!sample) return
-      const covered = fingerPresent(sample)
-      stable = covered ? stable + 1 : 0
-      setContactReady(stable >= 6)
-      setContact(covered)
-      setHint(contactHint(sample))
+      callback: number | null = null,
+      raf = 0,
+      lastMedia = -1,
+      lastPaint = 0
+    const element = video.current
+    const started = performance.now(),
+      samples: PpgSample[] = []
+    setupSamples.current = samples
+    setCameraCheck(checkCamera([], 0))
+    const paint = () => {
+      if (cancelled) return
+      const t = performance.now() - started
+      if (t - lastPaint >= 250) {
+        const checked = checkCamera(samples, t)
+        setCameraCheck(checked)
+        const latest = samples.at(-1)
+        const covered = !!latest && t - latest.t <= 400 && fingerPresent(latest)
+        setContact(covered)
+        setHint(checked.message)
+        lastPaint = t
+      }
     }
-    const timer = setInterval(() => {
-      void inspect()
-    }, 125)
-    void inspect()
+    const schedule = () => {
+      if (cancelled) return
+      if (element?.requestVideoFrameCallback)
+        callback = element.requestVideoFrameCallback(sample)
+      else raf = requestAnimationFrame(sample)
+    }
+    const sample = () => {
+      if (cancelled) return
+      const v = element,
+        t = performance.now() - started
+      if (v && canvas.current && v.currentTime !== lastMedia) {
+        lastMedia = v.currentTime
+        const s = sampleVideo(v, canvas.current, t)
+        if (s) samples.push(s)
+        while (samples.length && samples[0].t < t - 3000) samples.shift()
+      }
+      paint()
+      schedule()
+    }
+    const clock = setInterval(paint, 250)
+    schedule()
     return () => {
       cancelled = true
-      clearInterval(timer)
+      clearInterval(clock)
+      cancelAnimationFrame(raf)
+      if (callback !== null) element?.cancelVideoFrameCallback?.(callback)
     }
   }, [phase])
-  const enableCamera = async () => {
+  const armCameraIdle = () => {
+    if (deadline.current) clearTimeout(deadline.current)
+    deadline.current = setTimeout(() => {
+      stopCamera()
+      setPhase('setup')
+      setError('Camera stopped after inactivity. Enable it again when ready.')
+    }, 30000)
+  }
+  const enableCamera = async (requestedId = camera) => {
     stopCamera()
     const current = generation.current
     setPhase('opening')
@@ -300,20 +392,23 @@ export default function RhrQuestion({
     setContact(false)
     setLight('off')
     setLightConfirmed(false)
-    setContactReady(false)
-    setExposureBusy(false)
+    setCameraCheck(checkCamera([], 0))
+    setActiveCamera(null)
     setDiagnostics(null)
     lastCapture.current = null
+    captureInfo.current = null
+    compactStream.current = false
+    setupSamples.current = []
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext)
         throw new Error(
-          'Open this page over HTTPS in Safari on your phone to use the rear camera.',
+          'Open this page over HTTPS in a phone browser that supports camera access.',
         )
       let media = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           facingMode: { exact: 'environment' },
-          ...(camera ? { deviceId: { exact: camera } } : {}),
+          ...(requestedId ? { deviceId: { exact: requestedId } } : {}),
           width: { ideal: 320 },
           height: { ideal: 240 },
           frameRate: { ideal: 30, max: 60 },
@@ -338,9 +433,18 @@ export default function RhrQuestion({
             (!d.label || !/front|user|facetime/i.test(d.label)),
         ),
       )
-      const primary = !camera
-        ? primaryRearCamera(devices.filter((d) => d.kind === 'videoinput'))
+      let saved = ''
+      try {
+        saved = localStorage.getItem('rhr-working-camera-v1') || ''
+      } catch {
+        /* Optional preference. */
+      }
+      const primary = !requestedId
+        ? devices.some((d) => d.kind === 'videoinput' && d.deviceId === saved)
+          ? saved
+          : primaryRearCamera(devices.filter((d) => d.kind === 'videoinput'))
         : null
+      const selected = primary || requestedId
       if (primary && primary !== track.getSettings().deviceId) {
         media.getTracks().forEach((t) => t.stop())
         media = await navigator.mediaDevices.getUserMedia({
@@ -372,9 +476,28 @@ export default function RhrQuestion({
       if (current !== generation.current) return
       await configurePulseCamera(track)
       if (current !== generation.current) return
+      try {
+        const savedStream = JSON.parse(
+          localStorage.getItem('rhr-working-stream-v1') || 'null',
+        )
+        if (
+          savedStream?.compact === true &&
+          savedStream.deviceId === track.getSettings().deviceId
+        ) {
+          await improveFrameStream(track)
+          compactStream.current = true
+        }
+      } catch {
+        /* Fall back to the original stream and measure its actual cadence. */
+      }
+      if (current !== generation.current) return
       // Verify light after configuring the stream: some engines reset settings.
       const lightState = await enableCameraLight(track)
       if (current !== generation.current) return
+      verifySelectedCamera(selected, track.getSettings())
+      const details = cameraDetails(track, selected, lightState)
+      setActiveCamera(details)
+      setCamera(details.actualId || selected)
       setLight(lightState)
       setLightConfirmed(lightState === 'on')
       track.addEventListener(
@@ -385,11 +508,7 @@ export default function RhrQuestion({
         { once: true },
       )
       setPhase('ready')
-      deadline.current = setTimeout(() => {
-        stopCamera()
-        setPhase('setup')
-        setError('Camera stopped after inactivity. Enable it again when ready.')
-      }, 30000)
+      armCameraIdle()
     } catch (e) {
       if (current !== generation.current) return
       stopCamera()
@@ -405,6 +524,44 @@ export default function RhrQuestion({
       )
     }
   }
+  const optimizeCamera = async () => {
+    const track = stream.current?.getVideoTracks()[0],
+      current = generation.current
+    if (!track) return
+    setPhase('opening')
+    setError('')
+    if (deadline.current) clearTimeout(deadline.current)
+    let failure = ''
+    try {
+      await improveFrameStream(track)
+      compactStream.current = true
+    } catch (e) {
+      failure =
+        e instanceof Error
+          ? e.message
+          : 'The camera could not change stream settings.'
+    }
+    if (current !== generation.current) return
+    try {
+      const state = await enableCameraLight(track)
+      if (current !== generation.current) return
+      setLight(state)
+      setLightConfirmed(state === 'on')
+      setActiveCamera(cameraDetails(track, camera, state))
+      setError(failure)
+      setPhase('ready')
+      armCameraIdle()
+    } catch (e) {
+      if (current !== generation.current) return
+      stopCamera()
+      setPhase('setup')
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Reopen the camera and check the rear light.',
+      )
+    }
+  }
   const begin = async () => {
     if (
       !position ||
@@ -412,7 +569,7 @@ export default function RhrQuestion({
       !stream.current ||
       !lightConfirmed ||
       light === 'off' ||
-      exposureBusy ||
+      cameraCheck.status !== 'ready' ||
       stream.current.getVideoTracks()[0]?.readyState !== 'live'
     )
       return
@@ -474,6 +631,15 @@ export default function RhrQuestion({
         lastPaint = 0
       running.current = true
       setProgress(session.snapshot())
+      const liveTrack = stream.current?.getVideoTracks()[0]
+      if (liveTrack)
+        captureInfo.current = {
+          camera: cameraDetails(liveTrack, camera, light),
+          preflight: cameraCheck,
+          userAgent: navigator.userAgent,
+          lightConfirmed,
+          compactStream: compactStream.current,
+        }
       setPhase('scan')
       navigator.wakeLock
         ?.request('screen')
@@ -533,7 +699,11 @@ export default function RhrQuestion({
           }
           if (t - lastContact > 250) {
             setContact(fingerPresent(s))
-            setHint(contactHint(s))
+            setHint(
+              fingerPresent(s)
+                ? 'Contact detected · Keep your hand still'
+                : 'Cover the active lens completely · Use light pressure',
+            )
             lastContact = t
           }
           if (t - lastPaint > 100 && wave.current) {
@@ -897,9 +1067,15 @@ export default function RhrQuestion({
                         <details className="rhr-diagnostics">
                           <summary>Scan details</summary>
                           <p>
-                            {diagnostics.fps.toFixed(1)} fps ·{' '}
-                            {diagnostics.samples} frames ·{' '}
-                            {diagnostics.usableSeconds.toFixed(1)}s analyzed
+                            {lastCapture.current
+                              ? frameSummary(
+                                  lastCapture.current.samples,
+                                ).fps.toFixed(1)
+                              : diagnostics.fps.toFixed(1)}{' '}
+                            delivered fps ·{' '}
+                            {lastCapture.current?.samples.length ??
+                              diagnostics.samples}{' '}
+                            captured frames
                           </p>
                           <p>{diagnostics.reasons.join(' · ')}</p>
                           {lastCapture.current && (
@@ -909,36 +1085,36 @@ export default function RhrQuestion({
                               onClick={() => {
                                 const record = lastCapture.current
                                 if (!record) return
-                                const blob = new Blob(
-                                  [
-                                    JSON.stringify({
-                                      algorithmVersion: RHR_ALGORITHM_VERSION,
-                                      record,
-                                      analysis: diagnostics,
-                                    }),
-                                  ],
-                                  { type: 'application/json' },
+                                downloadDiagnostics(
+                                  {
+                                    algorithmVersion: RHR_ALGORITHM_VERSION,
+                                    record,
+                                    analysis: diagnostics,
+                                    capture: captureInfo.current,
+                                    deliveredFrames: frameSummary(
+                                      record.samples,
+                                    ),
+                                    analyzedFrames: frameSummary(
+                                      record.samples.filter((s) => s.t >= 2000),
+                                    ),
+                                  },
+                                  'resting-hr-signal.json',
                                 )
-                                const url = URL.createObjectURL(blob)
-                                const a = document.createElement('a')
-                                a.href = url
-                                a.download = 'resting-hr-signal.json'
-                                a.click()
-                                setTimeout(() => URL.revokeObjectURL(url), 1000)
                               }}
                             >
                               Download signal diagnostics
                             </button>
                           )}
                           <p>
-                            Diagnostics contain timing and averaged camera
-                            colors, without video or player identity. Download
-                            only if you want to share them for troubleshooting.
+                            Diagnostics contain camera identifiers, settings,
+                            browser details and averaged colors. No video or
+                            player identity. Download only if you want to share
+                            them for troubleshooting.
                           </p>
                           <p>
-                            If this repeats, try another rear lens near the
-                            flash. Open this page in Chrome on Android or Safari
-                            on iPhone.
+                            Check the actual frame rate and camera setup before
+                            repeating. A repeat uses the same camera; use Try
+                            another rear camera to request a different one.
                           </p>
                         </details>
                       )}
@@ -958,9 +1134,39 @@ export default function RhrQuestion({
                       >
                         {phase === 'retry-save'
                           ? 'Retry save'
-                          : 'Repeat measurement'}
+                          : 'Repeat with this camera'}
                         <RotateCcw size={18} />
                       </button>
+                      {phase === 'repeat' &&
+                        (nextRearCamera(
+                          cameras,
+                          activeCamera?.actualId || camera,
+                        ) ? (
+                          <button
+                            type="button"
+                            className="pvt-stop"
+                            data-testid="rhr-next-camera"
+                            onClick={() => {
+                              const next = nextRearCamera(
+                                cameras,
+                                activeCamera?.actualId || camera,
+                              )
+                              if (next) {
+                                setCamera(next)
+                                setResult(null)
+                                pending.current = null
+                                void enableCamera(next)
+                              }
+                            }}
+                          >
+                            Try another rear camera
+                          </button>
+                        ) : (
+                          <p className="rhr-lens-note">
+                            This browser exposes one rear camera. No alternate
+                            rear camera is available here.
+                          </p>
+                        ))}
                       <button
                         type="button"
                         className="pvt-stop"
@@ -979,58 +1185,82 @@ export default function RhrQuestion({
                     </div>
                   ) : (
                     <div className="pvt-setup-panel">
-                      <h2>
-                        A quiet moment.
-                        <br />
-                        <span>Your resting pulse.</span>
-                      </h2>
-                      <p className="pvt-result-copy">
-                        Rest quietly for at least 5 minutes before starting.
-                        Cover the active rear camera lens with your fingertip,
-                        close to the flash. Let the light illuminate your
-                        finger; covering only the flash will not work. Use light
-                        pressure and breathe normally.
-                      </p>
-                      <fieldset
-                        className="pvt-position-field"
-                        disabled={phase === 'opening'}
-                      >
-                        <legend>
-                          Measurement position{' '}
-                          <span className="text-rose-400">*</span>
-                        </legend>
-                        <div className="pvt-position-options">
-                          {RHR_POSITIONS.map((p) => (
-                            <button
-                              type="button"
-                              key={p}
-                              className={`pvt-position-choice ${ui.focusVisibleRing}`}
-                              aria-pressed={position === p}
-                              onClick={() => setPosition(p)}
-                            >
-                              {positionLabels[p]}
-                            </button>
-                          ))}
-                        </div>
-                      </fieldset>
-                      <label className="rhr-rest-confirm">
-                        <input
-                          type="checkbox"
-                          checked={rested}
-                          onChange={(e) => setRested(e.target.checked)}
-                        />
-                        <span>
-                          I have rested quietly for at least 5 minutes.
-                        </span>
-                      </label>
-                      <p className="pvt-consistency-note">
-                        <ShieldCheck size={16} />
-                        <span>
-                          One 15-second measurement, including camera settling.
-                          The countdown never restarts. Video stays on your
-                          phone.
-                        </span>
-                      </p>
+                      {phase !== 'ready' ? (
+                        <>
+                          <h2>
+                            A quiet moment.
+                            <br />
+                            <span>Your resting pulse.</span>
+                          </h2>
+                          <p className="pvt-result-copy">
+                            Rest quietly for at least 5 minutes before starting.
+                            Cover the active rear camera lens with your
+                            fingertip, close to the flash. Let the light
+                            illuminate your finger; covering only the flash will
+                            not work. Use light pressure and breathe normally.
+                          </p>
+                          <fieldset
+                            className="pvt-position-field"
+                            disabled={phase === 'opening'}
+                          >
+                            <legend>
+                              Measurement position{' '}
+                              <span className="text-rose-400">*</span>
+                            </legend>
+                            <div className="pvt-position-options">
+                              {RHR_POSITIONS.map((p) => (
+                                <button
+                                  type="button"
+                                  key={p}
+                                  className={`pvt-position-choice ${ui.focusVisibleRing}`}
+                                  aria-pressed={position === p}
+                                  onClick={() => setPosition(p)}
+                                >
+                                  {positionLabels[p]}
+                                </button>
+                              ))}
+                            </div>
+                          </fieldset>
+                          <label className="rhr-rest-confirm">
+                            <input
+                              type="checkbox"
+                              checked={rested}
+                              onChange={(e) => setRested(e.target.checked)}
+                            />
+                            <span>
+                              I have rested quietly for at least 5 minutes.
+                            </span>
+                          </label>
+                          <p className="pvt-consistency-note">
+                            <ShieldCheck size={16} />
+                            <span>
+                              One 15-second measurement, including camera
+                              settling. The countdown never restarts. Video
+                              stays on your phone.
+                            </span>
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <h2>Check your camera.</h2>
+                          <p className="rhr-lens-note">
+                            {position
+                              ? positionLabels[position]
+                              : 'Position not selected'}{' '}
+                            · Rest confirmed · 15-second capture
+                          </p>
+                          <button
+                            type="button"
+                            className="pvt-stop"
+                            onClick={() => {
+                              stopCamera()
+                              setPhase('setup')
+                            }}
+                          >
+                            Change position or rest confirmation
+                          </button>
+                        </>
+                      )}
                       {phase === 'ready' && (
                         <div
                           className="rhr-light-status"
@@ -1042,16 +1272,124 @@ export default function RhrQuestion({
                               ? 'Camera light enabled. Cover the lens shown in the live preview.'
                               : 'Camera light requested. Check that the rear light is actually on.'}
                           </p>
+                          {activeCamera && (
+                            <p
+                              className="rhr-active-camera"
+                              data-testid="rhr-active-camera"
+                            >
+                              Active:{' '}
+                              {cameraName(
+                                cameras,
+                                activeCamera.actualId ||
+                                  activeCamera.requestedId,
+                              )}
+                              <br />
+                              Cover one lens at a time to confirm the active
+                              lens in the preview.
+                            </p>
+                          )}
                           <p
                             className="rhr-preflight-hint"
                             data-testid="rhr-preflight-hint"
+                            data-status={cameraCheck.status}
                           >
-                            {exposureBusy
-                              ? 'Adjusting camera exposure…'
-                              : contactReady
-                                ? 'Contact ready · You can start the scan'
-                                : hint}
+                            {cameraCheck.message}
                           </p>
+                          <p className="rhr-lens-note">
+                            Camera check happens before the 15-second
+                            measurement. It does not confirm pulse accuracy.
+                          </p>
+                          {cameraCheck.status === 'problem' &&
+                            ['slow-frames', 'frame-gaps'].includes(
+                              cameraCheck.code,
+                            ) && (
+                              <button
+                                type="button"
+                                className="pvt-stop"
+                                data-testid="rhr-improve-stream"
+                                onClick={() => void optimizeCamera()}
+                              >
+                                Improve camera stream
+                              </button>
+                            )}
+                          {cameraCheck.status === 'problem' &&
+                            ['no-frames', 'frame-gaps'].includes(
+                              cameraCheck.code,
+                            ) && (
+                              <button
+                                type="button"
+                                className="pvt-stop"
+                                onClick={() => void enableCamera(camera)}
+                              >
+                                Reopen this camera
+                              </button>
+                            )}
+                          {cameraCheck.status === 'problem' &&
+                            nextRearCamera(
+                              cameras,
+                              activeCamera?.actualId || camera,
+                            ) && (
+                              <button
+                                type="button"
+                                className="pvt-stop"
+                                onClick={() => {
+                                  const next = nextRearCamera(
+                                    cameras,
+                                    activeCamera?.actualId || camera,
+                                  )
+                                  if (next) void enableCamera(next)
+                                }}
+                              >
+                                Try another rear camera
+                              </button>
+                            )}
+                          {!nextRearCamera(
+                            cameras,
+                            activeCamera?.actualId || camera,
+                          ) && (
+                            <p className="rhr-lens-note">
+                              No alternate rear camera is exposed by this
+                              browser.
+                            </p>
+                          )}
+                          <details className="rhr-diagnostics">
+                            <summary>Camera details</summary>
+                            <p>
+                              {cameraCheck.stats.fps.toFixed(1)} delivered fps ·{' '}
+                              {cameraCheck.stats.frames} recent frames
+                            </p>
+                            <button
+                              type="button"
+                              className="pvt-stop"
+                              onClick={() => {
+                                const track =
+                                  stream.current?.getVideoTracks()[0]
+                                downloadDiagnostics(
+                                  {
+                                    diagnosticKind: 'camera-setup',
+                                    algorithmVersion: RHR_ALGORITHM_VERSION,
+                                    camera: track
+                                      ? cameraDetails(track, camera, light)
+                                      : activeCamera,
+                                    check: cameraCheck,
+                                    samples: setupSamples.current,
+                                    userAgent: navigator.userAgent,
+                                    lightConfirmed,
+                                    compactStream: compactStream.current,
+                                  },
+                                  'resting-hr-camera.json',
+                                )
+                              }}
+                            >
+                              Download camera diagnostics
+                            </button>
+                            <p>
+                              Local download of camera identifiers, settings,
+                              browser details and averaged colors. No video or
+                              player identity. Nothing is uploaded
+                              automatically.
+                            </p>
+                          </details>
                           {light !== 'on' && (
                             <>
                               <label className="rhr-rest-confirm">
@@ -1105,15 +1443,17 @@ export default function RhrQuestion({
                             className={ui.inputFieldBase}
                             disabled={phase === 'opening'}
                             onChange={(e) => {
-                              setCamera(e.target.value)
-                              stopCamera()
-                              setPhase('setup')
+                              const id = e.target.value
+                              setCamera(id)
+                              void enableCamera(id)
                             }}
                           >
-                            <option value="">Automatic rear camera</option>
-                            {cameras.map((c) => (
+                            <option value="">
+                              Automatic · last working camera
+                            </option>
+                            {cameras.map((c, index) => (
                               <option key={c.deviceId} value={c.deviceId}>
-                                {c.label || 'Rear camera'}
+                                Camera {index + 1} · {c.label || 'Rear camera'}
                               </option>
                             ))}
                           </select>
@@ -1121,9 +1461,9 @@ export default function RhrQuestion({
                       )}
                       {cameras.length > 1 && (
                         <p className="rhr-lens-note">
-                          Multiple rear lenses? Cover a lens and watch the
-                          preview to identify the active one. Select the lens
-                          nearest the flash if contact stays unclear.
+                          Selecting a camera opens it immediately. Confirm the
+                          active lens using the preview; different browser
+                          camera entries may use the same physical lens.
                         </p>
                       )}
                       {needsCode && (
@@ -1151,7 +1491,7 @@ export default function RhrQuestion({
                           !rested ||
                           phase === 'opening' ||
                           (phase === 'ready' &&
-                            (!lightConfirmed || exposureBusy))
+                            (!lightConfirmed || cameraCheck.status !== 'ready'))
                         }
                         onClick={() =>
                           phase === 'ready' ? void begin() : void enableCamera()
@@ -1164,7 +1504,9 @@ export default function RhrQuestion({
                           </>
                         ) : phase === 'ready' ? (
                           <>
-                            Start measurement
+                            {cameraCheck.status === 'checking'
+                              ? 'Checking camera…'
+                              : 'Start measurement'}
                             <ArrowRight size={18} />
                           </>
                         ) : (

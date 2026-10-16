@@ -9,7 +9,11 @@ import {
   sameOrigin,
   surveyOpen,
 } from '@/lib/pvt/server'
-import { analyzeRhr, RHR_VERSION } from '@/lib/rhr/protocol'
+import {
+  analyzeRhr,
+  RHR_VERSION,
+  RHR_ALGORITHM_VERSION,
+} from '@/lib/rhr/protocol'
 import { isRhrQuestion, type RhrAnswer } from '@/lib/rhr/options'
 import {
   rhrContextSchema,
@@ -93,6 +97,7 @@ export async function POST(
         rested: true,
         durationSeconds: 15,
         protocolVersion: RHR_VERSION,
+        algorithmVersion: RHR_ALGORITHM_VERSION,
         measuredAt: new Date(ticket.iat * 1000 + 15000).toISOString(),
         quality: 'ACCEPTED',
         torch: body.record.torch,

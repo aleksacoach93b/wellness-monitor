@@ -29,6 +29,9 @@ export const rhrRecordSchema = z.object({
         b: z.number().finite().min(0).max(255),
         clipped: z.number().min(0).max(1),
         spread: z.number().min(0).max(1),
+        redClipped: z.number().min(0).max(1).optional(),
+        greenClipped: z.number().min(0).max(1).optional(),
+        blueClipped: z.number().min(0).max(1).optional(),
       }),
     )
     .max(1500),
@@ -99,6 +102,9 @@ export async function verifyRhrAnswer(
       rested: true,
       durationSeconds: 15,
       protocolVersion: RHR_VERSION,
+      ...(typeof p.algorithmVersion === 'string'
+        ? { algorithmVersion: p.algorithmVersion }
+        : {}),
       measuredAt: String(p.measuredAt),
       quality: 'ACCEPTED',
       torch: p.torch === true,

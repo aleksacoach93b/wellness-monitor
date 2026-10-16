@@ -1,5 +1,6 @@
 /** Contact camera PPG estimate. Requires device/reference validation before operational use. */
 export const RHR_VERSION = 'camera-rhr-v1'
+export const RHR_ALGORITHM_VERSION = 'adaptive-rgb-v2'
 export const RHR_DURATION_MS = 15_000
 export const RHR_SETTLE_MS = 2_000
 export const RHR_POSITIONS = [
@@ -16,6 +17,9 @@ export type PpgSample = {
   b: number
   clipped: number
   spread: number
+  redClipped?: number
+  greenClipped?: number
+  blueClipped?: number
 }
 export type RhrRecord = {
   samples: PpgSample[]
@@ -33,7 +37,7 @@ export type RhrAnalysis = {
   beats: number
   agreementBpm: number | null
   correlation: number | null
-  channel: 'red' | 'green' | null
+  channel: 'red' | 'green' | 'blue' | null
 }
 const mean = (a: number[]) =>
   a.reduce((s, v) => s + v, 0) / Math.max(1, a.length)
@@ -48,8 +52,8 @@ export function fingerPresent(s: PpgSample) {
   // This is a signal screen, not proof of contact or skin-tone classification.
   return (
     s.r > 35 &&
-    s.r > s.g * 1.12 &&
-    s.r > s.b * 1.12 &&
+    s.r > s.g * 0.95 &&
+    s.r > s.b * 1.1 &&
     s.clipped < 0.65 &&
     s.spread < 0.65
   )
@@ -71,7 +75,12 @@ export function validateRhrRecord(record: RhrRecord): boolean {
       s.t >= 0 &&
       s.t <= record.elapsedMs + 2 &&
       [s.r, s.g, s.b].every((v) => Number.isFinite(v) && v >= 0 && v <= 255) &&
-      [s.clipped, s.spread].every((v) => Number.isFinite(v) && v >= 0 && v <= 1)
+      [s.clipped, s.spread].every(
+        (v) => Number.isFinite(v) && v >= 0 && v <= 1,
+      ) &&
+      [s.redClipped, s.greenClipped, s.blueClipped].every(
+        (v) => v === undefined || (Number.isFinite(v) && v >= 0 && v <= 1),
+      )
     previous = s.t
     return valid
   })
@@ -93,7 +102,19 @@ function correlation(a: number[], lag: number) {
   }
   return xx && yy ? xy / Math.sqrt(xx * yy) : 0
 }
-function analyzeChannel(samples: PpgSample[], key: 'r' | 'g') {
+function analyzeChannel(samples: PpgSample[], key: 'r' | 'g' | 'b') {
+  const clippingKey =
+    key === 'r' ? 'redClipped' : key === 'g' ? 'greenClipped' : 'blueClipped'
+  // Reject a damaged channel without discarding usable independent channels.
+  if (
+    samples.filter(
+      (s) => (s[clippingKey] ?? 0) > 0.1 || s[key] >= 250 || s[key] <= 3,
+    ).length /
+      samples.length >
+      0.05 ||
+    samples.some((s, i) => i > 0 && Math.abs(s[key] - samples[i - 1][key]) > 18)
+  )
+    return null
   const hz = 30,
     start = samples[0].t,
     end = samples.at(-1)!.t,
@@ -125,7 +146,7 @@ function analyzeChannel(samples: PpgSample[], key: 'r' | 'g') {
       candidates.push({ lag, value })
   }
   const best = candidates.sort((a, b) => b.value - a.value)[0]
-  if (!best || rms < 0.12) return null
+  if (!best || rms < Math.max(0.025, mean(raw) * 0.0002)) return null
   // Prefer the shortest similarly strong period to avoid selecting an integer multiple.
   const period =
     candidates
@@ -180,7 +201,12 @@ function analyzeChannel(samples: PpgSample[], key: 'r' | 'g') {
     beats: peaks.length,
     deviation,
     rms,
-    channel: key === 'r' ? ('red' as const) : ('green' as const),
+    channel:
+      key === 'r'
+        ? ('red' as const)
+        : key === 'g'
+          ? ('green' as const)
+          : ('blue' as const),
   }
 }
 export function analyzeRhr(record: RhrRecord): RhrAnalysis {
@@ -207,27 +233,31 @@ export function analyzeRhr(record: RhrRecord): RhrAnalysis {
   const samples = record.samples.filter(
     (s) => s.t >= RHR_SETTLE_MS && s.t <= RHR_DURATION_MS,
   )
-  if (samples.length < 200) {
-    reasons.push('too-few-frames')
-    return empty
-  }
-  const span = samples.at(-1)!.t - samples[0].t,
-    fps = ((samples.length - 1) * 1000) / span
+  const span = samples.length > 1 ? samples.at(-1)!.t - samples[0].t : 0,
+    fps = span > 0 ? ((samples.length - 1) * 1000) / span : 0
   empty.fps = fps
   empty.usableSeconds = span / 1000
+  if (samples.length < 180) {
+    reasons.push('too-few-frames')
+    if (fps < 14.5) reasons.push('low-frame-rate')
+    return empty
+  }
   if (samples[0].t > 2200 || samples.at(-1)!.t < 14_800 || span < 12_500)
     reasons.push('incomplete-signal')
-  if (fps < 20) reasons.push('low-frame-rate')
+  if (fps < 14.5) reasons.push('low-frame-rate')
   if (samples.some((s, i) => i > 0 && s.t - samples[i - 1].t > 200))
     reasons.push('frame-gaps')
+  if (samples.filter((s) => s.r < 35).length / samples.length > 0.1)
+    reasons.push('too-dark')
+  if (samples.filter((s) => s.clipped > 0.65).length / samples.length > 0.04)
+    reasons.push('overexposed')
   if (samples.filter(fingerPresent).length / samples.length < 0.96)
     reasons.push('finger-contact')
-  if (samples.some((s, i) => i > 0 && Math.abs(s.r - samples[i - 1].r) > 18))
-    reasons.push('movement-or-exposure')
   if (reasons.length) return empty
   const channels = [
     analyzeChannel(samples, 'r'),
     analyzeChannel(samples, 'g'),
+    analyzeChannel(samples, 'b'),
   ].filter((x): x is NonNullable<typeof x> => !!x)
   const candidates = channels.filter(
     (c) =>
@@ -248,7 +278,8 @@ export function analyzeRhr(record: RhrRecord): RhrAnalysis {
     return empty
   }
   // A first/second segment check rejects drifting, aliased or unstable estimates.
-  const key = best.channel === 'red' ? 'r' : 'g'
+  const key =
+    best.channel === 'red' ? 'r' : best.channel === 'green' ? 'g' : 'b'
   const middle = (samples[0].t + samples.at(-1)!.t) / 2
   const halves = [
     samples.filter((s) => s.t <= middle),
@@ -277,9 +308,18 @@ export function rhrReason(reasons: string[]) {
     return 'The camera light was unavailable. Choose a supported rear camera and try again.'
   if (reasons.includes('interrupted'))
     return 'The scan was interrupted. Keep this screen open for all 15 seconds.'
+  if (reasons.includes('too-dark'))
+    return 'The lens is too dark. Check that the rear light is on and cover the active camera lens with your fingertip, close to the light.'
+  if (reasons.includes('overexposed'))
+    return 'The image is overexposed. Lift and replace your fingertip with light pressure, or select another rear lens near the light.'
   if (reasons.includes('finger-contact'))
-    return 'Cover the camera lens completely with your fingertip. Use light, steady pressure.'
+    return 'Cover the active camera lens completely, near the rear light. Covering only the flash is not enough. Use light, steady pressure.'
   if (reasons.includes('low-frame-rate') || reasons.includes('frame-gaps'))
     return 'The camera did not deliver a steady signal. Close other apps and try again.'
+  if (
+    reasons.includes('channel-disagreement') ||
+    reasons.includes('unstable-pulse')
+  )
+    return 'The optical signals were inconsistent. Rest your hand, avoid pressing hard and repeat.'
   return 'The pulse signal was not clear or steady enough. Rest your hand, adjust your fingertip and repeat.'
 }

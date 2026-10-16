@@ -9,6 +9,9 @@ import {
   Loader2,
   RotateCcw,
   ShieldCheck,
+  Timer,
+  Armchair,
+  Activity,
   X,
 } from 'lucide-react'
 import {
@@ -20,18 +23,23 @@ import {
   analyzeRhr,
   fingerPresent,
   RHR_DURATION_MS,
+  RHR_ALGORITHM_VERSION,
   RHR_POSITIONS,
   RHR_VERSION,
   rhrReason,
   type PpgSample,
   type RhrPosition,
   type RhrRecord,
+  type RhrAnalysis,
 } from '@/lib/rhr/protocol'
 import {
   enableCameraLight,
+  configurePulseCamera,
+  adjustPulseExposure,
   primaryRearCamera,
   type TorchState,
 } from '@/lib/rhr/camera'
+import { sampleVideo, contactHint, opticalTrace } from '@/lib/rhr/sampling'
 import { parseRhrAnswer, type RhrAnswer } from '@/lib/rhr/options'
 import '../pvt/pvt-focus.css'
 import './rhr.css'
@@ -82,7 +90,13 @@ export default function RhrQuestion({
     [cameras, setCameras] = useState<MediaDeviceInfo[]>([]),
     [camera, setCamera] = useState(''),
     [light, setLight] = useState<TorchState | 'off'>('off'),
-    [lightConfirmed, setLightConfirmed] = useState(false)
+    [lightConfirmed, setLightConfirmed] = useState(false),
+    [hint, setHint] = useState(
+      'Cover the active camera lens with your fingertip',
+    ),
+    [contactReady, setContactReady] = useState(false),
+    [exposureBusy, setExposureBusy] = useState(false),
+    [diagnostics, setDiagnostics] = useState<RhrAnalysis | null>(null)
   const video = useRef<HTMLVideoElement>(null),
     canvas = useRef<HTMLCanvasElement>(null),
     wave = useRef<SVGPolylineElement>(null),
@@ -153,6 +167,7 @@ export default function RhrQuestion({
     setError('')
     pending.current = { record, ticket, position: measuredPosition }
     const analysis = analyzeRhr(record)
+    setDiagnostics(analysis)
     if (analysis.quality !== 'ACCEPTED') {
       setError(rhrReason(analysis.reasons))
       setPhase('repeat')
@@ -169,6 +184,7 @@ export default function RhrQuestion({
           rested: true,
           durationSeconds: 15,
           protocolVersion: RHR_VERSION,
+          algorithmVersion: RHR_ALGORITHM_VERSION,
           measuredAt: new Date().toISOString(),
           quality: 'ACCEPTED',
           torch: record.torch,
@@ -230,6 +246,68 @@ export default function RhrQuestion({
       window.removeEventListener('orientationchange', orientation)
     }
   }, [phase])
+  // Preflight uses real frames before the player explicitly starts the fixed 15s scan.
+  // Exposure adjustments stop when this effect leaves 'ready'; no tuning mid-capture.
+  useEffect(() => {
+    if (phase !== 'ready') return
+    let cancelled = false,
+      busy = false,
+      attempts = 0,
+      stable = 0,
+      previousTime = -1,
+      lastTune = 0
+    const inspect = async () => {
+      if (
+        cancelled ||
+        busy ||
+        !video.current ||
+        !canvas.current ||
+        video.current.currentTime === previousTime
+      )
+        return
+      previousTime = video.current.currentTime
+      const sample = sampleVideo(video.current, canvas.current, 0)
+      if (!sample) return
+      const covered = fingerPresent(sample)
+      stable = covered ? stable + 1 : 0
+      setContactReady(stable >= 6)
+      setContact(covered)
+      setHint(contactHint(sample))
+      const track = stream.current?.getVideoTracks()[0]
+      if (
+        track &&
+        attempts < 4 &&
+        performance.now() - lastTune > 1000 &&
+        (sample.clipped > 0.1 ||
+          (sample.r > 245 && sample.g > 245) ||
+          sample.r < 35)
+      ) {
+        attempts++
+        lastTune = performance.now()
+        busy = true
+        setExposureBusy(true)
+        try {
+          const changed = await adjustPulseExposure(track, sample)
+          if (!cancelled && changed) {
+            stable = 0
+            setContactReady(false)
+          }
+          if (!changed) attempts = 4
+        } finally {
+          busy = false
+          if (!cancelled) setExposureBusy(false)
+        }
+      }
+    }
+    const timer = setInterval(() => {
+      void inspect()
+    }, 125)
+    void inspect()
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [phase])
   const enableCamera = async () => {
     stopCamera()
     const current = generation.current
@@ -238,6 +316,9 @@ export default function RhrQuestion({
     setContact(false)
     setLight('off')
     setLightConfirmed(false)
+    setContactReady(false)
+    setExposureBusy(false)
+    setDiagnostics(null)
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext)
         throw new Error(
@@ -304,6 +385,9 @@ export default function RhrQuestion({
       video.current.srcObject = media
       await video.current.play()
       if (current !== generation.current) return
+      await configurePulseCamera(track)
+      if (current !== generation.current) return
+      // Verify light after configuring the stream: some engines reset settings.
       const lightState = await enableCameraLight(track)
       if (current !== generation.current) return
       setLight(lightState)
@@ -342,7 +426,10 @@ export default function RhrQuestion({
       !rested ||
       !stream.current ||
       !lightConfirmed ||
-      light === 'off'
+      light === 'off' ||
+      !contactReady ||
+      exposureBusy ||
+      stream.current.getVideoTracks()[0]?.readyState !== 'live'
     )
       return
     setError('')
@@ -397,7 +484,12 @@ export default function RhrQuestion({
         if (!running.current) return
         running.current = false
         const elapsedMs = Math.min(RHR_DURATION_MS, performance.now() - start)
-        const record = { samples, elapsedMs, interruption: reason, torch: true }
+        const record = {
+          samples,
+          elapsedMs,
+          interruption: reason,
+          torch: true,
+        }
         void save(record, ticket, position)
       }
       finishScan.current = end
@@ -412,63 +504,22 @@ export default function RhrQuestion({
         const v = video.current
         if (v && v.readyState >= 2 && v.currentTime !== lastMediaTime) {
           lastMediaTime = v.currentTime
-          // Downsample a centered ROI; only aggregate intensity samples leave the device.
-          const side = Math.min(v.videoWidth, v.videoHeight) * 0.55
-          context.drawImage(
-            v,
-            (v.videoWidth - side) / 2,
-            (v.videoHeight - side) / 2,
-            side,
-            side,
-            0,
-            0,
-            32,
-            32,
-          )
-          const pixels = context.getImageData(0, 0, 32, 32).data
-          let r = 0,
-            g = 0,
-            b = 0,
-            clipped = 0,
-            min = 255,
-            max = 0
-          for (let i = 0; i < pixels.length; i += 4) {
-            r += pixels[i]
-            g += pixels[i + 1]
-            b += pixels[i + 2]
-            if (pixels[i] >= 252 && pixels[i + 1] >= 252) clipped++
-            min = Math.min(min, pixels[i])
-            max = Math.max(max, pixels[i])
+          // Only aggregate real frame intensities; no video is recorded or uploaded.
+          const s = canvas.current ? sampleVideo(v, canvas.current, t) : null
+          if (!s) {
+            schedule()
+            return
           }
-          const n = pixels.length / 4,
-            s: PpgSample = {
-              t,
-              r: r / n,
-              g: g / n,
-              b: b / n,
-              clipped: clipped / n,
-              spread: (max - min) / 255,
-            }
           samples.push(s)
           if (t - lastContact > 250) {
             setContact(fingerPresent(s))
+            setHint(contactHint(s))
             lastContact = t
           }
           if (t - lastPaint > 100 && wave.current) {
-            const recent = samples.slice(-100),
-              center = recent.reduce((a, s) => a + s.r, 0) / recent.length,
-              amplitude = Math.max(
-                1,
-                ...recent.map((s) => Math.abs(s.r - center)),
-              )
             wave.current.setAttribute(
               'points',
-              recent
-                .map(
-                  (s, i) =>
-                    `${i * 3},${40 - ((s.r - center) / amplitude) * 26}`,
-                )
-                .join(' '),
+              opticalTrace(samples.slice(-100)),
             )
             lastPaint = t
           }
@@ -499,32 +550,74 @@ export default function RhrQuestion({
   return (
     <>
       <div
-        className={`pvt-ui pvt-question-card mt-3 rounded-2xl border p-4 ${ui.sliderCardBorder}`}
+        className={`pvt-ui pvt-question-card rhr-question mt-3 rounded-2xl border ${ui.sliderCardBorder}`}
         data-pvt-theme={theme}
       >
-        <div className="flex items-center gap-3">
-          <Heart className={ui.selectedValueText} />
-          <div>
-            <p className="font-semibold text-white">
-              {completed ? `${completed.bpm} bpm` : 'Resting heart rate'}
-            </p>
-            <p className="text-sm text-slate-300">
-              {completed
-                ? `${positionLabels[completed.position]} · Ready to submit`
-                : '15-second camera measurement'}
-            </p>
-          </div>
+        <div className="rhr-question-heading">
+          <span className="rhr-heart-tile">
+            <Heart size={28} />
+          </span>
+          <span className="rhr-time-chip">
+            <Timer size={13} />
+            15 SEC
+          </span>
         </div>
-        {!completed && (
-          <button
-            ref={launch}
-            type="button"
-            className={`${button} mt-4`}
-            onClick={() => setOpen(true)}
-          >
-            <Camera size={18} />
-            Measure resting HR
-          </button>
+        <div className="rhr-question-orbit" aria-hidden="true">
+          <Heart size={28} />
+        </div>
+        <div className="rhr-question-copy">
+          <p className="rhr-eyebrow">RESTING PULSE</p>
+          <h3>
+            {completed ? (
+              <>
+                {completed.bpm}
+                <small> bpm</small>
+              </>
+            ) : (
+              'Resting heart rate'
+            )}
+          </h3>
+          <p>
+            {completed
+              ? `${positionLabels[completed.position]} · Ready to submit`
+              : 'A quiet moment. A simple camera check.'}
+          </p>
+        </div>
+        {!completed ? (
+          <>
+            <div className="rhr-question-facts">
+              <span>
+                <Timer size={15} />
+                15 seconds
+              </span>
+              <span>
+                <Camera size={15} />
+                Rear camera
+              </span>
+              <span>
+                <Armchair size={15} />
+                At rest
+              </span>
+            </div>
+            <p className="rhr-question-rest">
+              Rest quietly for 5 minutes before measuring.
+            </p>
+            <button
+              ref={launch}
+              type="button"
+              className={button}
+              onClick={() => setOpen(true)}
+            >
+              <Camera size={18} />
+              <span>Measure resting HR</span>
+              <ArrowRight size={18} />
+            </button>
+          </>
+        ) : (
+          <div className="rhr-completed-chip">
+            <CheckCircle2 size={17} />
+            Measurement complete
+          </div>
         )}
       </div>
       {open &&
@@ -588,7 +681,9 @@ export default function RhrQuestion({
                   <div
                     className="rhr-camera-preview"
                     data-active={['opening', 'ready', 'scan'].includes(phase)}
+                    data-scanning={phase === 'scan'}
                   >
+                    <span className="rhr-preview-label">Camera preview</span>
                     <video
                       ref={video}
                       muted
@@ -599,31 +694,89 @@ export default function RhrQuestion({
                   </div>
                   <canvas ref={canvas} width={32} height={32} hidden />
                   {phase === 'scan' ? (
-                    <div className="pvt-result-panel">
+                    <div className="rhr-scan-panel">
                       <p className="pvt-kicker">
                         {remaining > 13 ? 'SETTLING SIGNAL' : 'MEASURING PULSE'}
                       </p>
-                      <div className="rhr-countdown">
-                        <Heart size={26} />
-                        <strong data-testid="rhr-countdown">{remaining}</strong>
-                        <span>seconds remaining</span>
-                      </div>
-                      <svg
-                        viewBox="0 0 300 80"
-                        className="rhr-wave"
-                        aria-label="Live camera intensity signal"
+                      <div
+                        className="rhr-session-dial"
+                        role="progressbar"
+                        aria-label="Measurement time remaining"
+                        aria-valuemin={0}
+                        aria-valuemax={15}
+                        aria-valuenow={remaining}
                       >
-                        <polyline
-                          ref={wave}
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        />
-                      </svg>
-                      <p className="pvt-result-copy" aria-live="polite">
-                        {contact
-                          ? 'Keep your fingertip still. Breathe normally.'
-                          : 'Cover the rear camera completely. Use light pressure.'}
+                        <svg viewBox="0 0 240 240" aria-hidden="true">
+                          {Array.from({ length: 15 }, (_, i) => (
+                            <circle
+                              key={i}
+                              cx="120"
+                              cy="120"
+                              r="102"
+                              fill="none"
+                              pathLength="15"
+                              strokeDasharray="0.65 14.35"
+                              strokeDashoffset={-i}
+                              transform="rotate(-90 120 120)"
+                              className={
+                                i < remaining
+                                  ? 'rhr-dial-active'
+                                  : 'rhr-dial-inactive'
+                              }
+                            />
+                          ))}
+                        </svg>
+                        <div className="rhr-dial-center">
+                          <Heart size={27} />
+                          <strong data-testid="rhr-countdown">
+                            {remaining}
+                          </strong>
+                          <span>seconds remaining</span>
+                          <small>of 15</small>
+                        </div>
+                      </div>
+                      <p className="rhr-scan-instruction">
+                        Keep your fingertip still. Breathe normally.
+                      </p>
+                      <ol className="rhr-steps" aria-label="Measurement stages">
+                        <li data-state={remaining > 13 ? 'current' : 'done'}>
+                          <span>{remaining > 13 ? '1' : '✓'}</span>Settle
+                        </li>
+                        <li data-state={remaining <= 13 ? 'current' : 'next'}>
+                          <span>2</span>Capture
+                        </li>
+                        <li data-state="next">
+                          <span>3</span>Complete
+                        </li>
+                      </ol>
+                      <div className="rhr-signal-card">
+                        <div className="rhr-signal-heading">
+                          <span>
+                            <Activity size={14} />
+                            Optical signal
+                          </span>
+                          <span
+                            className="rhr-contact-chip"
+                            data-contact={contact}
+                          >
+                            {contact ? 'Contact detected' : 'Adjust fingertip'}
+                          </span>
+                        </div>
+                        <svg
+                          viewBox="0 0 300 80"
+                          className="rhr-wave"
+                          aria-label="Live camera intensity signal"
+                        >
+                          <polyline
+                            ref={wave}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                        </svg>
+                      </div>
+                      <p className="rhr-live-hint" aria-live="polite">
+                        {hint}
                       </p>
                       <button
                         type="button"
@@ -684,6 +837,22 @@ export default function RhrQuestion({
                       <p role="alert" className="pvt-result-copy">
                         {error}
                       </p>
+                      {diagnostics && (
+                        <details className="rhr-diagnostics">
+                          <summary>Scan details</summary>
+                          <p>
+                            {diagnostics.fps.toFixed(1)} fps ·{' '}
+                            {diagnostics.samples} frames ·{' '}
+                            {diagnostics.usableSeconds.toFixed(1)}s analyzed
+                          </p>
+                          <p>{diagnostics.reasons.join(' · ')}</p>
+                          <p>
+                            If this repeats, try another rear lens near the
+                            flash. Open this page in Chrome on Android or Safari
+                            on iPhone.
+                          </p>
+                        </details>
+                      )}
                       <button
                         type="button"
                         className={button}
@@ -728,9 +897,10 @@ export default function RhrQuestion({
                       </h2>
                       <p className="pvt-result-copy">
                         Rest quietly for at least 5 minutes before starting.
-                        Cover the rear camera lens with your fingertip, keep
-                        light pressure and breathe normally. No tapping during
-                        this check.
+                        Cover the active rear camera lens with your fingertip,
+                        close to the flash. Let the light illuminate your
+                        finger; covering only the flash will not work. Use light
+                        pressure and breathe normally.
                       </p>
                       <fieldset
                         className="pvt-position-field"
@@ -782,6 +952,16 @@ export default function RhrQuestion({
                             {light === 'on'
                               ? 'Camera light enabled. Cover the lens shown in the live preview.'
                               : 'Camera light requested. Check that the rear light is actually on.'}
+                          </p>
+                          <p
+                            className="rhr-preflight-hint"
+                            data-testid="rhr-preflight-hint"
+                          >
+                            {exposureBusy
+                              ? 'Adjusting camera exposure…'
+                              : contactReady
+                                ? 'Contact ready · You can start the scan'
+                                : hint}
                           </p>
                           {light !== 'on' && (
                             <>
@@ -850,6 +1030,13 @@ export default function RhrQuestion({
                           </select>
                         </label>
                       )}
+                      {cameras.length > 1 && (
+                        <p className="rhr-lens-note">
+                          Multiple rear lenses? Cover a lens and watch the
+                          preview to identify the active one. Select the lens
+                          nearest the flash if contact stays unclear.
+                        </p>
+                      )}
                       {needsCode && (
                         <label className="rhr-camera-label">
                           Player access code
@@ -874,7 +1061,8 @@ export default function RhrQuestion({
                           !position ||
                           !rested ||
                           phase === 'opening' ||
-                          (phase === 'ready' && !lightConfirmed)
+                          (phase === 'ready' &&
+                            (!lightConfirmed || !contactReady || exposureBusy))
                         }
                         onClick={() =>
                           phase === 'ready' ? void begin() : void enableCamera()

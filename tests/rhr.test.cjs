@@ -5,7 +5,7 @@ const { test, after } = require('node:test'),
   path = require('node:path'),
   ts = require('typescript')
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rhr-test-'))
-for (const name of ['protocol', 'options', 'server', 'camera'])
+for (const name of ['protocol', 'options', 'server', 'camera', 'sampling'])
   fs.writeFileSync(
     path.join(dir, name + '.js'),
     ts.transpileModule(
@@ -89,7 +89,7 @@ test('gaps, low FPS and malformed timestamps are rejected', () => {
   assert.equal(validateRhrRecord(bad), false)
   const gaps = signal(60)
   gaps.samples = gaps.samples.filter((s) => s.t < 6000 || s.t > 6500)
-  for (const r of [bad, gaps, signal(60, { fps: 15 })])
+  for (const r of [bad, gaps, signal(60, { fps: 10 })])
     assert.equal(analyzeRhr(r).bpm, null)
 })
 test('only the configured number widget is a camera HR question', () => {
@@ -260,5 +260,111 @@ test('automatic rear selection prefers the main lens and never a named front/ult
       { deviceId: 'ultra', label: 'Back Ultra Wide Camera' },
     ]),
     null,
+  )
+})
+
+test('15/24/60 fps streams retain agreement and do not bypass short/gapped-record rejection', () => {
+  for (const fps of [15, 24, 60])
+    for (const bpm of [40, 65, 120, 170]) {
+      const a = analyzeRhr(signal(bpm, { fps }))
+      assert.equal(a.quality, 'ACCEPTED', JSON.stringify({ fps, bpm, a }))
+      assert.ok(Math.abs(a.bpm - bpm) <= 3, JSON.stringify(a))
+    }
+})
+test('clipped red and green channels can use a real usable blue pulse', () => {
+  const r = signal(65)
+  r.samples.forEach((s) => {
+    s.r = 255
+    s.g = 255
+    s.b = 50 + 2 * Math.sin((((2 * Math.PI * 65) / 60) * s.t) / 1000)
+    s.redClipped = 1
+    s.greenClipped = 1
+    s.blueClipped = 0
+  })
+  const a = analyzeRhr(r)
+  assert.equal(a.quality, 'ACCEPTED', JSON.stringify(a))
+  assert.equal(a.channel, 'blue')
+  assert.ok(Math.abs(a.bpm - 65) <= 3)
+})
+test('a low-amplitude green pulse survives red saturation/exposure changes; random low-amplitude noise does not', () => {
+  const r = signal(55)
+  r.samples.forEach((s, i) => {
+    s.r = i % 3 ? 255 : 230
+    s.g = 70 + 0.08 * Math.sin((((2 * Math.PI * 55) / 60) * s.t) / 1000)
+    s.redClipped = i % 3 ? 1 : 0
+    s.greenClipped = 0
+  })
+  const a = analyzeRhr(r)
+  assert.equal(a.quality, 'ACCEPTED', JSON.stringify(a))
+  assert.equal(a.channel, 'green')
+  assert.ok(Math.abs(a.bpm - 55) <= 3)
+  let seed = 7
+  r.samples.forEach((s) => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    s.g = 70 + (seed / 4294967296 - 0.5) * 0.16
+  })
+  assert.equal(analyzeRhr(r).bpm, null)
+})
+test('warm color balance and isolated extreme pixels do not veto a stable optical pulse', () => {
+  const { samplePixels } = require(path.join(dir, 'sampling.js'))
+  const pixels = new Uint8ClampedArray(32 * 32 * 4)
+  for (let i = 0; i < pixels.length; i += 4) {
+    pixels[i] = 180
+    pixels[i + 1] = 160
+    pixels[i + 2] = 65
+    pixels[i + 3] = 255
+  }
+  pixels[0] = 0
+  pixels[4] = 255
+  const s = samplePixels(pixels, 0)
+  assert.ok(s.spread < 0.05)
+  const r = signal(65)
+  r.samples.forEach((s) => {
+    s.g = 170 + 2 * Math.sin((((2 * Math.PI * 65) / 60) * s.t) / 1000)
+  })
+  assert.equal(analyzeRhr(r).quality, 'ACCEPTED')
+})
+test('per-channel clipping is bounded by both validation and the server schema', () => {
+  const { rhrRecordSchema } = require(path.join(dir, 'server.js'))
+  const r = signal(65)
+  r.samples[0].redClipped = 2
+  assert.equal(validateRhrRecord(r), false)
+  assert.equal(rhrRecordSchema.safeParse(r).success, false)
+  r.samples[0].redClipped = 0.2
+  assert.equal(rhrRecordSchema.parse(r).samples[0].redClipped, 0.2)
+})
+test('exposure adjustments respect the reported EV range, preserve torch and are optional', async () => {
+  const { adjustPulseExposure, configurePulseCamera } = require(
+    path.join(dir, 'camera.js'),
+  )
+  const calls = []
+  let ev = 0
+  const track = {
+    readyState: 'live',
+    getCapabilities: () => ({
+      exposureCompensation: { min: -1, max: 1, step: 0.5 },
+      frameRate: { min: 15, max: 60 },
+    }),
+    getSettings: () => ({ exposureCompensation: ev }),
+    applyConstraints: async (q) => {
+      calls.push(q)
+      if (q.advanced?.[0]?.exposureCompensation !== undefined)
+        ev = q.advanced[0].exposureCompensation
+    },
+  }
+  await configurePulseCamera(track)
+  assert.equal(calls[0].frameRate.ideal, 30)
+  assert.equal(calls[0].advanced[0].torch, true)
+  for (let i = 0; i < 4; i++)
+    await adjustPulseExposure(track, { r: 255, g: 255, clipped: 1 })
+  assert.equal(ev, -1)
+  assert.equal(calls.length, 3)
+  assert.ok(calls.every((q) => q.advanced[0].torch))
+  assert.equal(
+    await adjustPulseExposure(
+      { ...track, getCapabilities: () => ({}) },
+      { r: 255, g: 255, clipped: 1 },
+    ),
+    false,
   )
 })

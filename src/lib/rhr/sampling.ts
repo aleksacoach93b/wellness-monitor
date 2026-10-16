@@ -49,6 +49,7 @@ export function sampleVideo(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
   t: number,
+  original = false,
 ) {
   const context = canvas.getContext('2d', { willReadFrequently: true })
   if (!context || video.readyState < 2 || !video.videoWidth) return null
@@ -65,7 +66,7 @@ export function sampleVideo(
       canvas.width,
       canvas.height,
     )
-    return samplePixels(
+    return (original ? sampleOriginalPixels : samplePixels)(
       context.getImageData(0, 0, canvas.width, canvas.height).data,
       t,
     )
@@ -108,3 +109,38 @@ export function opticalTrace(samples: PpgSample[]) {
     )
     .join(' ')
 }
+
+/** Original 332c6f7 aggregation: red+green clipping and full red spatial range. */
+export function sampleOriginalPixels(
+  pixels: Uint8ClampedArray,
+  t: number,
+): PpgSample {
+  let r = 0,
+    g = 0,
+    b = 0,
+    clipped = 0,
+    min = 255,
+    max = 0
+  for (let i = 0; i < pixels.length; i += 4) {
+    r += pixels[i]
+    g += pixels[i + 1]
+    b += pixels[i + 2]
+    if (pixels[i] >= 252 && pixels[i + 1] >= 252) clipped++
+    min = Math.min(min, pixels[i])
+    max = Math.max(max, pixels[i])
+  }
+  const n = pixels.length / 4
+  return {
+    t,
+    r: r / n,
+    g: g / n,
+    b: b / n,
+    clipped: clipped / n,
+    spread: (max - min) / 255,
+  }
+}
+export const sampleOriginalVideo = (
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement,
+  t: number,
+) => sampleVideo(video, canvas, t, true)

@@ -4,6 +4,7 @@ import {
   RHR_POSITIONS,
   RHR_VERSION,
   RHR_FIXED_VERSION,
+  RHR_RESTORED_VERSION,
   RHR_LEGACY_VERSION,
   RHR_MAX_MS,
   RHR_MAX_SAMPLES,
@@ -24,7 +25,12 @@ export const rhrContextSchema = z.object({
 })
 export const rhrRecordSchema = z.object({
   protocolVersion: z
-    .enum([RHR_VERSION, RHR_LEGACY_VERSION, RHR_FIXED_VERSION])
+    .enum([
+      RHR_VERSION,
+      RHR_LEGACY_VERSION,
+      RHR_FIXED_VERSION,
+      RHR_RESTORED_VERSION,
+    ])
     .optional(),
   elapsedMs: z.number().finite().min(0).max(RHR_MAX_MS),
   interruption: z
@@ -54,7 +60,10 @@ export async function rhrTicket(data: {
   position: string
   rested: true
   protocolVersion?:
-    typeof RHR_VERSION | typeof RHR_LEGACY_VERSION | typeof RHR_FIXED_VERSION
+    | typeof RHR_VERSION
+    | typeof RHR_LEGACY_VERSION
+    | typeof RHR_FIXED_VERSION
+    | typeof RHR_RESTORED_VERSION
 }) {
   return new SignJWT({ ...data, version: data.protocolVersion ?? RHR_VERSION })
     .setProtectedHeader({ alg: 'HS256' })
@@ -98,7 +107,12 @@ export async function verifyRhrAnswer(
       p.playerId !== scope.playerId ||
       p.questionId !== scope.questionId ||
       !(
-        [RHR_VERSION, RHR_LEGACY_VERSION, RHR_FIXED_VERSION] as unknown[]
+        [
+          RHR_VERSION,
+          RHR_LEGACY_VERSION,
+          RHR_FIXED_VERSION,
+          RHR_RESTORED_VERSION,
+        ] as unknown[]
       ).includes(p.protocolVersion) ||
       p.kind !== 'RHR' ||
       p.quality !== 'ACCEPTED' ||
@@ -109,7 +123,9 @@ export async function verifyRhrAnswer(
       p.rested !== true ||
       (p.protocolVersion !== RHR_VERSION
         ? p.durationSeconds !== 15 ||
-          (p.protocolVersion === RHR_FIXED_VERSION &&
+          ([RHR_FIXED_VERSION, RHR_RESTORED_VERSION].includes(
+            p.protocolVersion as string,
+          ) &&
             (p.targetDurationSeconds !== 15 || p.restarts !== 0))
         : typeof p.durationSeconds !== 'number' ||
           !Number.isFinite(p.durationSeconds) ||
@@ -139,7 +155,9 @@ export async function verifyRhrAnswer(
             restarts: Number(p.restarts),
           }
         : {}),
-      ...(p.protocolVersion === RHR_FIXED_VERSION
+      ...([RHR_FIXED_VERSION, RHR_RESTORED_VERSION].includes(
+        p.protocolVersion as string,
+      )
         ? { targetDurationSeconds: 15 as const, restarts: 0 }
         : {}),
       ...(typeof p.algorithmVersion === 'string'

@@ -2,6 +2,8 @@
 export const RHR_LEGACY_VERSION = 'camera-rhr-v1'
 export const RHR_VERSION = 'camera-rhr-v2'
 export const RHR_FIXED_VERSION = 'camera-rhr-v3'
+export const RHR_RESTORED_VERSION = 'camera-rhr-v4'
+export const RHR_RESTORED_ALGORITHM_VERSION = 'original-ppg-v1'
 export const RHR_FIXED_ALGORITHM_VERSION = 'fixed-rgb-v4'
 export const RHR_LEGACY_ALGORITHM_VERSION = 'adaptive-rgb-v2'
 export const RHR_ALGORITHM_VERSION = 'quality-window-v3'
@@ -31,7 +33,10 @@ export type PpgSample = {
 }
 export type RhrRecord = {
   protocolVersion?:
-    typeof RHR_VERSION | typeof RHR_LEGACY_VERSION | typeof RHR_FIXED_VERSION
+    | typeof RHR_VERSION
+    | typeof RHR_LEGACY_VERSION
+    | typeof RHR_FIXED_VERSION
+    | typeof RHR_RESTORED_VERSION
   samples: PpgSample[]
   elapsedMs: number
   interruption: string | null
@@ -83,6 +88,7 @@ export function validateRhrRecord(record: RhrRecord): boolean {
     (record.protocolVersion !== undefined &&
       record.protocolVersion !== RHR_VERSION &&
       record.protocolVersion !== RHR_FIXED_VERSION &&
+      record.protocolVersion !== RHR_RESTORED_VERSION &&
       record.protocolVersion !== RHR_LEGACY_VERSION)
   )
     return false

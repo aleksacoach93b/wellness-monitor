@@ -473,3 +473,17 @@ model RhrObservation {
   @@index([playerId,surveyId,localDate])
   @@map("rhr_observations")
 }
+
+/// Delivery receipts for retry-safe questionnaire submission; no answer payloads.
+model SurveySubmissionReceipt {
+  id String @id
+  surveyId String
+  playerId String?
+  sessionType String?
+  requestHash String
+  responseId String
+  clientCreatedAt DateTime
+  createdAt DateTime @default(now())
+  @@index([surveyId, playerId, createdAt])
+  @@map("survey_submission_receipts")
+}

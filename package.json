@@ -12,7 +12,8 @@
     "test:ops": "node --test tests/ops-insights.test.cjs tests/ops-table.test.cjs",
     "test:pvt": "node --test tests/pvt.test.cjs",
     "test:rhr": "node --test tests/rhr.test.cjs",
-    "test:rhr:camera": "node tests/rhr.camera-matrix.cjs"
+    "test:rhr:camera": "node tests/rhr.camera-matrix.cjs",
+    "test:delivery": "node --test tests/survey-delivery.test.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -9,7 +9,7 @@
     "lint": "eslint",
     "postinstall": "npx prisma generate",
     "vercel-build": "prisma generate && next build",
-    "test:ops": "node --test tests/ops-insights.test.cjs",
+    "test:ops": "node --test tests/ops-insights.test.cjs tests/ops-table.test.cjs",
     "test:pvt": "node --test tests/pvt.test.cjs",
     "test:rhr": "node --test tests/rhr.test.cjs",
     "test:rhr:camera": "node tests/rhr.camera-matrix.cjs"

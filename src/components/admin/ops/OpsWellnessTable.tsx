@@ -132,7 +132,36 @@ function renderCell(id: OpsColumnId, p: OpsPlayerCard) {
         </td>
       )
     case 'focus':
-      return <td key={id}><a href={`/admin/pvt?playerId=${p.id}&surveyId=${p.focus?.surveyId || ''}&questionId=${p.focus?.questionId || ''}`} className="text-teal-600 hover:underline">{p.focus ? <><strong>{p.focus.medianRT == null ? '—' : `${Math.round(p.focus.medianRT)} ms`}</strong><div className="text-xs">{p.focus.duration}s · {p.focus.quality}</div><div className="text-xs">{p.focus.deltaPercent == null ? `${p.focus.baselineDays}/7 reference days` : `${p.focus.deltaPercent > 0 ? '+' : ''}${p.focus.deltaPercent.toFixed(1)}% vs reference`}{p.focus.count > 1 ? ` · ${p.focus.count} tests` : ''}</div><div className="text-xs">{p.focus.linked ? 'In wellness CSV' : 'Awaiting wellness'}</div></> : p.focusState === 'INVALID' ? 'Repeat required' : p.focusState === 'INTERRUPTED' ? 'Interrupted' : 'Pending'}</a></td>
+      return (
+        <td key={id} className="ops-mono whitespace-nowrap">
+          {p.focus?.medianRT != null && Number.isFinite(p.focus.medianRT) ? (
+            <a
+              href={`/admin/pvt?playerId=${p.id}&surveyId=${p.focus.surveyId}&questionId=${p.focus.questionId || ''}`}
+              className="font-semibold text-teal-400 hover:underline"
+            >
+              {Math.round(p.focus.medianRT)} ms
+            </a>
+          ) : (
+            <span className="ops-t-muted">—</span>
+          )}
+        </td>
+      )
+    case 'rhr':
+      return (
+        <td key={id} className="ops-mono whitespace-nowrap">
+          {p.restingHr?.length ? (
+            <span className="inline-flex gap-3 font-semibold text-sky-300">
+              {p.restingHr.map((reading) => (
+                <span key={reading.questionId} title={reading.label}>
+                  {Math.round(reading.bpm)} bpm
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="ops-t-muted">—</span>
+          )}
+        </td>
+      )
     case 'performance':
       return <td key={id}>{statusBadge(w, pending)}</td>
     case 'submitted':

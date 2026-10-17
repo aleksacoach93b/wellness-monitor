@@ -5,6 +5,7 @@
 export type OpsColumnId =
   | 'athlete'
   | 'focus'
+  | 'rhr'
   | 'performance'
   | 'submitted'
   | 'bed'
@@ -57,7 +58,18 @@ export type OpsSurveyQuestion = {
 }
 
 export const OPS_COLUMN_CATALOG: OpsColumnMeta[] = [
-  { id: 'focus', label: 'Focus test', group: 'Identity & status', description: 'Median reaction time, test quality and personal reference; no readiness weighting' },
+  {
+    id: 'focus',
+    label: 'Focus test',
+    group: 'Identity & status',
+    description: 'Median reaction time in milliseconds',
+  },
+  {
+    id: 'rhr',
+    label: 'RHR',
+    group: 'Identity & status',
+    description: 'Saved resting heart rate in beats per minute',
+  },
   {
     id: 'athlete',
     label: 'Athlete',
@@ -153,6 +165,7 @@ export const DEFAULT_OPS_COLUMNS: OpsColumnConfig[] = [
   { id: 'athlete', enabled: true },
   { id: 'performance', enabled: true },
   { id: 'focus', enabled: true },
+  { id: 'rhr', enabled: true },
   { id: 'submitted', enabled: true },
   { id: 'bed', enabled: true },
   { id: 'wake', enabled: true },
@@ -222,7 +235,11 @@ export function normalizeOpsColumns(input: unknown): OpsColumnConfig[] {
 
   for (const col of DEFAULT_OPS_COLUMNS) {
     if (seen.has(col.id)) continue
-    out.push({ ...col, label: null, questionId: null })
+    const added = { ...col, label: null, questionId: null }
+    // Upgrade existing saved layouts without resetting labels, mappings or visibility.
+    const focusIndex = out.findIndex((c) => c.id === 'focus')
+    if (col.id === 'rhr' && focusIndex >= 0) out.splice(focusIndex + 1, 0, added)
+    else out.push(added)
   }
 
   const athleteIdx = out.findIndex((c) => c.id === 'athlete')

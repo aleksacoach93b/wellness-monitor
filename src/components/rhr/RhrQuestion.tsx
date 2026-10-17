@@ -60,6 +60,7 @@ import {
   verifySelectedCamera,
   type CameraCheck,
 } from '@/lib/rhr/compatibility'
+import { observationReasons } from '@/lib/rhr/observationProtocol'
 import { parseRhrAnswer, type RhrAnswer } from '@/lib/rhr/options'
 import '../pvt/pvt-focus.css'
 import './rhr.css'
@@ -151,6 +152,7 @@ export default function RhrQuestion({
     generation = useRef(0),
     frame = useRef(0),
     videoFrame = useRef<number | null>(null),
+    observation = useRef<{ id: string; ended: boolean } | null>(null),
     running = useRef(false),
     starting = useRef(false),
     saving = useRef(false),
@@ -197,6 +199,34 @@ export default function RhrQuestion({
   const shell = getSurveyShellClasses(theme),
     ui = getSurveyUiTokens(theme),
     completed = parseRhrAnswer(value)
+  const reportOutcome = (
+    status: 'REPEAT' | 'INTERRUPTED' | 'CAMERA_ERROR' | 'INCOMPLETE',
+    reason: string,
+  ) => {
+    const attempt = observation.current
+    if (demo || !attempt || attempt.ended) return
+    attempt.ended = true
+    const normalized =
+      observationReasons.find((r) => r === reason) ?? 'signal-quality'
+    // Small operational status only. Never upload diagnostics, images or camera IDs.
+    void fetch(`/api/kiosk/${encodeURIComponent(surveyId)}/rhr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        action: 'report',
+        eventId: attempt.id,
+        playerId,
+        questionId: question.id,
+        password: suppliedPassword ?? (password || undefined),
+        position: position ?? undefined,
+        status,
+        reason: normalized,
+        protocolVersion: RHR_VERSION,
+        acquisitionVersion: RHR_ACQUISITION_VERSION,
+      }),
+    }).catch(() => {})
+  }
   const stopCamera = () => {
     running.current = false
     starting.current = false
@@ -238,6 +268,7 @@ export default function RhrQuestion({
     }
   }, [open])
   const close = () => {
+    reportOutcome('INCOMPLETE', 'cancelled')
     stopCamera()
     setOpen(false)
     setPhase('setup')
@@ -269,6 +300,14 @@ export default function RhrQuestion({
     const analysis = analyzeRhrRecord(record)
     setDiagnostics(analysis)
     if (analysis.quality !== 'ACCEPTED') {
+      reportOutcome(
+        record.interruption ? 'INTERRUPTED' : 'REPEAT',
+        record.interruption === 'camera-ended'
+          ? 'camera-ended'
+          : record.interruption
+            ? 'interrupted'
+            : analysis.reasons[0] || 'signal-quality',
+      )
       setError(captureFailure(analysis, record))
       setPhase('repeat')
       pending.current = null
@@ -312,6 +351,7 @@ export default function RhrQuestion({
             data.error || 'Unable to save. Retry this measurement.',
           )
         if (!data.accepted) {
+          if (observation.current) observation.current.ended = true
           setDiagnostics(data.analysis ?? analysis)
           setError(captureFailure(data.analysis ?? analysis, record))
           setPhase('repeat')
@@ -341,6 +381,7 @@ export default function RhrQuestion({
       } catch {
         /* Optional device preference. */
       }
+      if (observation.current) observation.current.ended = true
       setResult(answer)
       setPhase('result')
       pending.current = null
@@ -711,13 +752,20 @@ export default function RhrQuestion({
   const armCameraIdle = () => {
     if (deadline.current) clearTimeout(deadline.current)
     deadline.current = setTimeout(() => {
+      reportOutcome('INCOMPLETE', 'setup-timeout')
       stopCamera()
       setPhase('setup')
       setError('Camera stopped after inactivity. Enable it again when ready.')
     }, 30000)
   }
   const enableCamera = async (requestedId = camera) => {
+    reportOutcome('INCOMPLETE', 'cancelled')
     stopCamera()
+    try {
+      observation.current = { id: crypto.randomUUID(), ended: false }
+    } catch {
+      observation.current = null
+    }
     const current = generation.current
     setPhase('opening')
     setError('')
@@ -847,6 +895,7 @@ export default function RhrQuestion({
           if (current !== generation.current) return
           if (running.current) finishScan.current('camera-ended')
           else {
+            reportOutcome('CAMERA_ERROR', 'camera-ended')
             stopCamera()
             setPhase('setup')
             setError('Camera disconnected. Enable it again to measure.')
@@ -858,6 +907,14 @@ export default function RhrQuestion({
       armCameraIdle()
     } catch (e) {
       if (current !== generation.current) return
+      reportOutcome(
+        'CAMERA_ERROR',
+        e instanceof Error && e.name === 'NotAllowedError'
+          ? 'camera-permission'
+          : e instanceof Error && /light/i.test(e.message)
+            ? 'camera-light'
+            : 'camera-error',
+      )
       stopCamera()
       setPhase('setup')
       setError(
@@ -945,6 +1002,12 @@ export default function RhrQuestion({
               questionId: question.id,
               password: suppliedPassword ?? (password || undefined),
               context: { position, rested: true },
+              observation: observation.current
+                ? {
+                    id: observation.current.id,
+                    acquisitionVersion: RHR_ACQUISITION_VERSION,
+                  }
+                : undefined,
               protocolVersion: RHR_VERSION,
             }),
             signal: AbortSignal.timeout(15000),
@@ -1941,7 +2004,7 @@ export default function RhrQuestion({
               <p className="pvt-dialog-footer">
                 {demo
                   ? 'Demo · No player data saved'
-                  : 'Submit your wellness questionnaire to save this reading for your coach.'}
+                  : 'Submit your wellness questionnaire to save this reading. Measurement outcomes and basic device/browser groups help your coach monitor reliability; video stays on your phone.'}
               </p>
             </div>
           </div>,

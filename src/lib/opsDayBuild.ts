@@ -2,6 +2,7 @@
  * Shared Live Ops day-building helpers (table metrics, no route coupling).
  */
 
+import { zonedDay } from './opsDates'
 import {
   averageFromDays,
   buildPlayerWellness,
@@ -14,7 +15,7 @@ import {
 export type OpsAnswer = {
   value: string
   questionId?: string
-  question: { id?: string; text: string; type: string }
+  question: { id?: string; text: string; type: string; options?: string | null }
 }
 
 export type OpsResponseRow = {
@@ -81,6 +82,7 @@ export function sortSurveysForOps<T extends { title: string }>(surveys: T[]): T[
 export function indexResponsesByPlayerDay(
   rows: OpsResponseRow[],
   parseOpts?: ParseDayMetricsOptions,
+  timezone?: string,
 ) {
   const byPlayerDay = new Map<string, Map<string, ReturnType<typeof parseDayMetrics>>>()
   const latestByPlayerDay = new Map<
@@ -95,7 +97,7 @@ export function indexResponsesByPlayerDay(
 
   for (const r of ordered) {
     if (!r.playerId) continue
-    const key = dayKey(r.submittedAt)
+    const key = timezone ? zonedDay(r.submittedAt, timezone) : dayKey(r.submittedAt)
     let dayMap = byPlayerDay.get(r.playerId)
     if (!dayMap) {
       dayMap = new Map()
@@ -142,6 +144,7 @@ export function mergeBodyMapsIntoDays(args: {
     Map<string, { submittedAt: Date; metrics: ReturnType<typeof parseDayMetrics> }>
   >
   bodyRows: OpsResponseRow[]
+  timezone?: string
 }) {
   const seen = new Set<string>()
   const ordered = [...args.bodyRows].sort(
@@ -149,7 +152,7 @@ export function mergeBodyMapsIntoDays(args: {
   )
   for (const r of ordered) {
     if (!r.playerId || !r.answers.length) continue
-    const key = dayKey(r.submittedAt)
+    const key = args.timezone ? zonedDay(r.submittedAt, args.timezone) : dayKey(r.submittedAt)
     const stamp = `${r.playerId}|${key}`
     if (seen.has(stamp)) continue
     seen.add(stamp)

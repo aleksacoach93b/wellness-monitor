@@ -40,7 +40,7 @@ try {
   check((await request('/api/pvt/admin')).status===401,'admin auth required')
   const admin=await request('/api/pvt/admin',null,true)
   check(admin.status===200 && admin.data.ready,'admin reads migrated PVT')
-  check(admin.data.surveys.length===1 && admin.data.surveys[0].questions[0].id==='focus-question','team-scoped native questions')
+  check(admin.data.surveys.some(s=>s.id==='test-survey' && s.questions.some(q=>q.id==='focus-question')) && !admin.data.surveys.some(s=>s.id==='other-survey'),'team-scoped native questions')
   const p='/api/kiosk/test-survey/pvt'
   check((await request(p)).data.questions[0].duration===30,'native question config sets duration')
   check((await request(p,{...start,password:'WRONG'})).status===401,'wrong access code rejected')

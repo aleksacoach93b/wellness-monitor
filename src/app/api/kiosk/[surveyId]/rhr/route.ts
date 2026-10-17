@@ -1,7 +1,12 @@
-import { randomBytes } from 'node:crypto'
-import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes, randomUUID } from 'node:crypto'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
+import {
+  observationMeta,
+  observationReport,
+  recordRhrObservation,
+} from '@/lib/rhr/observations'
 import { hasPlayerGrant } from '@/lib/pvt/playerAuth'
 import {
   equalSecret,
@@ -32,6 +37,7 @@ export const dynamic = 'force-dynamic'
 const json = (body: unknown, status = 200) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
 const schema = z.discriminatedUnion('action', [
+  observationReport,
   z.object({
     action: z.literal('start'),
     protocolVersion: z
@@ -46,6 +52,7 @@ const schema = z.discriminatedUnion('action', [
     questionId: z.string().min(1).max(100),
     password: z.string().max(100).optional(),
     context: rhrContextSchema,
+    observation: observationMeta.optional(),
   }),
   z.object({
     action: z.literal('finish'),
@@ -63,6 +70,65 @@ export async function POST(
       raw = await request.text()
     if (raw.length > 1_000_000) return json({ error: 'Record too large.' }, 413)
     const body = schema.parse(JSON.parse(raw))
+    if (body.action === 'report') {
+      const survey = await prisma.survey.findUnique({
+        where: { id: surveyId },
+        include: { questions: true },
+      })
+      if (
+        !survey?.teamId ||
+        !surveyOpen(survey) ||
+        !survey.questions.some(
+          (q) => q.id === body.questionId && isRhrQuestion(q),
+        )
+      )
+        return json({ error: 'Measurement unavailable.' }, 403)
+      const window = Math.floor(Date.now() / 600000)
+      const rate = await prisma.pvtAuthWindow.upsert({
+        where: {
+          key: hashToken(`rhr-report:${surveyId}:${body.playerId}:${window}`),
+        },
+        create: {
+          key: hashToken(`rhr-report:${surveyId}:${body.playerId}:${window}`),
+          expiresAt: new Date((window + 1) * 600000),
+        },
+        update: { attempts: { increment: 1 } },
+      })
+      if (rate.attempts > 50)
+        return json({ error: 'Too many outcome reports.' }, 429)
+      const player = await prisma.player.findFirst({
+        where: { id: body.playerId, teamId: survey.teamId, isActive: true },
+      })
+      const expected = player
+        ? player.password ||
+          `${player.firstName.charAt(0)}${player.lastName.charAt(0)}`
+        : randomBytes(16).toString('hex')
+      if (
+        !player ||
+        (!(await hasPlayerGrant(request, player.id, surveyId)) &&
+          !equalSecret(
+            (body.password || '').toUpperCase(),
+            expected.toUpperCase(),
+          ))
+      )
+        return json({ error: 'Unauthorized outcome report.' }, 401)
+      const recorded = await recordRhrObservation({
+        id: body.eventId,
+        teamId: survey.teamId,
+        surveyId,
+        playerId: player.id,
+        questionId: body.questionId,
+        timezone: survey.timezone,
+        status: body.status,
+        source: 'CLIENT',
+        position: body.position,
+        protocolVersion: body.protocolVersion,
+        acquisitionVersion: body.acquisitionVersion,
+        userAgent: request.headers.get('user-agent') || '',
+        reason: body.reason,
+      })
+      return json({ recorded })
+    }
     if (body.action === 'finish') {
       let ticket
       try {
@@ -109,6 +175,38 @@ export async function POST(
       )
         return json({ error: 'Measurement is no longer available.' }, 403)
       const analysis = analyzeRhrRecord(body.record)
+      if (typeof ticket.measurementId === 'string' && survey.teamId) {
+        const measurementId = ticket.measurementId,
+          startedAt = new Date(ticket.iat * 1000)
+        after(async () => {
+          await recordRhrObservation({
+            id: measurementId,
+            teamId: survey.teamId!,
+            surveyId,
+            playerId: player.id,
+            questionId: String(ticket.questionId),
+            timezone: survey.timezone,
+            status:
+              analysis.quality === 'ACCEPTED' && analysis.bpm !== null
+                ? 'ACCEPTED'
+                : body.record.interruption
+                  ? 'INTERRUPTED'
+                  : 'REPEAT',
+            source: 'SERVER',
+            position: context.position,
+            protocolVersion: String(ticket.version),
+            acquisitionVersion:
+              typeof ticket.acquisitionVersion === 'string'
+                ? ticket.acquisitionVersion
+                : undefined,
+            userAgent: request.headers.get('user-agent') || '',
+            reason: analysis.reasons[0],
+            bpm: analysis.bpm ?? undefined,
+            fps: analysis.fps,
+            startedAt,
+          })
+        })
+      }
       if (analysis.quality !== 'ACCEPTED' || analysis.bpm === null)
         return json({ accepted: false, analysis })
       const result: RhrAnswer = {
@@ -197,8 +295,27 @@ export async function POST(
         ))
     )
       return json({ error: 'Enter your player access code.' }, 401)
+    const measurementId = body.observation?.id ?? randomUUID()
+    after(async () => {
+      await recordRhrObservation({
+        id: measurementId,
+        teamId: survey.teamId!,
+        surveyId,
+        questionId: body.questionId,
+        playerId: player.id,
+        timezone: survey.timezone,
+        status: 'STARTED',
+        source: 'SERVER',
+        position: body.context.position,
+        protocolVersion: body.protocolVersion ?? RHR_LEGACY_VERSION,
+        acquisitionVersion: body.observation?.acquisitionVersion,
+        userAgent: request.headers.get('user-agent') || '',
+      })
+    })
     return json({
       ticket: await rhrTicket({
+        measurementId,
+        acquisitionVersion: body.observation?.acquisitionVersion,
         playerId: player.id,
         surveyId,
         questionId: body.questionId,

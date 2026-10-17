@@ -34,6 +34,7 @@ model Team {
 
   pvtConfigs          PvtConfig[]
   pvtSessions         PvtSession[]
+  rhrObservations     RhrObservation[]
   players             Player[]
   surveys             Survey[]
   tags                Tag[]
@@ -224,6 +225,7 @@ model Player {
   team      Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   responses Response[]
   pvtSessions PvtSession[]
+  rhrObservations RhrObservation[]
 
   @@unique([teamId, email])
   @@index([teamId])
@@ -255,6 +257,7 @@ model Survey {
   team      Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   pvtConfig PvtConfig?
   pvtSessions PvtSession[]
+  rhrObservations RhrObservation[]
   questions Question[]
   responses Response[]
 
@@ -275,6 +278,7 @@ model Question {
   survey  Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
   answers Answer[]
   pvtSessions PvtSession[]
+  rhrObservations RhrObservation[]
 
   @@map("questions")
 }
@@ -438,4 +442,34 @@ model PvtAuthWindow {
   expiresAt DateTime
   @@index([expiresAt])
   @@map("pvt_auth_windows")
+}
+
+
+/// Minimal operational outcomes only; no video, RGB samples, camera IDs or full user agents.
+model RhrObservation {
+  id String @id
+  teamId String
+  surveyId String
+  questionId String
+  playerId String
+  localDate String
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+  status String
+  source String
+  position String?
+  protocolVersion String
+  acquisitionVersion String?
+  platform String
+  browser String
+  reason String?
+  bpm Int?
+  fps Float?
+  team Team @relation(fields:[teamId],references:[id],onDelete:Cascade)
+  survey Survey @relation(fields:[surveyId],references:[id],onDelete:Cascade)
+  question Question @relation(fields:[questionId],references:[id],onDelete:Cascade)
+  player Player @relation(fields:[playerId],references:[id],onDelete:Cascade)
+  @@index([teamId,surveyId,localDate])
+  @@index([playerId,surveyId,localDate])
+  @@map("rhr_observations")
 }

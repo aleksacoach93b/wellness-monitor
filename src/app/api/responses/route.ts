@@ -113,9 +113,18 @@ export async function POST(request: NextRequest) {
                 sessionType,
                 submittedAt: { gt: clientCreatedAt },
               },
+              orderBy: { submittedAt: 'desc' },
               select: { id: true },
             })
-            if (newer || newerResponse) throw new Error('DELIVERY_NEWER')
+            // Receipt timestamps compare submissions from the device itself. Do not
+            // compare its clock to a known receipt's server commit time.
+            const legacyNewer =
+              newerResponse &&
+              !(await tx.surveySubmissionReceipt.findFirst({
+                where: { responseId: newerResponse.id },
+                select: { id: true },
+              }))
+            if (newer || legacyNewer) throw new Error('DELIVERY_NEWER')
           }
         }
         const questionIds = new Set(survey.questions.map((q) => q.id))

@@ -273,6 +273,35 @@ try {
     })),
     'rejected request has no receipt',
   )
+  // A device clock slightly behind the server must still allow its next intentional submission.
+  const driftOne = await post(
+    payload('Clock one', {
+      sessionType: 'Clock drift',
+      clientCreatedAt: new Date(Date.now() - 600_000).toISOString(),
+    }),
+  )
+  check(driftOne.status === 200, 'first slow-clock questionnaire accepted')
+  const driftTwo = await post(
+    payload('Clock two', {
+      sessionType: 'Clock drift',
+      clientCreatedAt: new Date(Date.now() - 590_000).toISOString(),
+    }),
+  )
+  check(
+    driftTwo.status === 200 && driftTwo.data.id !== driftOne.data.id,
+    'newer device request is not rejected against its previous server commit time',
+  )
+  check(
+    (
+      await post(
+        payload('Clock stale', {
+          sessionType: 'Clock drift',
+          clientCreatedAt: new Date(Date.now() - 610_000).toISOString(),
+        }),
+      )
+    ).data.submissionIssue === 'DELIVERY_NEWER',
+    'slow-clock older delivery still cannot overwrite newer data',
+  )
   // Shared browser fixture starts clean after API assertions.
   await db.response.deleteMany({ where: { surveyId } })
   await db.surveySubmissionReceipt.deleteMany({ where: { surveyId } })

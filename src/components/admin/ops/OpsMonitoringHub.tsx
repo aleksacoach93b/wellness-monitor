@@ -403,7 +403,7 @@ export default function OpsMonitoringHub({
                   <thead>
                     <tr>
                       <th>Player</th>
-                      <th>Wellness / 10</th>
+                      <th>Questionnaire</th>
                       <th>Focus</th>
                       <th>Resting HR</th>
                     </tr>

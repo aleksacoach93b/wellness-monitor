@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { validDay, shiftDay, dayWindow, zonedDay } from '@/lib/opsDates'
 import { prisma } from '@/lib/prisma'
 import { getAdminSessionFromRequest } from '@/lib/auth/adminSession'
 
@@ -19,28 +20,26 @@ export async function GET(request: NextRequest) {
   const month = request.nextUrl.searchParams.get('month')
   const surveyIdParam = request.nextUrl.searchParams.get('surveyId')
 
-  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+  if (!month || !/^\d{4}-\d{2}$/.test(month) || !validDay(month + '-01')) {
     return NextResponse.json({ error: 'month=YYYY-MM required' }, { status: 400 })
   }
 
   try {
-    const [y, m] = month.split('-').map(Number)
-    const start = new Date(y, m - 1, 1, 0, 0, 0, 0)
-    const end = new Date(y, m, 1, 0, 0, 0, 0)
-
+    let timezone = 'Europe/Belgrade'
     let surveyId = surveyIdParam
     if (surveyId) {
       const owned = await prisma.survey.findFirst({
         where: { id: surveyId, teamId },
-        select: { id: true },
+        select: { id: true, timezone: true },
       })
       if (!owned) {
         return NextResponse.json({ error: 'Survey not found' }, { status: 404 })
       }
+      timezone = owned.timezone
     } else {
       const surveys = await prisma.survey.findMany({
         where: { teamId },
-        select: { id: true, title: true, isActive: true },
+        select: { id: true, title: true, isActive: true, timezone: true },
         orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }],
       })
       const isWellness = (title: string) => {
@@ -54,11 +53,16 @@ export async function GET(request: NextRequest) {
         surveys[0] ??
         null
       surveyId = pick?.id ?? null
+      timezone = pick?.timezone || timezone
     }
 
-    const activePlayers = await prisma.player.count({
+    const players = await prisma.player.findMany({
       where: { teamId, isActive: true },
+      select: { id: true },
     })
+    const activePlayers = players.length
+    const start = dayWindow(month + '-01', timezone).dayStart
+    const end = dayWindow(shiftDay(month + '-28', 4).slice(0, 7) + '-01', timezone).dayStart
 
     const days: Record<string, { done: number; total: number }> = {}
 
@@ -68,7 +72,7 @@ export async function GET(request: NextRequest) {
           surveyId,
           survey: { teamId },
           submittedAt: { gte: start, lt: end },
-          playerId: { not: null },
+          playerId: { in: players.map(p => p.id) },
         },
         select: { playerId: true, submittedAt: true },
         orderBy: { submittedAt: 'desc' },
@@ -77,8 +81,7 @@ export async function GET(request: NextRequest) {
       const byDay = new Map<string, Set<string>>()
       for (const r of responses) {
         if (!r.playerId) continue
-        const d = r.submittedAt
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        const key = zonedDay(r.submittedAt, timezone)
         let set = byDay.get(key)
         if (!set) {
           set = new Set()

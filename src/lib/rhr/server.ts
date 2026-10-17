@@ -59,6 +59,8 @@ export async function rhrTicket(data: {
   questionId: string
   position: string
   rested: true
+  measurementId?: string
+  acquisitionVersion?: string
   protocolVersion?:
     | typeof RHR_VERSION
     | typeof RHR_LEGACY_VERSION

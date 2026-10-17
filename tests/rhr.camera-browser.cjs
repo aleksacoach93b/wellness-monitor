@@ -74,6 +74,11 @@ const base = process.env.RHR_BASE || 'http://127.0.0.1:4328'
     if (mode.startsWith('network-'))
       await ctx.route('**/api/kiosk/rhr-browser-*/rhr', async (r) => {
         const body = r.request().postDataJSON()
+        if (body.action === 'report') {
+          assert.ok(!('samples' in body) && !('bpm' in body))
+          assert.notEqual(body.status, 'ACCEPTED')
+          return r.fulfill({ json: { recorded: true } })
+        }
         if (body.action === 'start') {
           starts++
           if (mode === 'network-start-retry' && starts === 1) return r.abort()

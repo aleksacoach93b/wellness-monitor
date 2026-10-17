@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   Activity,
-  CheckCircle2,
-  Clock3,
   ExternalLink,
   LayoutGrid,
   Maximize2,
@@ -18,6 +16,7 @@ import WellnessFlipCard, {
   type OpsPlayerCard,
 } from '@/components/admin/ops/WellnessFlipCard'
 import OpsAlertTicker from '@/components/admin/ops/OpsAlertTicker'
+import OpsMonitoringHub, { type OpsTab } from '@/components/admin/ops/OpsMonitoringHub'
 import OpsRhrPanel from '@/components/admin/ops/OpsRhrPanel'
 import OpsFocusPanel from '@/components/admin/ops/OpsFocusPanel'
 import OpsWellnessTable from '@/components/admin/ops/OpsWellnessTable'
@@ -144,6 +143,8 @@ export default function LiveOpsPage() {
   const [data, setData] = useState<OpsPayload | null>(null)
   const [surveyId, setSurveyId] = useState<string>('')
   const [selectedDate, setSelectedDate] = useState(localToday)
+  const [tab, setTab] = useState<OpsTab>('daily')
+  const [nameQuery, setNameQuery] = useState('')
   const [filter, setFilter] = useState<StatusFilter>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [fullscreen, setFullscreen] = useState(false)
@@ -457,10 +458,11 @@ export default function LiveOpsPage() {
   }, [fullscreen])
 
   const filtered = useMemo(() => {
-    const list = data?.players ?? []
-    if (filter === 'all') return list
-    return list.filter((p) => p.status === filter)
-  }, [data?.players, filter])
+    return (data?.players ?? []).filter((p) =>
+      (filter === 'all' || p.status === filter) &&
+      `${p.firstName} ${p.lastName}`.toLowerCase().includes(nameQuery.trim().toLowerCase()),
+    )
+  }, [data?.players, filter, nameQuery])
 
   const sortedCards = useMemo(() => {
     const list = [...filtered] as OpsPlayerCard[]
@@ -732,6 +734,8 @@ export default function LiveOpsPage() {
   }
 
   const ws = data?.wellnessSummary
+  const selectedSurvey = data?.surveys.find(s => s.id === surveyId) || data?.survey
+  const currentDay = data?.selectedDate === selectedDate && data?.survey?.id === surveyId
 
   const cockpit = (
     <div className="sg7-page">
@@ -776,12 +780,18 @@ export default function LiveOpsPage() {
         onMonthChange={onMonthChange}
       />
 
-      {data?.players?.length ? (
+      {selectedSurvey && <OpsMonitoringHub survey={selectedSurvey} date={selectedDate} refreshKey={data?.generatedAt || ''} tab={tab} onTab={setTab} search={nameQuery} onSearch={setNameQuery} />}
+
+      {tab === 'daily' && currentDay && data?.players?.length ? (
         <OpsAlertTicker players={data.players as OpsPlayerCard[]} />
       ) : null}
 
-      {data?.survey && data.rhrAvailable && <OpsRhrPanel surveyId={data.survey.id} players={data.players} />}
-      {data?.survey && !!data.focusQuestions?.length && <OpsFocusPanel survey={data.survey} date={data.selectedDate} players={data.players} available={data.focusAvailable !== false} />}
+      {tab === 'measurements' && currentDay && <div className="opsm-detail-stack">
+        {data?.survey && data.rhrAvailable && <details className="opsm-detail"><summary>Resting HR trends and context</summary><OpsRhrPanel surveyId={data.survey.id} players={data.players} /></details>}
+        {data?.survey && !!data.focusQuestions?.length && <details className="opsm-detail"><summary>Focus results and analysis</summary><OpsFocusPanel survey={data.survey} date={data.selectedDate} players={data.players} available={data.focusAvailable !== false} /></details>}
+      </div>}
+
+      {tab === 'settings' && <>
 
       <OpsMetricsPanel
         metrics={metrics}
@@ -812,6 +822,10 @@ export default function LiveOpsPage() {
         busyId={interveneBusyId}
       />
 
+      </>}
+
+      {tab === 'daily' && !currentDay && <div className="opsm-loading" role="status">Loading the selected day…</div>}
+      {tab === 'daily' && currentDay && <>
       {ws ? (
         <div className="sg7-summary">
           <div className="sg7-readiness">
@@ -935,6 +949,7 @@ export default function LiveOpsPage() {
           ))}
         </div>
       )}
+      </>}
     </div>
   )
 
@@ -942,16 +957,15 @@ export default function LiveOpsPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="admin-kicker">Match day</p>
+          <p className="admin-kicker">Team monitoring</p>
           <h1 className="admin-title mt-1">Live Ops</h1>
           <p className="admin-sub">
             {data?.team.name ? (
               <>
-                Daily wellness cockpit for <strong>{data.team.name}</strong> — check-ins, readiness,
-                pain &amp; soreness maps.
+                Wellness, Focus and resting HR for <strong>{data.team.name}</strong> — daily follow-up and weekly reporting.
               </>
             ) : (
-              'Daily wellness cockpit for your team.'
+              'Daily monitoring and weekly reporting for your team.'
             )}
           </p>
         </div>
@@ -1046,27 +1060,6 @@ export default function LiveOpsPage() {
                 </Link>
               </div>
             ) : null}
-          </section>
-
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="admin-panel admin-stat">
-              <p className="admin-stat-label">Pending</p>
-              <p className="admin-stat-value text-amber-700">{data.stats.pending}</p>
-              <Clock3 className="absolute bottom-3 right-4 h-8 w-8 text-amber-600/20" aria-hidden />
-            </div>
-            <div className="admin-panel admin-stat">
-              <p className="admin-stat-label">Done</p>
-              <p className="admin-stat-value text-teal-700">{data.stats.done}</p>
-              <CheckCircle2
-                className="absolute bottom-3 right-4 h-8 w-8 text-teal-600/20"
-                aria-hidden
-              />
-            </div>
-            <div className="admin-panel admin-stat">
-              <p className="admin-stat-label">Total active</p>
-              <p className="admin-stat-value">{data.stats.total}</p>
-              <Users className="absolute bottom-3 right-4 h-8 w-8 text-teal-700/15" aria-hidden />
-            </div>
           </section>
 
           {fullscreen ? <div className="ops-fullscreen">{cockpit}</div> : cockpit}

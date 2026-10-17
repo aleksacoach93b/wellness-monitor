@@ -1,4 +1,5 @@
 import { isRhrQuestion, parseRhrAnswer } from '@/lib/rhr/options'
+import { validDay, dayWindow, zonedDay } from '@/lib/opsDates'
 import { localDay } from '@/lib/pvt/server'
 import { parsePvtAnswer } from '@/lib/pvt/options'
 import { baselineFor, type PvtSessionRow } from '@/lib/pvt/baseline'
@@ -7,7 +8,6 @@ import { prisma } from '@/lib/prisma'
 import { getAdminSessionFromRequest } from '@/lib/auth/adminSession'
 import {
   buildOpsDayPayload,
-  dayKey,
   indexResponsesByPlayerDay,
   mergeBodyMapsIntoDays,
   pickDefaultSurvey,
@@ -20,20 +20,6 @@ import { ensureOpsSchema } from '@/lib/opsSchemaEnsure'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-/** Local calendar day window. Optional `date=YYYY-MM-DD` (defaults to today). */
-function selectedDayWindow(dateParam: string | null) {
-  let base = new Date()
-  if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-    const [y, m, d] = dateParam.split('-').map(Number)
-    base = new Date(y, m - 1, d, 12, 0, 0, 0)
-  }
-  const dayStart = new Date(base)
-  dayStart.setHours(0, 0, 0, 0)
-  const dayEnd = new Date(dayStart)
-  dayEnd.setDate(dayEnd.getDate() + 1)
-  return { dayStart, dayEnd, selectedDate: dayKey(dayStart) }
-}
 
 /**
  * Live Ops: check-in + Daily Wellness card payload for the session's team only.
@@ -48,6 +34,7 @@ export async function GET(request: NextRequest) {
   const teamId = session.teamId
   const surveyIdParam = request.nextUrl.searchParams.get('surveyId')
   const dateParam = request.nextUrl.searchParams.get('date')
+  if (dateParam && !validDay(dateParam)) return NextResponse.json({error:'Invalid date'}, {status:400})
 
   try {
     const team = await prisma.team.findUnique({
@@ -75,7 +62,8 @@ export async function GET(request: NextRequest) {
       survey = pickDefaultSurvey(surveys)
     }
 
-    const { dayStart, dayEnd, selectedDate } = selectedDayWindow(dateParam)
+    const timezone = surveys.find(s => s.id === survey?.id)?.timezone || 'Europe/Belgrade'
+    const { dayStart, dayEnd, selectedDate } = dayWindow(dateParam || zonedDay(new Date(), timezone), timezone)
     // 28d history for ACWR / EWMA / rolling stats on derived metrics.
     const historyStart = new Date(dayStart)
     historyStart.setDate(historyStart.getDate() - 28)
@@ -163,9 +151,9 @@ export async function GET(request: NextRequest) {
 
     const { byPlayerDay, latestByPlayerDay } = indexResponsesByPlayerDay(history, {
       questionMappings,
-    })
+    }, timezone)
 
-    mergeBodyMapsIntoDays({ latestByPlayerDay, bodyRows: todayBodyMaps })
+    mergeBodyMapsIntoDays({ latestByPlayerDay, bodyRows: todayBodyMaps, timezone })
 
     const day = buildOpsDayPayload({
       players,

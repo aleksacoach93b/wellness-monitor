@@ -3,11 +3,11 @@ import { prisma } from '@/lib/prisma'
 import { getAdminSessionFromRequest } from '@/lib/auth/adminSession'
 import {
   buildOpsDayPayload,
-  dayKey,
   indexResponsesByPlayerDay,
   pickDefaultSurvey,
   sortSurveysForOps,
 } from '@/lib/opsDayBuild'
+import { validDay, shiftDay, dayWindow } from '@/lib/opsDates'
 import { loadOpsQuestionMappings } from '@/lib/opsTablePrefs'
 
 export const dynamic = 'force-dynamic'
@@ -27,18 +27,11 @@ export async function GET(request: NextRequest) {
   const month = request.nextUrl.searchParams.get('month')
   const surveyIdParam = request.nextUrl.searchParams.get('surveyId')
 
-  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+  if (!month || !/^\d{4}-\d{2}$/.test(month) || !validDay(month + '-01')) {
     return NextResponse.json({ error: 'month=YYYY-MM required' }, { status: 400 })
   }
 
   try {
-    const [y, m] = month.split('-').map(Number)
-    const monthStart = new Date(y, m - 1, 1, 0, 0, 0, 0)
-    const monthEnd = new Date(y, m, 1, 0, 0, 0, 0)
-    // Extra lookback so day-1 averages still work.
-    const historyStart = new Date(monthStart)
-    historyStart.setDate(historyStart.getDate() - 7)
-
     const team = await prisma.team.findUnique({
       where: { id: teamId },
       select: { id: true, name: true },
@@ -49,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     const surveys = await prisma.survey.findMany({
       where: { teamId },
-      select: { id: true, title: true, isActive: true, updatedAt: true },
+      select: { id: true, title: true, isActive: true, updatedAt: true, timezone: true },
       orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }],
     })
 
@@ -63,6 +56,13 @@ export async function GET(request: NextRequest) {
     } else {
       survey = pickDefaultSurvey(surveys)
     }
+
+    const timezone = surveys.find(s => s.id === survey?.id)?.timezone || 'Europe/Belgrade'
+    const firstDay = month + '-01'
+    const nextMonth = shiftDay(month + '-28', 4).slice(0, 7) + '-01'
+    const monthStart = dayWindow(firstDay, timezone).dayStart
+    const monthEnd = dayWindow(nextMonth, timezone).dayStart
+    const historyStart = new Date(monthStart.getTime() - 28 * 86400000)
 
     const players = await prisma.player.findMany({
       where: { teamId, isActive: true },
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
 
     const { byPlayerDay, latestByPlayerDay } = indexResponsesByPlayerDay(history, {
       questionMappings,
-    })
+    }, timezone)
 
     const days: Record<
       string,
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     const activeDays = new Set<string>()
     for (const dayMap of latestByPlayerDay.values()) {
       for (const key of dayMap.keys()) {
-        if (key >= dayKey(monthStart) && key < dayKey(monthEnd)) activeDays.add(key)
+        if (key >= firstDay && key < nextMonth) activeDays.add(key)
       }
     }
     for (const key of activeDays) {

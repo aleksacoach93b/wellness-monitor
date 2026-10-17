@@ -26,7 +26,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.classList.add('dark')
     
     // Save theme preference
-    localStorage.setItem('theme', 'dark')
+    try { localStorage.setItem('theme', 'dark') } catch { /* Storage denial must not prevent questionnaire use. */ }
   }, [])
 
   const toggleTheme = () => {

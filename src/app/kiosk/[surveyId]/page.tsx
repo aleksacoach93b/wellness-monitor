@@ -9,7 +9,8 @@ import Image from 'next/image'
 import { validatePlayerPassword } from '@/lib/passwordUtils'
 import { isRecurringSurveyActive } from '@/lib/recurringSurvey'
 import { pushRecentPlayerId, readRecentPlayerIds } from '@/lib/kioskRecentPlayers'
-import { flushOfflineSurveyQueue, getOfflineQueueCount } from '@/lib/offlineSurveyQueue'
+import { flushOfflineSurveyQueue, getSurveySubmissions, subscribeSurveyDelivery } from '@/lib/offlineSurveyQueue'
+import '@/components/survey/survey-journey.css'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
 import KioskClubBrand from '@/components/KioskClubBrand'
 import { kioskThemes, kioskTextTokens, KioskTheme } from '@/lib/kioskThemes'
@@ -108,6 +109,10 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [recentIds, setRecentIds] = useState<string[]>([])
   const [submitToast, setSubmitToast] = useState(false)
   const [queuedToast, setQueuedToast] = useState(false)
+  const [deliveryPendingCount,setDeliveryPendingCount]=useState(0)
+  const [attentionCount,setAttentionCount]=useState(0)
+  const [syncBusy,setSyncBusy]=useState(false)
+  const syncOfflineRef=useRef<()=>void>(()=>{})
   const [syncToast, setSyncToast] = useState<string | null>(null)
   const [playerAuthError, setPlayerAuthError] = useState<string | null>(null)
   const [showResubmitConfirm, setShowResubmitConfirm] = useState(false)
@@ -264,30 +269,62 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   }, [surveyId])
 
   useEffect(() => {
-    const syncOffline = async () => {
-      const before = getOfflineQueueCount()
-      const result = await flushOfflineSurveyQueue()
-      if (result.synced > 0) {
-        setSyncToast(
-          result.synced === 1
-            ? t(locale, 'offlineSyncedOne')
-            : `${result.synced} ${t(locale, 'offlineSyncedMany')}`
-        )
-        window.setTimeout(() => setSyncToast(null), 4000)
-        await loadBootstrap({ silent: true })
-      } else if (before > 0 && result.remaining > 0) {
-        setSyncToast(`${result.remaining} ${t(locale, 'waitingToSync')}`)
-        window.setTimeout(() => setSyncToast(null), 4000)
+    let active = true,
+      busy = false
+    let toastTimer: ReturnType<typeof setTimeout> | undefined
+    const scope = { surveyId }
+    const update = () => {
+      const rows = getSurveySubmissions(scope)
+      if (active) {
+        setDeliveryPendingCount(rows.length)
+        setAttentionCount(rows.filter((x) => x.state === 'attention').length)
       }
     }
-
-    void syncOffline()
-    const onOnline = () => {
-      void syncOffline()
+    const syncOffline = async (force = false) => {
+      if (busy) return
+      busy = true
+      setSyncBusy(true)
+      try {
+        const result = await flushOfflineSurveyQueue(
+          scope,
+          force ? true : undefined,
+        )
+        if (!active) return
+        update()
+        if (result.synced > 0) {
+          setSyncToast(
+            result.synced === 1
+              ? t(locale, 'offlineSyncedOne')
+              : `${result.synced} ${t(locale, 'offlineSyncedMany')}`,
+          )
+          if (toastTimer) clearTimeout(toastTimer)
+          toastTimer = setTimeout(() => {
+            if (active) setSyncToast(null)
+          }, 4000)
+          await loadBootstrap({ silent: true })
+        }
+      } finally {
+        busy = false
+        if (active) setSyncBusy(false)
+      }
     }
-    window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
-  }, [surveyId, loadBootstrap])
+    syncOfflineRef.current = () => void syncOffline(true)
+    const unsubscribe = subscribeSurveyDelivery(update)
+    update()
+    void syncOffline()
+    const timer = setInterval(() => {
+      if (navigator.onLine) void syncOffline()
+    }, 15000)
+    const handler = () => void syncOffline()
+    window.addEventListener('online', handler)
+    return () => {
+      active = false
+      clearInterval(timer)
+      if (toastTimer) clearTimeout(toastTimer)
+      unsubscribe()
+      window.removeEventListener('online', handler)
+    }
+  }, [surveyId, loadBootstrap, locale])
 
   const handleKioskPasswordCorrect = () => {
     setShowKioskPassword(false)
@@ -707,6 +744,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           }
         }
       `}</style>
+
       <div className={`${isFullscreen ? 'fixed inset-0' : 'min-h-screen'} ${activeTheme.rootBackground} relative overflow-auto`}>
         <a
           href="#kiosk-player-grid"
@@ -714,6 +752,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         >
           {t(locale, 'skipToPlayers')}
         </a>
+      {deliveryPendingCount>0&&<div className="sj-kiosk-pending" role="status"><div><strong>{deliveryPendingCount} {t(locale,'journeyWaiting')}</strong>{attentionCount>0&&<p>{attentionCount} {t(locale,'journeyAttentionCount')}</p>}</div><button type="button" disabled={syncBusy} onClick={()=>syncOfflineRef.current()}>{syncBusy?t(locale,'submitting'):t(locale,'journeyRetryAll')}</button></div>}
       {/* Futuristic Background Effects */}
       <div className={`absolute inset-0 ${activeTheme.overlayOne}`}></div>
       <div className={`absolute top-0 left-0 w-full h-full ${activeTheme.overlayTwo}`}></div>
@@ -959,6 +998,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
           </div>
         </div>
       )}
+
+
 
       {submitToast && (
         <div className="fixed top-4 left-1/2 z-[70] w-[min(92vw,28rem)] -translate-x-1/2">

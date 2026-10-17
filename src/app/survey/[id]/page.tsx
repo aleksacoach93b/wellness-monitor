@@ -97,6 +97,7 @@ export default async function SurveyPage({ params, searchParams }: SurveyPagePro
   return (
     <div className={getSurveyBackdropClass(appearanceResolved)}>
       <SurveyForm
+        key={`${survey.id}:${playerId || 'anonymous'}`}
         survey={survey}
         player={player}
         surveyTheme={effectiveSurveyTheme}

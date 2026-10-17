@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Survey, Question, Player } from '@prisma/client'
-import { CheckCircle, WifiOff } from 'lucide-react'
+import { CheckCircle, CloudOff, Loader2, Send } from 'lucide-react'
 import PvtQuestion from '@/components/pvt/PvtQuestion'
 import RhrQuestion from '@/components/rhr/RhrQuestion'
+import { JourneyProgress, SurveyReview } from '@/components/survey/SurveyJourney'
+import '@/components/survey/survey-journey.css'
+import { zonedDay } from '@/lib/opsDates'
 import { isRhrQuestion } from '@/lib/rhr/options'
 import BodyMap from '@/components/BodyMap'
 import { createPortal } from 'react-dom'
@@ -14,7 +17,8 @@ import { parseSliderOptions } from '@/lib/sliderOptions'
 import {
   enqueueOfflineSurveySubmission,
   flushOfflineSurveyQueue,
-  isLikelyNetworkFailure,
+  getSurveySubmissions, readSurveySubmission, isSubmissionDurable,
+  releaseRejectedSubmission, subscribeSurveyDelivery, type QueuedSurveySubmission,
 } from '@/lib/offlineSurveyQueue'
 import {
   getSurveyShellClasses,
@@ -100,7 +104,17 @@ export default function SurveyForm({
   const [playerName, setPlayerName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
-  const [savedOffline, setSavedOffline] = useState(false)
+  const [pendingItem, setPendingItem] = useState<QueuedSurveySubmission | null>(null)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [draftReady, setDraftReady] = useState(false)
+  const [draftStatus, setDraftStatus] = useState('saving')
+  const [draftRestored, setDraftRestored] = useState(false)
+  const [online, setOnline] = useState(true)
+  const pendingId = useRef<string | null>(null)
+  const submitLock = useRef(false)
+  const live = useRef(true)
+  const saveDraftRef = useRef<() => void>(() => {})
+  const updateDeliveryRef = useRef<() => void>(() => {})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [playerData, setPlayerData] = useState<{firstName: string, lastName: string, email?: string | null, image?: string | null} | null>(null)
@@ -111,23 +125,100 @@ export default function SurveyForm({
   const [validationBanner, setValidationBanner] = useState<string | null>(null)
 
   const fingerprint = useMemo(
-    () => surveyQuestionFingerprint(survey.questions.map((q) => q.id)),
-    [survey.questions]
+    () =>
+      surveyQuestionFingerprint(
+        survey.questions.map((q) =>
+          JSON.stringify([q.id, q.type, q.required, q.options]),
+        ),
+      ),
+    [survey.questions],
   )
 
   const draftStorageKey = useMemo(
-    () => surveyDraftStorageKey(survey.id, draftPlayerId ?? undefined),
-    [survey.id, draftPlayerId]
+    () =>
+      `${surveyDraftStorageKey(survey.id, player?.id || draftPlayerId)}:${zonedDay(new Date(), survey.timezone)}`,
+    [survey.id, draftPlayerId, player?.id, survey.timezone],
   )
 
+  const submissionScope = useMemo(
+    () => ({
+      surveyId: survey.id,
+      playerId: player?.id || draftPlayerId || null,
+    }),
+    [survey.id, player?.id, draftPlayerId],
+  )
   useEffect(() => {
-    const syncQueued = () => {
-      void flushOfflineSurveyQueue()
+    live.current = true
+    const update = () => {
+      if (live.current) updateDeliveryRef.current()
     }
-    syncQueued()
-    window.addEventListener('online', syncQueued)
-    return () => window.removeEventListener('online', syncQueued)
-  }, [])
+    const unsubscribe = subscribeSurveyDelivery(update)
+    const retry = async (force = false) => {
+      setOnline(navigator.onLine)
+      const item = pendingId.current
+        ? readSurveySubmission(pendingId.current)
+        : null
+      if (
+        !item ||
+        item.state !== 'pending' ||
+        !navigator.onLine ||
+        (!force && item.nextAttemptAt > Date.now()) ||
+        submitLock.current
+      )
+        return
+      submitLock.current = true
+      setIsSubmitting(true)
+      try {
+        await flushOfflineSurveyQueue(
+          submissionScope,
+          force && pendingId.current ? pendingId.current : undefined,
+        )
+      } finally {
+        submitLock.current = false
+        if (live.current) {
+          setIsSubmitting(false)
+          update()
+        }
+      }
+    }
+    const interval = window.setInterval(() => void retry(), 15000)
+    const connection = () => {
+      setOnline(navigator.onLine)
+      if (navigator.onLine) void retry(true)
+    }
+    const pageHide = () => saveDraftRef.current()
+    const beforeUnload = (e: BeforeUnloadEvent) => {
+      if (
+        pendingId.current &&
+        !isSubmissionDurable(pendingId.current) &&
+        readSurveySubmission(pendingId.current)?.state !== 'saved'
+      ) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    setOnline(navigator.onLine)
+    window.addEventListener('online', connection)
+    window.addEventListener('offline', connection)
+    window.addEventListener('pagehide', pageHide)
+    window.addEventListener('beforeunload', beforeUnload)
+    return () => {
+      live.current = false
+      unsubscribe()
+      clearInterval(interval)
+      window.removeEventListener('online', connection)
+      window.removeEventListener('offline', connection)
+      window.removeEventListener('pagehide', pageHide)
+      window.removeEventListener('beforeunload', beforeUnload)
+    }
+  }, [submissionScope])
+  useEffect(() => {
+    if (!isSubmitted || !submissionScope.playerId) return
+    const timer = setTimeout(() => {
+      window.location.href = `/kiosk/${survey.id}?submitted=1`
+    }, 1400)
+    return () => clearTimeout(timer)
+  }, [isSubmitted, submissionScope.playerId, survey.id])
 
   // Check for playerId in URL params or use player prop
   useEffect(() => {
@@ -165,34 +256,95 @@ export default function SurveyForm({
     }
   }, [player])
 
-  // Restore in-progress answers (same survey + player, max 24h)
+  // Restore only this player's same-day questionnaire. Pending deliveries retain their immutable payload.
   useEffect(() => {
-    if (typeof window === 'undefined') return
     try {
-      const raw = sessionStorage.getItem(draftStorageKey)
-      if (!raw) return
-      const d = JSON.parse(raw) as {
-        fingerprint?: string
-        savedAt?: number
-        formData?: Record<string, string | string[]>
-        bodyMapData?: Record<string, Record<string, BodyMapAreaStored>>
-      }
-      if (!d?.fingerprint || d.fingerprint !== fingerprint) return
-      if (!d.savedAt || Date.now() - d.savedAt > 86400000) return
-      if (d.formData && typeof d.formData === 'object') {
-        setFormData((prev) => ({ ...prev, ...d.formData }))
-      }
-      if (d.bodyMapData && typeof d.bodyMapData === 'object') {
-        const restored: Record<string, Record<string, BodyMapAreaStored>> = {}
-        for (const [qId, areas] of Object.entries(d.bodyMapData)) {
-          restored[qId] = parseBodyMapAnswerValue(areas)
+      let raw = sessionStorage.getItem(draftStorageKey)
+      if (!raw) {
+        const legacyKey = surveyDraftStorageKey(
+            survey.id,
+            player?.id || draftPlayerId,
+          ),
+          legacyRaw = sessionStorage.getItem(legacyKey)
+        if (legacyRaw) {
+          const old = JSON.parse(legacyRaw)
+          if (
+            old?.fingerprint ===
+              surveyQuestionFingerprint(survey.questions.map((q) => q.id)) &&
+            typeof old.savedAt === 'number' &&
+            zonedDay(new Date(old.savedAt), survey.timezone) ===
+              zonedDay(new Date(), survey.timezone)
+          ) {
+            raw = JSON.stringify({ ...old, fingerprint })
+            sessionStorage.setItem(draftStorageKey, raw)
+            sessionStorage.removeItem(legacyKey)
+          }
         }
-        setBodyMapData(restored)
+      }
+      const d = raw ? JSON.parse(raw) : null
+      if (
+        d?.fingerprint === fingerprint &&
+        typeof d.savedAt === 'number' &&
+        Date.now() - d.savedAt < 86400000
+      ) {
+        if (d.formData && typeof d.formData === 'object')
+          setFormData(d.formData)
+        if (d.bodyMapData && typeof d.bodyMapData === 'object')
+          setBodyMapData(
+            Object.fromEntries(
+              Object.entries(d.bodyMapData).map(([id, areas]) => [
+                id,
+                parseBodyMapAnswerValue(areas),
+              ]),
+            ),
+          )
+        if (typeof d.sessionType === 'string') setSessionType(d.sessionType)
+        if (typeof d.matchDay === 'string') setMatchDay(d.matchDay)
+        setDraftRestored(true)
+        if (typeof d.submissionId === 'string')
+          pendingId.current = d.submissionId
       }
     } catch {
-      /* ignore corrupted draft */
+      /* A blocked draft store must not hide a durable pending delivery. */
     }
-  }, [draftStorageKey, fingerprint])
+    try {
+      const pending = getSurveySubmissions(submissionScope)
+      const candidate = pendingId.current
+        ? readSurveySubmission(pendingId.current)
+        : submissionScope.playerId
+          ? pending[0]
+          : null
+      const candidateScope =
+        candidate?.state === 'saved' ? candidate : candidate?.payload
+      const own =
+        candidateScope?.surveyId === submissionScope.surveyId &&
+        (candidateScope.playerId || null) === submissionScope.playerId
+          ? candidate
+          : null
+      if (own?.state === 'saved') {
+        pendingId.current = own.id
+        finishSuccess()
+      } else if (own) {
+        pendingId.current = own.id
+        setPendingItem(own)
+        restoreSubmission(own)
+        setTimeout(() => updateDeliveryRef.current(), 0)
+      }
+    } catch {
+      /* Keep the form usable if storage is denied or malformed. */
+    }
+    setDraftReady(true)
+    // This component is keyed by survey + player; restore once per questionnaire shape.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftStorageKey, fingerprint, submissionScope])
+
+  const pendingItemId = pendingItem?.id
+  useEffect(() => {
+    if (pendingItemId)
+      document
+        .getElementById('survey-delivery-status')
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [pendingItemId])
 
   // Default slider midpoint when value still missing after draft restore
   useEffect(() => {
@@ -226,26 +378,90 @@ export default function SurveyForm({
     })
   }, [survey.questions])
 
-  // Autosave draft (debounced)
+  // Debounced writes plus synchronous page-hide/close protection for the latest answers.
   useEffect(() => {
-    if (typeof window === 'undefined' || isSubmitted) return
-    const t = window.setTimeout(() => {
-      try {
-        sessionStorage.setItem(
-          draftStorageKey,
-          JSON.stringify({
-            fingerprint,
-            savedAt: Date.now(),
-            formData,
-            bodyMapData,
-          })
-        )
-      } catch {
-        /* quota / private mode */
-      }
-    }, 720)
-    return () => window.clearTimeout(t)
-  }, [bodyMapData, draftStorageKey, fingerprint, formData, isSubmitted])
+    if (!draftReady || isSubmitted) return
+    setDraftStatus('saving')
+    const timer = setTimeout(() => saveDraftRef.current(), 350)
+    return () => clearTimeout(timer)
+  }, [
+    bodyMapData,
+    draftReady,
+    draftStorageKey,
+    fingerprint,
+    formData,
+    isSubmitted,
+    sessionType,
+    matchDay,
+  ])
+  saveDraftRef.current = () => {
+    if (!draftReady || isSubmitted) return
+    try {
+      sessionStorage.setItem(
+        draftStorageKey,
+        JSON.stringify({
+          fingerprint,
+          savedAt: Date.now(),
+          formData,
+          bodyMapData,
+          sessionType,
+          matchDay,
+          submissionId: pendingId.current,
+        }),
+      )
+      if (live.current) setDraftStatus('saved')
+    } catch {
+      if (live.current) setDraftStatus('unavailable')
+    }
+  }
+  function restoreSubmission(item: QueuedSurveySubmission) {
+    const restored: Record<string, string | string[]> = {},
+      maps: Record<string, Record<string, BodyMapAreaStored>> = {}
+    for (const a of item.payload.answers) {
+      const q = survey.questions.find((q) => q.id === a.questionId)
+      if (!q) continue
+      if (q.type === 'BODY_MAP' && a.value !== 'No') {
+        try {
+          maps[q.id] = parseBodyMapAnswerValue(JSON.parse(a.value))
+          restored[q.id] = Object.keys(maps[q.id]).length ? 'Yes' : 'No'
+        } catch {
+          restored[q.id] = 'No'
+        }
+      } else if (q.type === 'MULTIPLE_SELECT') {
+        try {
+          const x = JSON.parse(a.value)
+          restored[q.id] = Array.isArray(x)
+            ? x.filter((v) => typeof v === 'string')
+            : []
+        } catch {
+          restored[q.id] = []
+        }
+      } else restored[q.id] = a.value
+    }
+    setFormData(restored)
+    setBodyMapData(maps)
+    setSessionType(item.payload.sessionType || '')
+    setMatchDay(item.payload.matchDay || '')
+  }
+  function finishSuccess() {
+    try {
+      sessionStorage.removeItem(draftStorageKey)
+    } catch {
+      /* No draft may be exposed to the next player. */
+    }
+    setPendingItem(null)
+    setIsSubmitted(true)
+    setReviewOpen(false)
+  }
+  updateDeliveryRef.current = () => {
+    if (!pendingId.current) return
+    const item = readSurveySubmission(pendingId.current)
+    if (item?.state === 'saved') finishSuccess()
+    else if (item) {
+      setPendingItem(item)
+      setReviewOpen(false)
+    }
+  }
 
   const fetchPlayer = async (id: string) => {
     try {
@@ -376,123 +592,96 @@ export default function SurveyForm({
     setValidationBanner(null)
     setSubmitError(null)
 
-    const answers = survey.questions.map((question) => {
-      const value = formData[question.id]
-      if (isBodyMapQuestion(question)) {
-        const complete = filterCompleteBodyMapAreas(bodyMapData[question.id])
-        if (Object.keys(complete).length > 0) {
-          return {
-            questionId: question.id,
-            value: JSON.stringify(complete),
-          }
-        }
-        return { questionId: question.id, value: 'No' }
-      }
-      const v = Array.isArray(value) ? JSON.stringify(value) : String(value ?? '')
-      return { questionId: question.id, value: v }
-    })
+    setReviewOpen(true)
+  }
 
-    const submissionData = {
-      surveyId: survey.id,
-      playerId: playerId || null,
-      playerName: playerName.trim() || null,
-      playerEmail: null as string | null,
-      ...(showSessionType && sessionType ? { sessionType } : {}),
-      ...(showMatchDay && matchDay ? { matchDay } : {}),
-      answers,
-    }
-
-    const finishSuccess = (offline: boolean) => {
-      try {
-        sessionStorage.removeItem(draftStorageKey)
-      } catch {
-        /* ignore */
-      }
-      setSavedOffline(offline)
-      setIsSubmitted(true)
-      if (playerId && typeof window !== 'undefined') {
-        const flag = offline ? 'queued=1' : 'submitted=1'
-        window.setTimeout(() => {
-          window.location.href = `/kiosk/${survey.id}?${flag}`
-        }, offline ? 1600 : 1200)
+  const answers = survey.questions.map((question) => {
+    const value = formData[question.id]
+    if (isBodyMapQuestion(question)) {
+      const complete = filterCompleteBodyMapAreas(bodyMapData[question.id])
+      return {
+        questionId: question.id,
+        value: Object.keys(complete).length ? JSON.stringify(complete) : 'No',
       }
     }
-
-    const queueOffline = () => {
-      enqueueOfflineSurveySubmission(submissionData)
-      finishSuccess(true)
+    return {
+      questionId: question.id,
+      value: Array.isArray(value) ? JSON.stringify(value) : String(value ?? ''),
     }
-
+  })
+  const answeredCount = survey.questions.filter((q) => {
+    const v = formData[q.id]
+    return Array.isArray(v) ? v.length > 0 : !!v?.trim()
+  }).length
+  const missingCount = survey.questions
+    .filter((q) => q.required)
+    .filter((q) => {
+      const v = formData[q.id]
+      return Array.isArray(v) ? !v.length : !v?.trim()
+    }).length
+  const sendSubmission = async () => {
+    if (submitLock.current) return
+    submitLock.current = true
     setIsSubmitting(true)
+    setSubmitError(null)
     try {
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        queueOffline()
-        return
-      }
-
-      let response: Response
-      try {
-        response = await fetch('/api/responses', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(submissionData),
-        })
-      } catch (error) {
-        if (isLikelyNetworkFailure(error)) {
-          queueOffline()
-          return
-        }
-        throw error
-      }
-
-      if (response.ok) {
-        finishSuccess(false)
-      } else if (isLikelyNetworkFailure(null, response)) {
-        queueOffline()
-      } else {
-        let errorMessage = `HTTP ${response.status}`
-        try {
-          const errorData = await response.json()
-          if (typeof errorData.focusQuestionId === 'string' && survey.questions.some(q => q.id === errorData.focusQuestionId && q.type === 'PVT')) handleInputChange(errorData.focusQuestionId, '')
-          if (typeof errorData.rhrQuestionId === 'string' && survey.questions.some(q => q.id === errorData.rhrQuestionId && isRhrQuestion(q))) handleInputChange(errorData.rhrQuestionId, '')
-          if (errorData.error) errorMessage = errorData.error
-          else if (errorData.details) errorMessage = `Validation error: ${JSON.stringify(errorData.details)}`
-        } catch {
-          /* ignore parse */
-        }
-        setSubmitError(`${t(locale, 'submitFailedPrefix')}: ${errorMessage}`)
-      }
+      const item = pendingId.current
+        ? readSurveySubmission(pendingId.current)
+        : null
+      const queued =
+        item && item.state !== 'saved'
+          ? item
+          : enqueueOfflineSurveySubmission({
+              surveyId: survey.id,
+              playerId: playerId || null,
+              playerName: playerName.trim() || null,
+              playerEmail: null,
+              ...(showSessionType && sessionType ? { sessionType } : {}),
+              ...(showMatchDay && matchDay ? { matchDay } : {}),
+              answers,
+            })
+      pendingId.current = queued.id
+      setPendingItem(queued)
+      setReviewOpen(false)
+      saveDraftRef.current()
+      await flushOfflineSurveyQueue(submissionScope, queued.id)
+      if (live.current) updateDeliveryRef.current()
     } catch (error) {
-      console.error('Error submitting survey:', error)
-      if (isLikelyNetworkFailure(error)) {
-        queueOffline()
-      } else {
-        setSubmitError(t(locale, 'submitFailed'))
+      if (live.current) {
+        setReviewOpen(false)
+        setSubmitError(
+          error instanceof Error ? error.message : t(locale, 'submitFailed'),
+        )
       }
     } finally {
-      setIsSubmitting(false)
+      submitLock.current = false
+      if (live.current) setIsSubmitting(false)
     }
+  }
+  const editRejected = () => {
+    if (!pendingItem || !releaseRejectedSubmission(pendingItem.id)) return
+    const qid = pendingItem.questionId
+    pendingId.current = null
+    setPendingItem(null)
+    setSubmitError(null)
+    if (
+      qid &&
+      survey.questions.some(
+        (q) => q.id === qid && (q.type === 'PVT' || isRhrQuestion(q)),
+      )
+    )
+      handleInputChange(qid, '')
+    setReviewOpen(false)
   }
 
   if (isSubmitted) {
     return (
       <div className={`min-h-screen ${shell.root} flex items-center justify-center px-6`}>
         <div className="text-center max-w-sm">
-          {savedOffline ? (
-            <WifiOff className="mx-auto h-20 w-20 text-amber-300 mb-5 drop-shadow-lg" />
-          ) : (
-            <CheckCircle className="mx-auto h-20 w-20 text-emerald-400 mb-5 drop-shadow-lg" />
-          )}
-          <h2 className="text-2xl font-semibold text-white mb-2 tracking-wide">
-            {savedOffline ? t(locale, 'savedOnDevice') : t(locale, 'submittedShort')}
-          </h2>
-          <p className="text-white/75 text-base">
-            {savedOffline
-              ? t(locale, 'weakNetwork')
-              : playerId
-                ? t(locale, 'returningToList')
-                : t(locale, 'responsesSaved')}
-          </p>
+          <CheckCircle className="mx-auto h-20 w-20 text-emerald-400 mb-5 drop-shadow-lg" />
+          <h2 className="text-2xl font-semibold text-white mb-2">{t(locale,'journeySaved')}</h2>
+          <p className="text-white/75 text-base">{t(locale,'journeySavedHint')}</p>
+          {playerId&&<p className="mt-3 text-sm text-white/60">{t(locale,'returningToList')}</p>}
         </div>
       </div>
     )
@@ -639,11 +828,13 @@ export default function SurveyForm({
           }
         }
       `}</style>
-      <div className={`min-h-screen ${shell.root} w-full overflow-x-hidden overflow-y-auto fixed inset-0 z-50`}>
+      <div data-appearance={appearance} className={`survey-journey min-h-screen ${shell.root} w-full overflow-x-hidden overflow-y-auto fixed inset-0 z-50`}>
         {/* Close Button */}
         <button
           type="button"
           onClick={() => {
+            saveDraftRef.current()
+            if(pendingId.current&&!isSubmissionDurable(pendingId.current)&&!window.confirm(t(locale,'journeyCloseWarning')))return
             // If accessed from kiosk mode, redirect back to kiosk
             if (playerId) {
               if (typeof window !== 'undefined') {
@@ -725,6 +916,9 @@ export default function SurveyForm({
           </div>
         )}
 
+        <JourneyProgress answered={answeredCount} total={survey.questions.length} missing={missingCount} locale={locale} draftStatus={draftStatus} restored={draftRestored} online={online}/>
+        {pendingItem&&<section id="survey-delivery-status" className="sj-delivery" role="status" aria-live="polite"><CloudOff size={26}/><h2>{isSubmitting?t(locale,'journeySending'):pendingItem.state==='attention'?t(locale,'journeyAttention'):t(locale,'journeyPending')}</h2><p>{pendingItem.state==='attention'?pendingItem.error:t(locale,'journeyPendingHint')}</p><p>{isSubmissionDurable(pendingItem.id)?t(locale,'journeyStored'):t(locale,'journeyKeepOpen')}</p><div className="sj-delivery-actions">{pendingItem.state==='attention'?<button type="button" className="sj-secondary" onClick={editRejected}>{t(locale,'journeyFix')}</button>:<button type="button" disabled={isSubmitting||!online} className={`sj-primary ${tokens.primaryCtaButton}`} onClick={()=>void sendSubmission()}>{isSubmitting?<Loader2 size={17} className="animate-spin"/>:null}{t(locale,'journeyRetry')}</button>}</div></section>}
+
         {validationBanner ? (
           <div
             role="alert"
@@ -736,7 +930,7 @@ export default function SurveyForm({
 
         <div className="flex-1 px-3 sm:px-4 pb-4 relative w-full">
 
-          <div className="space-y-3 sm:space-y-4 w-full">
+          <fieldset disabled={!!pendingItem||isSubmitting} className="sj-questions space-y-3 sm:space-y-4 w-full">
             {(showSessionType || showMatchDay) && (
               <div className={`relative ${shell.card} backdrop-blur-sm rounded-xl border transition-all duration-300 w-full p-3 sm:p-4`}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1384,35 +1578,18 @@ export default function SurveyForm({
             )}
               </div>
             ))}
-          </div>
+          </fieldset>
 
-        <div className="pt-4 px-2 sm:px-3 relative shrink-0 max-md:pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))] md:pb-6">
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 to-transparent"></div>
-          {submitError ? (
-            <p className="relative z-10 mb-3 text-center text-sm font-medium text-red-300" role="alert">
-              {submitError}
-            </p>
-          ) : null}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className={`relative w-auto max-w-xs mx-auto flex justify-center py-3 px-6 min-h-[48px] border border-transparent rounded-xl shadow-2xl text-base font-bold text-white bg-gradient-to-r from-green-500/90 to-emerald-500/90 hover:from-green-400 hover:to-emerald-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-400/60 focus-visible:ring-offset-2 ${tokens.submitRingOffsetClass} disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-500 backdrop-blur-xl border border-green-400/50 touch-manipulation group hover:scale-105 overflow-hidden`}
-          >
-            {/* Animated background glow */}
-            <div className="absolute inset-0 bg-gradient-to-r from-green-300/20 to-emerald-300/20 rounded-xl animate-pulse group-hover:animate-none group-hover:from-green-300/30 group-hover:to-emerald-300/30"></div>
-            
-            <span className="relative z-10 drop-shadow-lg">
-              {isSubmitting ? t(locale, 'submitting') : t(locale, 'submitSurvey')}
-            </span>
-            
-            {/* Shine effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          </button>
-        </div>
+        {!pendingItem&&<div className="sj-submit-footer">
+          {submitError?<p role="alert" className="!text-red-300">{submitError}</p>:<p>{answeredCount} / {survey.questions.length} · {t(locale,draftStatus==='saved'?'journeyDraftSaved':draftStatus==='saving'?'journeyDraftSaving':'journeyKeepOpen')}</p>}
+          <button type="submit" disabled={isSubmitting||!draftReady} className={tokens.primaryCtaButton}><Send size={18}/>{t(locale,'journeyReview')}</button>
+        </div>}
         </div>
       </form>
       </div>
       
+      <SurveyReview appearance={appearance} open={reviewOpen} onClose={()=>setReviewOpen(false)} onConfirm={()=>void sendSubmission()} onEdit={id=>{setReviewOpen(false);requestAnimationFrame(()=>document.getElementById(`survey-q-${id}`)?.scrollIntoView({behavior:'smooth',block:'center'}))}} questions={survey.questions} answers={answers} playerName={playerName} surveyTitle={survey.title} tags={[showSessionType?sessionType:'',showMatchDay?matchDay:''].filter(Boolean)} locale={locale} submitting={isSubmitting} buttonClass={tokens.primaryCtaButton}/>
+
       {/* Body Map - Full Screen Flip using Portal */}
       {showBodyMap && currentBodyMapQuestionId && typeof window !== 'undefined' && 
         createPortal(

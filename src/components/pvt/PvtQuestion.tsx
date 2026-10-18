@@ -6,6 +6,7 @@ import { getSurveyBodyMapTokens, getSurveyShellClasses, getSurveyUiTokens, type 
 import { pvtDuration, parsePvtAnswer } from '@/lib/pvt/options'
 import { PVT_VERSION, minimumResponses, pvtRepeatMessage, summarizePvt, type PvtResult } from '@/lib/pvt/protocol'
 import PvtRun from './PvtRun'
+import TestLaunchButton from '@/components/survey/TestLaunchButton'
 import './pvt-focus.css'
 
 const AWAKE_PRESETS = [30, 60, 90, 120, 180, 240] as const
@@ -102,8 +103,8 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
   const button = `inline-flex min-h-12 items-center justify-center gap-2 px-5 py-3 font-semibold text-white disabled:opacity-50 ${ui.primaryCtaButton} ${ui.focusVisibleRing}`
   return <>
     <div data-pvt-theme={theme} className={`pvt-ui pvt-question-card mt-3 rounded-2xl border p-4 sm:p-5 ${ui.sliderCardBorder}`}>
-      <div className="flex items-center gap-3"><div className={`rounded-xl p-3 ${ui.selectedValuePill} ${ui.selectedValueText}`}>{completed ? <CheckCircle2 size={24} /> : <Focus size={24} />}</div><div className="flex-1"><p className="text-base font-semibold text-white">{completed ? 'Completed' : 'Focus test'}</p><p className="text-sm text-slate-300">{completed ? `${completed.durationSeconds} seconds · Ready to submit with your wellness` : `${duration} seconds · One signal. One tap.`}</p></div></div>
-      {!completed && <><p className="mt-3 text-sm leading-relaxed text-slate-300">Hold your phone comfortably. Wait for the counter, then tap as quickly as you can.</p><button ref={launch} type="button" className={`${button} mt-4 w-full sm:w-auto`} onClick={() => setOpen(true)}><Play size={17} />Start Focus test</button></>}
+      <div className="flex items-center gap-3"><div className={`rounded-xl p-3 ${ui.selectedValuePill} ${ui.selectedValueText}`}>{completed ? <CheckCircle2 size={24} /> : <Focus size={24} />}</div><div className="flex-1"><p className="text-base font-semibold text-white">{completed ? 'Completed' : 'Focus test'}</p><p className="text-sm text-slate-300">{completed ? `${completed.durationSeconds} seconds · Ready to submit with your wellness` : `${duration} seconds · Reaction time`}</p></div></div>
+      {!completed && <><p className="mt-3 text-sm leading-relaxed text-slate-300">Wait for the counter, then tap as quickly as you can.</p><TestLaunchButton ref={launch} icon={Play} onClick={() => setOpen(true)}>Start Focus test</TestLaunchButton></>}
       {completed && <p className={`mt-3 flex items-center gap-2 text-sm ${ui.selectedValueText}`}><Check size={16} />Test complete. Continue your questionnaire.</p>}
     </div>
     {open && createPortal(<div role="dialog" aria-modal="true" aria-label="Focus test" ref={dialog} tabIndex={-1} data-pvt-theme={theme} className={`pvt-ui pvt-dialog fixed inset-0 z-[10000] overflow-y-auto text-white outline-none ${shell.root}`} onKeyDown={e => {
@@ -122,7 +123,7 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
               <strong><span data-testid="pvt-completion-median-value">{savedSummary.medianRT == null ? '—' : Math.round(savedSummary.medianRT)}</span>{savedSummary.medianRT != null && <small>ms</small>}</strong>
               <p>{savedSummary.medianRT == null ? 'No valid responses recorded' : `${savedSummary.responses} recorded ${savedSummary.responses === 1 ? 'response' : 'responses'}`}</p>
             </div>}
-            <h2>{pending ? 'Saving your test…' : repeatRequired ? 'Repeat test' : saved?.practice ? 'Practice complete' : 'You’re all set.'}</h2>
+            <h2>{pending ? 'Saving your test…' : repeatRequired ? 'Repeat test' : saved?.practice ? 'Practice complete' : 'Test complete'}</h2>
             <p className="pvt-result-copy">{pending ? 'Keep this screen open. Your result will be saved for your coach.' : repeatRequired ? pvtRepeatMessage(repeatReason) : saved?.practice ? 'Practice is saved separately. Complete the assigned test to finish this question.' : 'Your test is complete and your result is saved. Continue with your wellness questionnaire.'}</p>
             {saved && <div className="pvt-saved-receipt"><ShieldCheck size={18} /><span>{saved.attempt.duration} seconds · {repeatRequired ? 'Attempt not accepted' : demo ? 'Demo session' : 'Saved for your coach'}</span><Check size={16} /></div>}
             {error && <p role="alert" className="pvt-alert">{error}</p>}
@@ -131,7 +132,7 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
             {saved && repeatRequired && <button type="button" className="pvt-stop" onClick={done}>Back to questionnaire</button>}
             {saved && !repeatRequired && <button type="button" data-testid="pvt-done" className={`pvt-action ${button}`} onClick={done}>Done<ArrowRight size={20} /></button>}
           </div> : <div className="pvt-setup-panel">
-            <h2>Find your <span>focus.</span></h2>
+            <h2>Test setup</h2>
             <ol className="pvt-instruction-grid">
               <li><span className="pvt-instruction-icon"><Smartphone size={23} /></span><span>Hold your<br />phone upright</span></li>
               <li><span className="pvt-instruction-icon"><Focus size={23} /></span><span>Wait for<br />the counter</span></li>

@@ -186,20 +186,6 @@
   color: #a6bdd8;
   margin: 0.8rem 0;
 }
-.rhr-question .pvt-action {
-  display: flex;
-  justify-content: center;
-  gap: 0.65rem;
-  min-height: 49px;
-  font-size: 0.86rem;
-}
-.rhr-question .pvt-action > svg:last-child {
-  margin-left: auto;
-}
-.rhr-question .pvt-action > span {
-  flex: 1;
-  text-align: center;
-}
 .rhr-completed-chip {
   display: flex;
   align-items: center;
@@ -362,11 +348,6 @@
   .rhr-scan-panel {
     padding-left: 0.9rem;
     padding-right: 0.9rem;
-  }
-}
-@media (prefers-reduced-motion: no-preference) {
-  .rhr-question .pvt-action:hover {
-    box-shadow: 0 7px 25px rgba(var(--pvt-rgb), 0.2);
   }
 }
 

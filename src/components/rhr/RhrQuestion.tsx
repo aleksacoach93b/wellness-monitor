@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import TestLaunchButton from '@/components/survey/TestLaunchButton'
 import {
   ArrowRight,
   Camera,
@@ -1220,11 +1221,7 @@ export default function RhrQuestion({
               'Resting heart rate'
             )}
           </h3>
-          <p>
-            {completed
-              ? `${positionLabels[completed.position]} · Ready to submit`
-              : 'A quiet moment. A simple camera check.'}
-          </p>
+          {completed && <p>{positionLabels[completed.position]} · Ready to submit</p>}
         </div>
         {!completed ? (
           <>
@@ -1245,16 +1242,13 @@ export default function RhrQuestion({
             <p className="rhr-question-rest">
               Rest quietly for 5 minutes before measuring.
             </p>
-            <button
+            <TestLaunchButton
               ref={launch}
-              type="button"
-              className={button}
+              icon={Camera}
               onClick={() => setOpen(true)}
             >
-              <Camera size={18} />
-              <span>Measure resting HR</span>
-              <ArrowRight size={18} />
-            </button>
+              Measure resting HR
+            </TestLaunchButton>
           </>
         ) : (
           <div className="rhr-completed-chip">
@@ -1641,11 +1635,7 @@ export default function RhrQuestion({
                     <div className="pvt-setup-panel">
                       {phase !== 'ready' ? (
                         <>
-                          <h2>
-                            A quiet moment.
-                            <br />
-                            <span>Your resting pulse.</span>
-                          </h2>
+                          <h2>Measurement setup</h2>
                           <p className="pvt-result-copy">
                             Rest quietly for at least 5 minutes before starting.
                             Cover the active rear camera lens with your

@@ -316,6 +316,7 @@ export default function OpsWellnessTable({
               {visible.map((col) => (
                 <th
                   key={col.id}
+                  data-ops-column={col.id}
                   className={col.id === 'athlete' ? 'ops-sticky-col' : undefined}
                   title={headerLabel(col)}
                 >
@@ -323,7 +324,7 @@ export default function OpsWellnessTable({
                 </th>
               ))}
               {metricColumns.map((col) => (
-                <th key={`m-${col.key}`} title={col.name}>
+                <th key={`m-${col.key}`} data-ops-column={`metric:${col.key}`} title={col.name}>
                   {col.name}
                 </th>
               ))}

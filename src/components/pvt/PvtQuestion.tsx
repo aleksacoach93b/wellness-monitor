@@ -102,9 +102,9 @@ export default function PvtQuestion({ surveyId, question, playerId, theme = 'dar
   }
   const button = `inline-flex min-h-12 items-center justify-center gap-2 px-5 py-3 font-semibold text-white disabled:opacity-50 ${ui.primaryCtaButton} ${ui.focusVisibleRing}`
   return <>
-    <div data-pvt-theme={theme} className={`pvt-ui pvt-question-card mt-3 rounded-2xl border p-4 sm:p-5 ${ui.sliderCardBorder}`}>
-      <div className="flex items-center gap-3"><div className={`rounded-xl p-3 ${ui.selectedValuePill} ${ui.selectedValueText}`}>{completed ? <CheckCircle2 size={24} /> : <Focus size={24} />}</div><div className="flex-1"><p className="text-base font-semibold text-white">{completed ? 'Completed' : 'Focus test'}</p><p className="text-sm text-slate-300">{completed ? `${completed.durationSeconds} seconds · Ready to submit with your wellness` : `${duration} seconds · Reaction time`}</p></div></div>
-      {!completed && <><p className="mt-3 text-sm leading-relaxed text-slate-300">Wait for the counter, then tap as quickly as you can.</p><TestLaunchButton ref={launch} icon={Play} onClick={() => setOpen(true)}>Start Focus test</TestLaunchButton></>}
+    <div data-pvt-theme={theme} className={`pvt-ui pvt-question-card mt-3 rounded-2xl border ${ui.sliderCardBorder}`}>
+      <div className="pvt-question-heading"><div className="pvt-question-icon">{completed ? <CheckCircle2 size={24} /> : <Focus size={24} />}</div><div className="min-w-0 flex-1"><p className="pvt-question-title">{completed ? 'Completed' : 'Focus test'}</p><p className="pvt-question-subtitle">{completed ? `${completed.durationSeconds} seconds · Ready to submit with your wellness` : `${duration} seconds · Reaction time`}</p></div></div>
+      {!completed && <><p className="pvt-question-description">Wait for the counter, then tap as quickly as you can.</p><TestLaunchButton ref={launch} icon={Play} onClick={() => setOpen(true)}>Start Focus test</TestLaunchButton></>}
       {completed && <p className={`mt-3 flex items-center gap-2 text-sm ${ui.selectedValueText}`}><Check size={16} />Test complete. Continue your questionnaire.</p>}
     </div>
     {open && createPortal(<div role="dialog" aria-modal="true" aria-label="Focus test" ref={dialog} tabIndex={-1} data-pvt-theme={theme} className={`pvt-ui pvt-dialog fixed inset-0 z-[10000] overflow-y-auto text-white outline-none ${shell.root}`} onKeyDown={e => {

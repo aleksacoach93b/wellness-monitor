@@ -969,18 +969,18 @@ export default function SurveyForm({
               <div
                 key={question.id}
                 id={`survey-q-${question.id}`}
-                className={`relative ${shell.card} backdrop-blur-sm rounded-xl border transition-all duration-300 w-full scroll-mt-28 ${
+                className={`sj-question-card relative ${shell.card} backdrop-blur-sm rounded-xl border transition-all duration-300 w-full scroll-mt-28 ${
                   question.type === 'BODY_MAP' ? 'p-6 sm:p-8' : 'p-3 sm:p-4'
                 }`}>
-                <div className="mb-3 sm:mb-4">
+                <div className="sj-question-heading mb-3 sm:mb-4">
                   <div className="mb-2 flex items-center space-x-2">
                     <div
-                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md shadow-lg sm:h-6 sm:w-6 ${questionChrome.stepWell}`}
+                      className={`sj-question-number flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md shadow-lg sm:h-6 sm:w-6 ${questionChrome.stepWell}`}
                     >
-                      <span className="text-xs font-bold text-white">{index + 1}</span>
+                      <span className="text-xs font-bold leading-none text-white">{index + 1}</span>
                     </div>
                     <div className="min-w-0 flex-grow">
-                      <label className={`block font-medium leading-snug tracking-wide text-white ${shell.questionTitle}`}>
+                      <label className={`sj-question-title block font-medium leading-snug tracking-wide text-white ${shell.questionTitle}`}>
                         {tx(locale, question.text)}
                         {question.required && <span className="ml-1 text-sm text-red-400">*</span>}
                       </label>
@@ -1436,12 +1436,12 @@ export default function SurveyForm({
 
           return (
           <div className="mt-6">
-            <div className={`${tokens.sliderCardBorder} backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.45)] relative overflow-hidden`}>
+            <div className={`sj-slider-panel ${tokens.sliderCardBorder} backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.45)] relative overflow-hidden`}>
               <div className={`absolute inset-0 ${tokens.sliderGlowOverlay} pointer-events-none`} />
               <div className={`absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl pointer-events-none ${tokens.sliderGlowBlobTop}`} />
               <div className="absolute -bottom-20 -left-16 w-40 h-40 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
               
-              <div className="relative mb-6 sm:mb-8">
+              <div className="sj-slider-track relative mb-6 sm:mb-8">
                 <div className="absolute top-1/2 left-0 right-0 h-3.5 sm:h-5 bg-gradient-to-r from-red-500 via-amber-400 to-emerald-500 rounded-full -translate-y-1/2 shadow-inner shadow-black/20 ring-1 ring-white/10" />
                 <div className="absolute top-1/2 left-0 right-0 h-3.5 sm:h-5 -translate-y-1/2 rounded-full bg-gradient-to-r from-white/15 via-transparent to-white/10 pointer-events-none" />
                 <input
@@ -1459,13 +1459,13 @@ export default function SurveyForm({
                 />
               </div>
               
-              <div className="text-center mb-5 sm:mb-6 relative z-10">
+              <div className="sj-slider-selection text-center mb-5 sm:mb-6 relative z-10">
                 <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 mb-3 [font-family:var(--font-outfit)]">
                   {t(locale, 'yourSelection')}
                 </p>
                 <div className="relative inline-flex flex-col items-center gap-1">
                   <div
-                    className="relative inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 md:w-[4.25rem] md:h-[4.25rem] rounded-2xl text-white shadow-[0_12px_40px_-8px_rgba(0,0,0,0.55)] transition-all duration-500 border border-white/25 [font-family:var(--font-outfit)]"
+                    className="sj-slider-value relative inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 md:w-[4.25rem] md:h-[4.25rem] rounded-2xl text-white shadow-[0_12px_40px_-8px_rgba(0,0,0,0.55)] transition-all duration-500 border border-white/25 [font-family:var(--font-outfit)]"
                     style={{
                       background: (() => {
                         const value = parseInt(formData[question.id] as string || '5', 10)
@@ -1477,13 +1477,13 @@ export default function SurveyForm({
                     }}
                   >
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-                    <span className="text-2xl sm:text-3xl md:text-[2rem] font-semibold relative z-10 tabular-nums tracking-tight drop-shadow-md">
+                    <span className="sj-slider-value-number text-2xl sm:text-3xl md:text-[2rem] font-semibold relative z-10 tabular-nums tracking-tight drop-shadow-md">
                       {formData[question.id] || '5'}
                     </span>
                   </div>
                   {stepCaption ? (
                     <p
-                      className="mt-4 max-w-[20rem] sm:max-w-md mx-auto text-center text-base sm:text-lg md:text-xl font-medium text-white/[0.95] leading-snug px-2 tracking-normal [font-family:var(--font-outfit)] drop-shadow-[0_2px_14px_rgba(0,0,0,0.4)] selection:bg-white/20"
+                      className="sj-slider-caption mt-4 max-w-[20rem] sm:max-w-md mx-auto text-center text-base sm:text-lg md:text-xl font-medium text-white/[0.95] leading-snug px-2 tracking-normal [font-family:var(--font-outfit)] drop-shadow-[0_2px_14px_rgba(0,0,0,0.4)] selection:bg-white/20"
                     >
                       {tx(locale, stepCaption)}
                     </p>
@@ -1496,7 +1496,7 @@ export default function SurveyForm({
               </div>
               
               {showTriFooter && sliderParsed ? (
-                      <div className="flex justify-between items-start gap-2 mt-6 pt-5 border-t border-slate-600/35 relative z-10">
+                      <div className="sj-slider-legend flex justify-between items-start gap-2 mt-6 pt-5 border-t border-slate-600/35 relative z-10">
                         <span className="text-[11px] sm:text-xs text-slate-400 text-center flex-1 font-medium uppercase tracking-[0.18em] leading-relaxed [font-family:var(--font-outfit)]">
                           {tx(locale, sliderParsed.left?.trim() || t(locale, 'low'))}
                         </span>

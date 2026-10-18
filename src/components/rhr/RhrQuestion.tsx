@@ -10,8 +10,6 @@ import {
   Loader2,
   RotateCcw,
   ShieldCheck,
-  Timer,
-  Armchair,
   X,
 } from 'lucide-react'
 import {
@@ -1197,49 +1195,20 @@ export default function RhrQuestion({
         className={`pvt-ui pvt-question-card rhr-question mt-3 rounded-2xl border ${ui.sliderCardBorder}`}
         data-pvt-theme={theme}
       >
-        <div className="rhr-question-heading">
-          <span className="rhr-heart-tile">
-            <Heart size={28} />
-          </span>
-          <span className="rhr-time-chip">
-            <Timer size={13} />
-            15s CHECK
-          </span>
-        </div>
-        <div className="rhr-question-orbit" aria-hidden="true">
-          <Heart size={28} />
-        </div>
-        <div className="rhr-question-copy">
-          <p className="rhr-eyebrow">RESTING PULSE</p>
-          <h3>
-            {completed ? (
-              <>
-                {completed.bpm}
-                <small> bpm</small>
-              </>
-            ) : (
-              'Resting heart rate'
-            )}
-          </h3>
-          {completed && <p>{positionLabels[completed.position]} · Ready to submit</p>}
+        <div className="pvt-question-heading">
+          <span className="pvt-question-icon"><Heart size={24} /></span>
+          <div className="min-w-0 flex-1">
+            <p className="pvt-question-title">
+              {completed ? <>{completed.bpm}<small>bpm</small></> : '15-second measurement'}
+            </p>
+            <p className="pvt-question-subtitle">
+              {completed ? `${positionLabels[completed.position]} · Ready to submit` : 'Rear camera · At rest'}
+            </p>
+          </div>
         </div>
         {!completed ? (
           <>
-            <div className="rhr-question-facts">
-              <span>
-                <Timer size={15} />
-                15 seconds
-              </span>
-              <span>
-                <Camera size={15} />
-                Rear camera
-              </span>
-              <span>
-                <Armchair size={15} />
-                At rest
-              </span>
-            </div>
-            <p className="rhr-question-rest">
+            <p className="pvt-question-description">
               Rest quietly for 5 minutes before measuring.
             </p>
             <TestLaunchButton

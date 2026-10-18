@@ -2,10 +2,12 @@
 
 This change covers the player questionnaire and its existing offline queue. Focus/RHR acquisition, scoring, CSV schemas and Live Ops calculations are unchanged.
 
-- Question defaults and required validation remain the same. Progress reflects currently answered questions, including existing defaults.
+- Question defaults and required validation remain the same. There is no answered-question counter: automatic slider values are not presented as player interaction. An untouched five remains valid and appears in the final review.
 - Review lists readable answers; measurement access tokens are never displayed. Final confirmation sends the questionnaire.
 - Same-day drafts are scoped to survey/player/question configuration in session storage; reload and the explicit close action save the latest state. The old draft format is migrated when compatible. Drafts are not submitted results.
 - Final confirmation freezes one payload under one UUID in local storage before sending. Network failures, HTTP 408/429/5xx, timeouts and malformed acknowledgements retain it for retry. Reconnect, a bounded background retry and a manual button retry the same request.
+- Sending uses a short modal. Network/review failures show concise retry guidance; dismissing it leaves a persistent, compact status/action bar. The pending payload is retained.
+- The questionnaire and review use separate scroll areas and action bars. The shell follows the visual viewport, including browser chrome and keyboard changes, with safe-area padding.
 - Only a valid server acknowledgement shows **Questionnaire saved** and returns a player to the kiosk. Saved local receipts contain identifiers, not answers.
 - A definitive rejection retains the answers and offers review/edit. A rejected Focus/RHR receipt clears only that question on edit so it can be completed again. Uncertain deliveries cannot be silently edited into another request.
 - If storage is unavailable, the current page retains the request in memory and warns the player to keep the page open; it does not claim durable storage.
@@ -27,3 +29,5 @@ Retain server delivery receipts when responses are replaced; they are what make 
 - `tests/survey-delivery.integration.mjs`: requires `PVT_TEST_BASE_URL` and `PVT_TEST_DATABASE_URL`, both loopback. Uses only its owned synthetic survey under the existing PVT fixture.
 - `tests/survey-journey.browser.cjs`: run after the API fixture; the same loopback variables plus `PLAYWRIGHT_MODULE` point to the available Playwright installation. `CHROME_PATH` can select a Chrome executable. Tests review, drafts, isolation, actual lost acknowledgement, offline retry, server rejection, themes, mobile layout and storage denial.
 - Existing PVT/RHR native integration suites continue to verify measurement receipt validation and the original exports.
+
+- `tests/survey-mobile.browser.cjs`: owned 11-question fixture, Chromium and WebKit; browser/keyboard viewport changes, scrolling, portrait/landscape action visibility, concise in-flight modal and untouched-five submission. Uses the same loopback variables and Playwright installation as the journey suite.

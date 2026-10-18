@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import { Survey, Question, Player } from '@prisma/client'
-import { CheckCircle, CloudOff, Loader2, Send } from 'lucide-react'
+import { CheckCircle, Loader2, Send } from 'lucide-react'
 import PvtQuestion from '@/components/pvt/PvtQuestion'
 import RhrQuestion from '@/components/rhr/RhrQuestion'
-import { JourneyProgress, SurveyReview } from '@/components/survey/SurveyJourney'
+import { SurveyDraftStatus, SurveyReview, SurveyDelivery } from '@/components/survey/SurveyJourney'
 import '@/components/survey/survey-journey.css'
+import { useSurveyViewport } from '@/components/survey/useSurveyViewport'
 import { zonedDay } from '@/lib/opsDates'
 import { isRhrQuestion } from '@/lib/rhr/options'
 import BodyMap from '@/components/BodyMap'
@@ -65,6 +66,8 @@ export default function SurveyForm({
   locale = 'en',
 }: SurveyFormProps) {
   const router = useRouter()
+  const viewportRef = useSurveyViewport()
+  const formId = useId()
   const appearance = resolveSurveyAppearanceTheme(surveyTheme)
   const shell = getSurveyShellClasses(appearance)
   const tokens = getSurveyUiTokens(appearance)
@@ -106,6 +109,7 @@ export default function SurveyForm({
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [pendingItem, setPendingItem] = useState<QueuedSurveySubmission | null>(null)
   const [reviewOpen, setReviewOpen] = useState(false)
+  const [deliveryOpen, setDeliveryOpen] = useState(false)
   const [draftReady, setDraftReady] = useState(false)
   const [draftStatus, setDraftStatus] = useState('saving')
   const [draftRestored, setDraftRestored] = useState(false)
@@ -327,6 +331,7 @@ export default function SurveyForm({
       } else if (own) {
         pendingId.current = own.id
         setPendingItem(own)
+        setDeliveryOpen(true)
         restoreSubmission(own)
         setTimeout(() => updateDeliveryRef.current(), 0)
       }
@@ -337,14 +342,6 @@ export default function SurveyForm({
     // This component is keyed by survey + player; restore once per questionnaire shape.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftStorageKey, fingerprint, submissionScope])
-
-  const pendingItemId = pendingItem?.id
-  useEffect(() => {
-    if (pendingItemId)
-      document
-        .getElementById('survey-delivery-status')
-        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, [pendingItemId])
 
   // Default slider midpoint when value still missing after draft restore
   useEffect(() => {
@@ -452,6 +449,7 @@ export default function SurveyForm({
     setPendingItem(null)
     setIsSubmitted(true)
     setReviewOpen(false)
+    setDeliveryOpen(false)
   }
   updateDeliveryRef.current = () => {
     if (!pendingId.current) return
@@ -609,20 +607,11 @@ export default function SurveyForm({
       value: Array.isArray(value) ? JSON.stringify(value) : String(value ?? ''),
     }
   })
-  const answeredCount = survey.questions.filter((q) => {
-    const v = formData[q.id]
-    return Array.isArray(v) ? v.length > 0 : !!v?.trim()
-  }).length
-  const missingCount = survey.questions
-    .filter((q) => q.required)
-    .filter((q) => {
-      const v = formData[q.id]
-      return Array.isArray(v) ? !v.length : !v?.trim()
-    }).length
   const sendSubmission = async () => {
     if (submitLock.current) return
     submitLock.current = true
     setIsSubmitting(true)
+    setDeliveryOpen(true)
     setSubmitError(null)
     try {
       const item = pendingId.current
@@ -649,6 +638,7 @@ export default function SurveyForm({
     } catch (error) {
       if (live.current) {
         setReviewOpen(false)
+        setDeliveryOpen(false)
         setSubmitError(
           error instanceof Error ? error.message : t(locale, 'submitFailed'),
         )
@@ -658,11 +648,14 @@ export default function SurveyForm({
       if (live.current) setIsSubmitting(false)
     }
   }
+  const deliveryQuestion = survey.questions.find(q => q.id === pendingItem?.questionId)
+  const repeatMeasurement = deliveryQuestion?.type === 'PVT' ? 'focus' : deliveryQuestion && isRhrQuestion(deliveryQuestion) ? 'rhr' : undefined
   const editRejected = () => {
     if (!pendingItem || !releaseRejectedSubmission(pendingItem.id)) return
     const qid = pendingItem.questionId
     pendingId.current = null
     setPendingItem(null)
+    setDeliveryOpen(false)
     setSubmitError(null)
     if (
       qid &&
@@ -828,7 +821,8 @@ export default function SurveyForm({
           }
         }
       `}</style>
-      <div data-appearance={appearance} className={`survey-journey min-h-screen ${shell.root} w-full overflow-x-hidden overflow-y-auto fixed inset-0 z-50`}>
+      <div ref={viewportRef} data-appearance={appearance} className={`survey-journey ${shell.root} z-50`}>
+        <div className="sj-scroll">
         {/* Close Button */}
         <button
           type="button"
@@ -887,7 +881,7 @@ export default function SurveyForm({
         ) : null}
 
         <div className="survey-form-enter opacity-0">
-        <form onSubmit={handleSubmit} className="min-h-screen flex flex-col w-full">
+        <form id={formId} onSubmit={handleSubmit} className="flex flex-col w-full">
         {/* Mobile-Optimized Player Name as Title with Image */}
         {playerName && (
           <div className="text-center pt-6 pb-4 px-4 relative">
@@ -916,8 +910,8 @@ export default function SurveyForm({
           </div>
         )}
 
-        <JourneyProgress answered={answeredCount} total={survey.questions.length} missing={missingCount} locale={locale} draftStatus={draftStatus} restored={draftRestored} online={online}/>
-        {pendingItem&&<section id="survey-delivery-status" className="sj-delivery" role="status" aria-live="polite"><CloudOff size={26}/><h2>{isSubmitting?t(locale,'journeySending'):pendingItem.state==='attention'?t(locale,'journeyAttention'):t(locale,'journeyPending')}</h2><p>{pendingItem.state==='attention'?pendingItem.error:t(locale,'journeyPendingHint')}</p><p>{isSubmissionDurable(pendingItem.id)?t(locale,'journeyStored'):t(locale,'journeyKeepOpen')}</p><div className="sj-delivery-actions">{pendingItem.state==='attention'?<button type="button" className="sj-secondary" onClick={editRejected}>{t(locale,'journeyFix')}</button>:<button type="button" disabled={isSubmitting||!online} className={`sj-primary ${tokens.primaryCtaButton}`} onClick={()=>void sendSubmission()}>{isSubmitting?<Loader2 size={17} className="animate-spin"/>:null}{t(locale,'journeyRetry')}</button>}</div></section>}
+        <SurveyDraftStatus locale={locale} draftStatus={draftStatus} restored={draftRestored} online={online}/>
+
 
         {validationBanner ? (
           <div
@@ -1580,15 +1574,29 @@ export default function SurveyForm({
             ))}
           </fieldset>
 
-        {!pendingItem&&<div className="sj-submit-footer">
-          {submitError?<p role="alert" className="!text-red-300">{submitError}</p>:<p>{answeredCount} / {survey.questions.length} · {t(locale,draftStatus==='saved'?'journeyDraftSaved':draftStatus==='saving'?'journeyDraftSaving':'journeyKeepOpen')}</p>}
-          <button type="submit" disabled={isSubmitting||!draftReady} className={tokens.primaryCtaButton}><Send size={18}/>{t(locale,'journeyReview')}</button>
-        </div>}
         </div>
       </form>
       </div>
+      </div>
+      <div className="sj-submit-footer">
+        {pendingItem ? <>
+          <p role="status">{t(locale,isSubmitting?'journeyProcessing':pendingItem.state==='attention'?'journeyReviewNeeded':online?'journeySendInterrupted':'journeyConnectionWait')}</p>
+          {!isSubmissionDurable(pendingItem.id)&&<p>{t(locale,'journeyKeepPageOpen')}</p>}
+          <button type="button" disabled={isSubmitting||(pendingItem.state!=='attention'&&!online)} className={tokens.primaryCtaButton} onClick={()=>pendingItem.state==='attention'?editRejected():void sendSubmission()}>
+            {isSubmitting&&<Loader2 size={18} className="animate-spin"/>}
+            {t(locale,isSubmitting?'journeyProcessing':pendingItem.state==='attention'?'journeyReview':'journeyRetryShort')}
+          </button>
+        </> : <>
+          {submitError?<p role="alert" className="!text-red-300">{submitError}</p>:draftStatus==='unavailable'?<p>{t(locale,'journeyKeepPageOpen')}</p>:null}
+          <button form={formId} type="submit" disabled={isSubmitting||!draftReady} className={tokens.primaryCtaButton}><Send size={18}/>{t(locale,'journeyReview')}</button>
+        </>}
+      </div>
       
       <SurveyReview appearance={appearance} open={reviewOpen} onClose={()=>setReviewOpen(false)} onConfirm={()=>void sendSubmission()} onEdit={id=>{setReviewOpen(false);requestAnimationFrame(()=>document.getElementById(`survey-q-${id}`)?.scrollIntoView({behavior:'smooth',block:'center'}))}} questions={survey.questions} answers={answers} playerName={playerName} surveyTitle={survey.title} tags={[showSessionType?sessionType:'',showMatchDay?matchDay:''].filter(Boolean)} locale={locale} submitting={isSubmitting} buttonClass={tokens.primaryCtaButton}/>
+
+      <SurveyDelivery open={deliveryOpen||isSubmitting} sending={isSubmitting} online={online} durable={pendingItem?isSubmissionDurable(pendingItem.id):true}
+        attention={pendingItem?.state==='attention'} repeat={repeatMeasurement}
+        locale={locale} appearance={appearance} buttonClass={tokens.primaryCtaButton} onDismiss={()=>setDeliveryOpen(false)} onRetry={()=>void sendSubmission()} onEdit={editRejected}/>
 
       {/* Body Map - Full Screen Flip using Portal */}
       {showBodyMap && currentBodyMapQuestionId && typeof window !== 'undefined' && 

@@ -60,13 +60,17 @@ async function clean() {
         calls.push(JSON.parse(r.postData()))
     })
     await page.goto(url + 'dark')
-    await page.locator('.sj-progress').waitFor()
+    await page.locator('.sj-draft').waitFor()
     await sleep(500)
     check(
+      (await page.getByRole('progressbar').count()) === 0,
+      'automatic defaults are not shown as completed questions',
+    )
+    check(
       (await page
-        .locator('[role=progressbar]')
-        .getAttribute('aria-valuenow')) === '2',
-      'original slider/bodymap defaults counted without changing values',
+        .locator('#survey-q-delivery-slider input[type=range]')
+        .inputValue()) === '5',
+      'untouched default five remains a valid answer',
     )
     await page.locator('.sj-submit-footer button').click()
     check(
@@ -136,7 +140,7 @@ async function clean() {
       .getByRole('button', { name: 'Submit Survey', exact: true })
       .click()
     await page
-      .getByRole('heading', { name: 'Not submitted yet', exact: true })
+      .getByRole('heading', { name: 'Couldn’t send yet', exact: true })
       .waitFor()
     check(
       (await db.response.count({ where: { surveyId } })) === 0,
@@ -152,7 +156,7 @@ async function clean() {
     await page.screenshot({ path: '/tmp/survey-journey-pending-mobile.png' })
     await page.reload()
     await page
-      .getByRole('heading', { name: 'Not submitted yet', exact: true })
+      .getByRole('heading', { name: 'Couldn’t send yet', exact: true })
       .waitFor()
     check(
       (await queued(page))[0].id === offlineId,
@@ -161,7 +165,8 @@ async function clean() {
     check(await text(page).isDisabled(), 'uncertain pending answers are frozen')
     await page.unroute('**/api/responses')
     await page
-      .getByRole('button', { name: 'Retry sending', exact: true })
+      .locator('.sj-delivery-dialog')
+      .getByRole('button', { name: 'Try again', exact: true })
       .click()
     await page
       .getByRole('heading', { name: 'Questionnaire saved', exact: true })
@@ -205,7 +210,7 @@ async function clean() {
       .getByRole('button', { name: 'Submit Survey', exact: true })
       .click()
     await p
-      .getByRole('heading', { name: 'Not submitted yet', exact: true })
+      .getByRole('heading', { name: 'Couldn’t send yet', exact: true })
       .waitFor()
     check(
       (await db.response.count({ where: { surveyId } })) === 1,
@@ -213,10 +218,13 @@ async function clean() {
     )
     await p.reload()
     await p
-      .getByRole('heading', { name: 'Not submitted yet', exact: true })
+      .getByRole('heading', { name: 'Couldn’t send yet', exact: true })
       .waitFor()
     await p.unroute('**/api/responses')
-    await p.getByRole('button', { name: 'Retry sending', exact: true }).click()
+    await p
+      .locator('.sj-delivery-dialog')
+      .getByRole('button', { name: 'Try again', exact: true })
+      .click()
     await p
       .getByRole('heading', { name: 'Questionnaire saved', exact: true })
       .waitFor()
@@ -246,7 +254,7 @@ async function clean() {
       .click()
     await p3
       .getByRole('heading', {
-        name: 'Submission needs your attention',
+        name: 'Please review your response',
         exact: true,
       })
       .waitFor()
@@ -255,7 +263,8 @@ async function clean() {
       'rejected payload retained',
     )
     await p3
-      .getByRole('button', { name: 'Review and edit answers', exact: true })
+      .locator('.sj-delivery-dialog')
+      .getByRole('button', { name: 'Review your answers', exact: true })
       .click()
     check(
       (await text(p3).inputValue()) === 'Validation retained' &&
@@ -301,7 +310,7 @@ async function clean() {
       await p
         .getByRole('button', { name: 'Back to questions', exact: true })
         .click()
-      await p.locator('.sj-progress').scrollIntoViewIfNeeded()
+      await p.locator('.sj-draft').scrollIntoViewIfNeeded()
       await p.screenshot({ path: '/tmp/survey-journey-form-' + theme + '.png' })
       await c.close()
     }
@@ -323,16 +332,19 @@ async function clean() {
       .getByRole('button', { name: 'Submit Survey', exact: true })
       .click()
     await pd
-      .getByRole('heading', { name: 'Not submitted yet', exact: true })
+      .getByRole('heading', { name: 'Couldn’t send yet', exact: true })
       .waitFor()
     check(
-      (await pd.locator('.sj-delivery').innerText()).includes(
+      (await pd.locator('.sj-delivery-dialog').innerText()).includes(
         'Keep this page open',
       ),
       'storage denial never claims durable saved',
     )
     await pd.unroute('**/api/responses')
-    await pd.getByRole('button', { name: 'Retry sending', exact: true }).click()
+    await pd
+      .locator('.sj-delivery-dialog')
+      .getByRole('button', { name: 'Try again', exact: true })
+      .click()
     await pd
       .getByRole('heading', { name: 'Questionnaire saved', exact: true })
       .waitFor()

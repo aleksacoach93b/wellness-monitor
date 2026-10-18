@@ -1,6 +1,15 @@
 'use client'
 import { useEffect, useRef, useId } from 'react'
-import { Check, ChevronRight, Cloud, CloudOff, Loader2, X } from 'lucide-react'
+import {
+  Check,
+  ChevronRight,
+  Cloud,
+  CloudOff,
+  Loader2,
+  X,
+  AlertCircle,
+  WifiOff,
+} from 'lucide-react'
 import { t, tx, type KioskLocale } from '@/lib/i18n'
 import { parsePvtAnswer } from '@/lib/pvt/options'
 import { isRhrQuestion, parseRhrAnswer } from '@/lib/rhr/options'
@@ -51,32 +60,21 @@ export function reviewValue(
   }
   return tx(locale, value)
 }
-export function JourneyProgress({
-  answered,
-  total,
-  missing,
+export function SurveyDraftStatus({
   locale,
   draftStatus,
   restored,
   online,
 }: {
-  answered: number
-  total: number
-  missing: number
   locale: KioskLocale
   draftStatus: string
   restored: boolean
   online: boolean
 }) {
   return (
-    <section className="sj-progress" aria-label={t(locale, 'journeyProgress')}>
-      <div className="sj-progress-top">
-        <div>
-          <p>{t(locale, 'journeyCheckIn')}</p>
-          <strong>
-            {answered} / {total} <span>{t(locale, 'journeyAnswered')}</span>
-          </strong>
-        </div>
+    <section className="sj-draft" aria-label={t(locale, 'journeyCheckIn')}>
+      <div className="sj-draft-top">
+        <strong>{t(locale, 'journeyCheckIn')}</strong>
         <span className="sj-draft-status" role="status">
           {draftStatus === 'saving' ? (
             <Loader2 size={15} className="animate-spin" />
@@ -86,31 +84,27 @@ export function JourneyProgress({
             <CloudOff size={15} />
           )}
           <span>
-            {draftStatus === 'saved'
-              ? t(locale, 'journeyDraftSaved')
-              : draftStatus === 'saving'
-                ? t(locale, 'journeyDraftSaving')
-                : t(locale, 'journeyKeepOpen')}
+            {t(
+              locale,
+              draftStatus === 'saved'
+                ? 'journeyDraftSaved'
+                : draftStatus === 'saving'
+                  ? 'journeyDraftSaving'
+                  : 'journeyKeepOpen',
+            )}
           </span>
         </span>
       </div>
-      <div
-        role="progressbar"
-        aria-label={t(locale, 'journeyProgress')}
-        aria-valuenow={answered}
-        aria-valuemin={0}
-        aria-valuemax={total || 1}
-        className="sj-progress-track"
-      >
-        <i style={{ width: `${total ? (100 * answered) / total : 0}%` }} />
-      </div>
-      <p className="sj-progress-note">
-        {missing
-          ? `${missing} ${t(locale, 'journeyRequiredLeft')}`
-          : t(locale, 'journeyReadyReview')}
-        {restored ? ` · ${t(locale, 'journeyRestored')}` : ''}
-        {!online ? ` · ${t(locale, 'journeyOffline')}` : ''}
-      </p>
+      {(restored || !online) && (
+        <p>
+          {[
+            restored ? t(locale, 'journeyRestored') : '',
+            !online ? t(locale, 'journeyOffline') : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+      )}
     </section>
   )
 }
@@ -161,53 +155,55 @@ export function SurveyReview({
       }}
       onClose={onClose}
     >
-      <header>
-        <div>
-          <p>{tx(locale, surveyTitle)}</p>
-          <h2 id={titleId}>{t(locale, 'journeyReview')}</h2>
-          <span>
-            {playerName}
-            {tags.length ? ` · ${tags.join(' · ')}` : ''}
-          </span>
-        </div>
-        <button
-          type="button"
-          aria-label={t(locale, 'cancel')}
-          disabled={submitting}
-          onClick={onClose}
-        >
-          <X size={21} />
-        </button>
-      </header>
-      <p className="sj-review-copy">{t(locale, 'journeyReviewHint')}</p>
-      <ol>
-        {questions.map((q, i) => (
-          <li key={q.id}>
-            <div>
-              <span>
-                {i + 1}. {tx(locale, q.text)}
-                {!q.required ? ` · ${t(locale, 'optional')}` : ''}
-              </span>
-              <strong>
-                {reviewValue(
-                  q,
-                  answers.find((a) => a.questionId === q.id)?.value,
-                  locale,
-                )}
-              </strong>
-            </div>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => onEdit(q.id)}
-              aria-label={`${t(locale, 'journeyEdit')}: ${tx(locale, q.text)}`}
-            >
-              {t(locale, 'journeyEdit')}
-              <ChevronRight size={15} />
-            </button>
-          </li>
-        ))}
-      </ol>
+      <div className="sj-review-content">
+        <header>
+          <div>
+            <p>{tx(locale, surveyTitle)}</p>
+            <h2 id={titleId}>{t(locale, 'journeyReview')}</h2>
+            <span>
+              {playerName}
+              {tags.length ? ` · ${tags.join(' · ')}` : ''}
+            </span>
+          </div>
+          <button
+            type="button"
+            aria-label={t(locale, 'cancel')}
+            disabled={submitting}
+            onClick={onClose}
+          >
+            <X size={21} />
+          </button>
+        </header>
+        <p className="sj-review-copy">{t(locale, 'journeyReviewHint')}</p>
+        <ol>
+          {questions.map((q, i) => (
+            <li key={q.id}>
+              <div>
+                <span>
+                  {i + 1}. {tx(locale, q.text)}
+                  {!q.required ? ` · ${t(locale, 'optional')}` : ''}
+                </span>
+                <strong>
+                  {reviewValue(
+                    q,
+                    answers.find((a) => a.questionId === q.id)?.value,
+                    locale,
+                  )}
+                </strong>
+              </div>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => onEdit(q.id)}
+                aria-label={`${t(locale, 'journeyEdit')}: ${tx(locale, q.text)}`}
+              >
+                {t(locale, 'journeyEdit')}
+                <ChevronRight size={15} />
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
       <footer>
         <button
           type="button"
@@ -231,6 +227,104 @@ export function SurveyReview({
           {t(locale, 'submitSurvey')}
         </button>
       </footer>
+    </dialog>
+  )
+}
+
+export function SurveyDelivery({
+  open,
+  sending,
+  online,
+  durable,
+  attention,
+  repeat,
+  locale,
+  appearance,
+  buttonClass,
+  onDismiss,
+  onRetry,
+  onEdit,
+}: {
+  open: boolean
+  sending: boolean
+  online: boolean
+  durable: boolean
+  attention: boolean
+  repeat?: 'focus' | 'rhr'
+  locale: KioskLocale
+  appearance: string
+  buttonClass: string
+  onDismiss: () => void
+  onRetry: () => void
+  onEdit: () => void
+}) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  useEffect(() => {
+    if (open && !dialog.current?.open) dialog.current?.showModal()
+    if (!open && dialog.current?.open) dialog.current.close()
+  }, [open])
+  const message = sending
+    ? 'journeyProcessing'
+    : attention
+      ? 'journeyReviewNeeded'
+      : online
+        ? 'journeySendInterrupted'
+        : 'journeyConnectionWait'
+  return (
+    <dialog
+      ref={dialog}
+      data-appearance={appearance}
+      className="sj-delivery-dialog"
+      aria-labelledby={titleId}
+      tabIndex={-1}
+      onCancel={(e) => {
+        if (sending) e.preventDefault()
+        else onDismiss()
+      }}
+      onClose={onDismiss}
+    >
+      <div className="sj-delivery-symbol" aria-hidden="true">
+        {sending ? (
+          <Loader2 className="animate-spin" size={30} />
+        ) : attention ? (
+          <AlertCircle size={30} />
+        ) : (
+          <WifiOff size={30} />
+        )}
+      </div>
+      <h2 id={titleId}>{t(locale, message)}</h2>
+      {!sending && (
+        <p>
+          {t(
+            locale,
+            attention
+              ? repeat === 'focus'
+                ? 'journeyRepeatFocus'
+                : repeat === 'rhr'
+                  ? 'journeyRepeatRhr'
+                  : 'journeyCheckAnswers'
+              : !durable
+                ? 'journeyKeepPageOpen'
+                : 'journeyAnswersKept',
+          )}
+        </p>
+      )}
+      {!sending && (
+        <div className="sj-delivery-dialog-actions">
+          <button type="button" className="sj-secondary" onClick={onDismiss}>
+            {t(locale, 'journeyDismiss')}
+          </button>
+          <button
+            type="button"
+            className={`sj-primary ${buttonClass}`}
+            disabled={!attention && !online}
+            onClick={attention ? onEdit : onRetry}
+          >
+            {t(locale, attention ? 'journeyReview' : 'journeyRetryShort')}
+          </button>
+        </div>
+      )}
     </dialog>
   )
 }

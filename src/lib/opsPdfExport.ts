@@ -1,5 +1,5 @@
 import {
-  pdfColumnBands, pdfRowPages, printTextColor, opsPdfFilename,
+  pdfColumnBands, pdfRowPages, printTextColor, opsPdfFilename, opsPdfTitle,
   type OpsPdfTheme, type OpsPdfPaper, type OpsPdfContent, type PdfColumn,
 } from './opsPdfLayout'
 
@@ -125,14 +125,14 @@ export async function exportOpsPdf({ table: source, context, theme, paper, conte
     const bands = pdfColumnBands(columns, pageWidth, content)
     page.replaceChildren()
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: paper, compress: true })
-    doc.setProperties({ title: `Live Ops - ${context.date}`, subject: `${content} / ${theme}`, creator: 'Wellness Monitor' })
+    doc.setProperties({ title: opsPdfTitle(context.date), subject: `${content} / ${theme}`, creator: 'Wellness Monitor' })
     const margin = 24, pdfWidth = doc.internal.pageSize.getWidth() - margin * 2,
       pdfHeight = doc.internal.pageSize.getHeight() - margin * 2
     const plan: { table: HTMLTableElement; width: number; rows: number[]; band: number }[] = []
     const rowCount = source.tBodies[0].rows.length
     const header = document.createElement('header')
     header.className = 'ops-pdf-page-header'
-    header.append(text('h1', context.team + ' | Live Ops'), text('p', context.survey))
+    header.append(text('h1', opsPdfTitle(context.date)), text('p', context.team + ' | ' + context.survey))
     const date = /^\d{4}-\d{2}-\d{2}$/.test(context.date)
       ? context.date.split('-').reverse().join('.') : context.date
     header.append(text('p', `${date} | ${rowCount} of ${context.totalPlayers} players | ${context.filter}${context.search ? ' | Search: ' + context.search : ''}`))
@@ -181,6 +181,6 @@ export async function exportOpsPdf({ table: source, context, theme, paper, conte
       doc.addImage(canvas, 'PNG', margin, margin, pdfWidth, renderedHeight, undefined, 'FAST')
       canvas.width = canvas.height = 0
     }
-    await doc.save(opsPdfFilename(context.date, theme, content), { returnPromise: true })
+    await doc.save(opsPdfFilename(context.date), { returnPromise: true })
   } finally { host.remove() }
 }

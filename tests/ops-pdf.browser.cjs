@@ -32,6 +32,8 @@ const engine = process.env.OPS_PDF_ENGINE || 'chromium'
  prefs.columns.find(c => c.id === 'wake').enabled = false
  const browser = await (engine === 'webkit' ? webkit : chromium).launch({ headless:true, ...(engine === 'chromium' ? { executablePath:process.env.RHR_BROWSER } : {}) })
  const errors = [], writes = [], files = [], captures = []
+ let holdRefresh = false
+ const refreshWaiters = []
  let downloads = 0
  try {
   const ctx = await browser.newContext({ viewport:{width:1440,height:1000}, timezoneId:'Europe/Belgrade', acceptDownloads:true })
@@ -43,7 +45,10 @@ const engine = process.env.OPS_PDF_ENGINE || 'chromium'
    const req = route.request(), url = new URL(req.url()), path = url.pathname
    if (req.method() !== 'GET') { writes.push(path); return route.abort() }
    const reply = body => route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)})
-   if (path.endsWith('/today')) return reply({...seed, selectedDate:url.searchParams.get('date')})
+   if (path.endsWith('/today')) {
+    if (holdRefresh && url.searchParams.get('date') === '2026-10-17') await new Promise(resolve => {refreshWaiters.push(resolve)})
+    return reply({...seed, selectedDate:url.searchParams.get('date')})
+   }
    if (path.endsWith('/table-preferences')) return reply(prefs)
    if (path.endsWith('/rules')) return reply({rules:[]})
    if (path.endsWith('/month-data')) return reply({surveyId:fixture.surveyId,month:'2026-10',days:{}})
@@ -54,6 +59,21 @@ const engine = process.env.OPS_PDF_ENGINE || 'chromium'
   await page.waitForFunction(() => document.querySelectorAll('table.ops-classic tbody tr').length === 25)
   await launch.waitFor()
   await page.waitForFunction(() => !Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Export PDF')?.disabled)
+  // Surface headings and the export button follow the light page, not the dark table.
+  for (const selector of ['.ops-daily-heading h2','.ops-section-title','.ops-pdf-launch']) {
+   assert.equal(await page.locator(selector).evaluate(el => getComputedStyle(el).color),'rgb(11, 18, 32)', selector)
+  }
+  assert.equal(await page.locator('.ops-bm-heading').first().evaluate(el => getComputedStyle(el).color),'rgb(91, 107, 130)')
+  await page.locator('.ops-daily-heading').screenshot({path:`/tmp/ops-pdf-${engine}-light-heading.png`})
+  // A slow background refresh must not disable export of the displayed table.
+  holdRefresh = true
+  await page.getByRole('button',{name:'Refresh',exact:true}).click()
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Refresh')?.disabled)
+  assert.equal(await launch.isEnabled(),true,'PDF launch stays available during background refresh')
+  await launch.click()
+  await page.getByRole('dialog',{name:'Export PDF'}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Download PDF',exact:true}).isEnabled(),true)
+  await page.keyboard.press('Escape')
   // Record the exact snapshot passed to the rasterizer, including every continuation page.
   const recordSnapshots = () => {
    window.__pdfPages = []
@@ -62,7 +82,7 @@ const engine = process.env.OPS_PDF_ENGINE || 'chromium'
     if (!/Page \d+\/\d+/.test(footer)) return
     const table = root.querySelector('table')
     const key = footer
-    const item = { footer, theme:root.dataset.theme, columns:Array.from(table.tHead.rows[1].cells).map(c => c.dataset.opsColumn), names:Array.from(table.querySelectorAll('.ops-cell-name')).map(c => c.textContent), text:table.textContent }
+    const item = { footer, title:root.querySelector('h1').textContent, theme:root.dataset.theme, columns:Array.from(table.tHead.rows[1].cells).map(c => c.dataset.opsColumn), names:Array.from(table.querySelectorAll('.ops-cell-name')).map(c => c.textContent), text:table.textContent }
     const index = window.__pdfPages.findIndex(p => p.footer === key)
     if (index >= 0) window.__pdfPages[index] = item; else window.__pdfPages.push(item)
    }).observe(document.body,{childList:true,subtree:true})
@@ -81,13 +101,14 @@ const engine = process.env.OPS_PDF_ENGINE || 'chromium'
    const beforeDownloads = downloads
    await dialog.getByRole('button',{name:'Download PDF'}).evaluate(el => {el.click(); el.click()})
    const d = await download
-   assert.equal(d.suggestedFilename(), `live-ops-2026-10-17-${content}-${theme}.pdf`)
+   assert.equal(d.suggestedFilename(), 'Daily Wellness Report - 17.10.2026.pdf')
    const file = `/tmp/ops-pdf-${engine}-${suffix}.pdf`
    await d.saveAs(file); assert.ok(fs.statSync(file).size > 10000)
    await dialog.waitFor({state:'hidden'})
    assert.equal(downloads, beforeDownloads + 1, 'single-flight export')
    const pages = await page.evaluate(() => window.__pdfPages)
    assert.ok(pages.length, 'capture pages')
+   assert.ok(pages.every(p => p.title === 'Daily Wellness Report - 17.10.2026'))
    assert.ok(pages.every(p => p.theme === theme && p.columns[0] === 'athlete' && !p.columns.includes('wake')))
    const names = [...new Set(pages.flatMap(p => p.names))]
    const currentNames = await page.locator('table.ops-classic .ops-cell-name').allTextContents()
@@ -105,10 +126,17 @@ const engine = process.env.OPS_PDF_ENGINE || 'chromium'
   await page.keyboard.press('Escape')
   assert.equal(await launch.evaluate(el => document.activeElement === el),true)
   await exportPdf('dark','a3','table','dark-a3')
+  holdRefresh = false
+  for (const release of refreshWaiters.splice(0)) release()
+  await page.waitForFunction(() => !Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Refresh')?.disabled)
   await exportPdf('light','a4','table','light-a4')
   assert.equal(await page.locator('table.ops-classic').evaluate(el => el.outerHTML),original)
   if (engine === 'chromium') {
    await page.getByRole('button',{name:'Full screen',exact:true}).click()
+   for (const selector of ['.ops-daily-heading h2','.ops-section-title','.ops-pdf-launch']) {
+    assert.equal(await page.locator(selector).evaluate(el => getComputedStyle(el).color),'rgb(229, 237, 247)',selector)
+   }
+   await page.locator('.ops-daily-heading').screenshot({path:'/tmp/ops-pdf-dark-heading.png'})
    await page.getByRole('textbox',{name:'Search players'}).fill('Čović')
    await page.waitForFunction(() => document.querySelectorAll('table.ops-classic tbody tr').length === 1)
    await exportPdf('light','a3','summary','filtered-summary')

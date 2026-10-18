@@ -862,8 +862,8 @@ export default function LiveOpsPage() {
       ) : null}
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-slate-200">
-          <Activity className="h-4 w-4 text-cyan-300" />
+        <div className="ops-daily-heading flex items-center gap-2">
+          <Activity className="h-4 w-4" />
           <h2 className="text-base font-bold tracking-wide">
             {viewMode === 'table' ? 'Daily monitoring' : 'Daily Wellness cards'}
           </h2>
@@ -872,7 +872,7 @@ export default function LiveOpsPage() {
           {viewMode === 'table' && <OpsPdfExport
             getTable={() => tableHost.current?.querySelector<HTMLTableElement>('table.ops-classic') ?? null}
             context={{ team: data?.team.name || 'Team', survey: data?.survey?.title || '', date: data?.selectedDate || selectedDate, filter: filter === 'done' ? 'Completed' : filter === 'pending' ? 'Pending' : 'All players', search: nameQuery.trim(), totalPlayers: data?.stats.total ?? 0 }}
-            disabled={!currentDay || loading || refreshing || savingColumns || sortedCards.length === 0}
+            disabled={!currentDay || sortedCards.length === 0}
           />}
           {viewMode === 'table' ? (
             <OpsColumnBuilder

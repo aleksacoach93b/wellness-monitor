@@ -63,6 +63,13 @@ export function printTextColor(color: string) {
   return `rgb(${channels.map(Math.round).join(', ')})`
 }
 
-export function opsPdfFilename(date: string, theme: OpsPdfTheme, content: OpsPdfContent) {
-  return `live-ops-${date.replace(/[^\d-]/g, '')}-${content}-${theme}.pdf`
+export function opsPdfTitle(date: string) {
+  const clean = date.replace(/[^\d-]/g, '')
+  const label = /^\d{4}-\d{2}-\d{2}$/.test(clean)
+    ? clean.split('-').reverse().join('.') : clean
+  return `Daily Wellness Report - ${label}`
+}
+
+export function opsPdfFilename(date: string) {
+  return `${opsPdfTitle(date)}.pdf`
 }

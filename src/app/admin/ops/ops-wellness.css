@@ -1,6 +1,11 @@
 /* Daily Wellness flip cards — adapted from Power BI CYAN V8_2 + when/area zone detail */
 
 .sg7-page {
+  --ops-page-ink: var(--ad-ink, #0b1220);
+  --ops-page-muted: var(--ad-muted, #5b6b82);
+  --ops-page-accent: var(--ad-accent, #0d9488);
+  --ops-page-button-bg: var(--ad-surface, #ffffff);
+  --ops-page-button-line: var(--ad-line, #cbd5e1);
   width: 100%;
   padding: 4px 0 12px;
   box-sizing: border-box;
@@ -118,10 +123,18 @@
 }
 
 .ops-fullscreen .sg7-page {
+  --ops-page-ink: #e5edf7;
+  --ops-page-muted: #94a3b8;
+  --ops-page-accent: #67e8f9;
+  --ops-page-button-bg: #142d42;
+  --ops-page-button-line: #356783;
   width: 100%;
   max-width: none;
   margin: 0;
 }
+
+.ops-daily-heading { color: var(--ops-page-ink); }
+.ops-daily-heading > svg { color: var(--ops-page-accent); }
 
 .ops-fullscreen .sg7-card {
   height: min(78vh, 720px);
@@ -2061,7 +2074,7 @@
   font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #f8fafc;
+  color: var(--ops-page-ink, var(--ad-ink, #0b1220));
   font-family: var(--font-outfit), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -2071,7 +2084,7 @@
   font-weight: 750;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--ops-page-muted, var(--ad-muted, #5b6b82));
 }
 
 .ops-bm-grid {

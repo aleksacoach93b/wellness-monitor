@@ -2,7 +2,7 @@ const { test, after } = require('node:test')
 const assert = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path'), ts = require('typescript')
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ops-pdf-'))
 fs.writeFileSync(path.join(dir, 'layout.cjs'), ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/lib/opsPdfLayout.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)
-const { pdfColumnBands, pdfRowPages, printTextColor, opsPdfFilename } = require(path.join(dir, 'layout.cjs'))
+const { pdfColumnBands, pdfRowPages, printTextColor, opsPdfFilename, opsPdfTitle } = require(path.join(dir, 'layout.cjs'))
 after(() => fs.rmSync(dir, { recursive: true, force: true }))
 const cols = ['athlete', 'focus', 'rhr', 'bed', 'fatigue', 'metric:custom', 'wake'].map(id => ({ id, width: 200 }))
 test('wide tables repeat identity and preserve every displayed column exactly once', () => {
@@ -33,7 +33,8 @@ test('print colours retain hue with readable contrast against white', () => {
   }
   assert.equal(printTextColor('invalid'), '#243447')
 })
-test('filenames identify selected day, content, and appearance without path characters', () => {
-  assert.equal(opsPdfFilename('2026-10-18', 'dark', 'table'), 'live-ops-2026-10-18-table-dark.pdf')
-  assert.equal(opsPdfFilename('../2026-10-18', 'light', 'summary'), 'live-ops-2026-10-18-summary-light.pdf')
+test('all daily reports use the requested title and selected date without path characters', () => {
+  assert.equal(opsPdfTitle('2026-10-18'), 'Daily Wellness Report - 18.10.2026')
+  assert.equal(opsPdfFilename('2026-10-18'), 'Daily Wellness Report - 18.10.2026.pdf')
+  assert.equal(opsPdfFilename('../2026-10-18'), 'Daily Wellness Report - 18.10.2026.pdf')
 })

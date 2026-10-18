@@ -55,7 +55,7 @@ export default function OpsPdfExport({ getTable, context, disabled }: {
     }
   }
   return <>
-    <button ref={launch} type="button" className="admin-btn admin-btn-ghost ops-pdf-launch" disabled={disabled} onClick={() => { setError(''); setOpen(true) }}>
+    <button ref={launch} type="button" className="admin-btn admin-btn-ghost ops-pdf-launch" aria-haspopup="dialog" disabled={disabled} title={disabled ? 'No players available to export' : 'Export the displayed daily table'} onClick={() => { setError(''); setOpen(true) }}>
       <FileDown size={16} />Export PDF
     </button>
     <dialog ref={dialog} className="ops-pdf-dialog" aria-labelledby={id + '-title'} aria-busy={busy} onCancel={e => { e.preventDefault(); close() }}>

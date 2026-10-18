@@ -1,4 +1,5 @@
 .ops-pdf-launch:disabled { opacity:.45; cursor:default; }
+.sg7-page .ops-pdf-launch { color:var(--ops-page-ink); background:var(--ops-page-button-bg); border-color:var(--ops-page-button-line); }
 .ops-pdf-dialog { position:fixed; inset:0; margin:auto; width:520px; max-width:calc(100vw - 24px); max-height:calc(100dvh - 32px); padding:0; border:1px solid #3c526b; border-radius:22px; background:#0e1b2c; color:#eaf2fc; box-shadow:0 28px 90px #0008; font-family:var(--font-geist-sans),sans-serif; }
 .ops-pdf-dialog[open] { display:flex; flex-direction:column; }
 .ops-pdf-dialog::backdrop { background:#020617b8; backdrop-filter:blur(5px); }

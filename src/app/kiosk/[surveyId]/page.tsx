@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use, useMemo, useCallback, useRef, type Dispatch, type SetStateAction } from 'react'
+import { useState, useEffect, use, useMemo, useCallback, useRef, useTransition, type Dispatch, type SetStateAction } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Survey, Question } from '@prisma/client'
@@ -12,6 +12,7 @@ import { pushRecentPlayerId, readRecentPlayerIds } from '@/lib/kioskRecentPlayer
 import { flushOfflineSurveyQueue, getSurveySubmissions, subscribeSurveyDelivery } from '@/lib/offlineSurveyQueue'
 import '@/components/survey/survey-journey.css'
 import KioskPasswordPrompt from '@/components/KioskPasswordPrompt'
+import KioskPlayerAccessModal from '@/components/KioskPlayerAccessModal'
 import KioskClubBrand from '@/components/KioskClubBrand'
 import { kioskThemes, kioskTextTokens, KioskTheme } from '@/lib/kioskThemes'
 import { surveyThemeFromKiosk } from '@/lib/surveyFormAppearance'
@@ -122,6 +123,11 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [playerPassword, setPlayerPassword] = useState('')
   const [showPlayerPasswordModal, setShowPlayerPasswordModal] = useState(false)
+  const [playerOpening, setPlayerOpening] = useState(false)
+  const [surveyTransitionPending, startSurveyTransition] = useTransition()
+  const playerAuthInFlight = useRef(false)
+  const surveyNavigationStarted = useRef(false)
+  const navigationWasPending = useRef(false)
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithStatus | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showKioskPassword, setShowKioskPassword] = useState(false)
@@ -335,7 +341,20 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
   }
 
 
+  // If navigation settles without leaving this kiosk, allow a deliberate retry.
+  useEffect(() => {
+    if (surveyTransitionPending) { navigationWasPending.current = true; return }
+    if (surveyNavigationStarted.current && navigationWasPending.current) {
+      surveyNavigationStarted.current = false
+      navigationWasPending.current = false
+      playerAuthInFlight.current = false
+      setPlayerOpening(false)
+      setPlayerAuthError(t(locale, 'surveyOpenFailed'))
+    }
+  }, [surveyTransitionPending, locale])
+
   const handlePlayerClick = (player: PlayerWithStatus) => {
+    if (playerAuthInFlight.current || surveyNavigationStarted.current) return
     setSelectedPlayer(player)
     setPlayerAuthError(null)
     setShowResubmitConfirm(false)
@@ -351,20 +370,30 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
     return `/survey/${surveyId}?${q.toString()}`
   }
 
-  const startSurveyForPlayer = async (player: PlayerWithStatus) => {
+  const startSurveyForPlayer = (player: PlayerWithStatus) => {
+    if (surveyNavigationStarted.current) return
+    surveyNavigationStarted.current = true
+    playerAuthInFlight.current = true
+    setPlayerOpening(true)
     pushRecentPlayerId(surveyId, player.id)
     setRecentIds(readRecentPlayerIds(surveyId))
-    setShowPlayerPasswordModal(false)
     setShowResubmitConfirm(false)
     setPlayerPassword('')
     setPlayerAuthError(null)
-    setSelectedPlayer(null)
-    await enterFullscreenIfMobile()
-    router.push(buildSurveyHref(player.id))
+    // Fullscreen must not delay navigation or expose the roster again.
+    void enterFullscreenIfMobile()
+    try {
+      startSurveyTransition(() => router.push(buildSurveyHref(player.id)))
+    } catch {
+      surveyNavigationStarted.current = false
+      playerAuthInFlight.current = false
+      setPlayerOpening(false)
+      setPlayerAuthError(t(locale, 'surveyOpenFailed'))
+    }
   }
 
   const handlePlayerPasswordSubmit = async () => {
-    if (!selectedPlayer) return
+    if (!selectedPlayer || playerAuthInFlight.current || surveyNavigationStarted.current) return
 
     if (
       !validatePlayerPassword(
@@ -379,21 +408,34 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       return
     }
 
+    playerAuthInFlight.current = true
+    setPlayerOpening(true)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 12000)
     try {
-      const auth = await fetch(`/api/kiosk/${encodeURIComponent(surveyId)}/pvt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'authorize', playerId: selectedPlayer.id, password: playerPassword }) })
-      if (auth.status === 401 || auth.status === 429) { setPlayerAuthError(t(locale, 'incorrectPassword')); return }
+      const auth = await fetch(`/api/kiosk/${encodeURIComponent(surveyId)}/pvt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'authorize', playerId: selectedPlayer.id, password: playerPassword }), signal: controller.signal })
+      if (auth.status === 401 || auth.status === 429) {
+        playerAuthInFlight.current = false
+        setPlayerOpening(false)
+        setPlayerAuthError(t(locale, 'incorrectPassword'))
+        return
+      }
     } catch { /* Existing offline wellness flow remains available. */ }
+    finally { clearTimeout(timeout) }
     setPlayerAuthError(null)
 
     if (selectedPlayer.hasResponded) {
+      playerAuthInFlight.current = false
+      setPlayerOpening(false)
       setShowResubmitConfirm(true)
       return
     }
 
-    await startSurveyForPlayer(selectedPlayer)
+    startSurveyForPlayer(selectedPlayer)
   }
 
   const handlePlayerPasswordCancel = () => {
+    if (playerAuthInFlight.current || surveyNavigationStarted.current) return
     setShowPlayerPasswordModal(false)
     setShowResubmitConfirm(false)
     setPlayerPassword('')
@@ -568,6 +610,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
       key={player.id}
       type="button"
       onClick={() => handlePlayerClick(player)}
+      disabled={playerOpening || surveyTransitionPending}
       className={`group relative m-0 min-w-0 w-full appearance-none text-left backdrop-blur-xl rounded-2xl sm:rounded-3xl border-solid shadow-2xl hover:shadow-3xl cursor-pointer transition-[transform,box-shadow] duration-300 ease-out transform hover:scale-[1.02] hover:-translate-y-px focus-visible:z-10 focus-visible:scale-[1.02] focus-visible:-translate-y-px p-3 sm:p-6 lg:p-8 ${activeTheme.playerCardFocus} ${
         player.hasResponded ? `${activeTheme.playerCardResponded} opacity-75` : activeTheme.playerCardIdle
       }`}
@@ -919,12 +962,9 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         </div>
       )}
 
-      {/* Player Password / Resubmit Modal */}
+      {/* Player Password / Resubmit / Loading Modal */}
       {showPlayerPasswordModal && selectedPlayer && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className={`relative ${activeTheme.modalBackground} backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4`}>
-            <div className={`absolute inset-0 ${activeTheme.modalOverlay} rounded-2xl`}></div>
-            <div className="relative">
+        <KioskPlayerAccessModal player={selectedPlayer} busy={playerOpening || surveyTransitionPending} theme={kioskTheme} locale={locale} onCancel={handlePlayerPasswordCancel}>
               {showResubmitConfirm ? (
                 <>
                   <h3 className={`text-2xl font-light ${text.textStrong} mb-2 text-center tracking-wide`}>{t(locale, 'alreadySubmitted')}</h3>
@@ -994,11 +1034,8 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                   </div>
                 </>
               )}
-            </div>
-          </div>
-        </div>
+        </KioskPlayerAccessModal>
       )}
-
 
 
       {submitToast && (
@@ -1220,6 +1257,7 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
                 key={`recent-${player.id}`}
                 type="button"
                 onClick={() => handlePlayerClick(player)}
+                disabled={playerOpening || surveyTransitionPending}
                 className={`flex shrink-0 items-center gap-2 rounded-full border px-2.5 py-1.5 backdrop-blur-sm ${
                   player.hasResponded ? 'border-green-400/25 opacity-70' : 'border-white/15'
                 }`}

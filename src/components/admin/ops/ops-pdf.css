@@ -1,0 +1,65 @@
+.ops-pdf-launch:disabled { opacity:.45; cursor:default; }
+.ops-pdf-dialog { position:fixed; inset:0; margin:auto; width:520px; max-width:calc(100vw - 24px); max-height:calc(100dvh - 32px); padding:0; border:1px solid #3c526b; border-radius:22px; background:#0e1b2c; color:#eaf2fc; box-shadow:0 28px 90px #0008; font-family:var(--font-geist-sans),sans-serif; }
+.ops-pdf-dialog[open] { display:flex; flex-direction:column; }
+.ops-pdf-dialog::backdrop { background:#020617b8; backdrop-filter:blur(5px); }
+.ops-pdf-dialog header { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:22px 24px 16px; border-bottom:1px solid #273b51; }
+.ops-pdf-dialog header p { color:#7dd3fc; font-size:10px; letter-spacing:.15em; margin:0 0 6px; }
+.ops-pdf-dialog h2 { font-size:22px; font-weight:650; margin:0; }
+.ops-pdf-dialog header button { display:grid; place-items:center; flex-shrink:0; width:40px; height:40px; border-radius:11px; background:#213449; }
+.ops-pdf-options { padding:18px 24px 22px; overflow:auto; min-height:0; }
+.ops-pdf-context { color:#a9bdd2; font-size:12px; margin:0 0 18px; overflow-wrap:anywhere; }
+.ops-pdf-dialog fieldset { border:0; padding:0; margin:0 0 20px; min-width:0; }
+.ops-pdf-dialog legend,.ops-pdf-dialog .ops-pdf-paper { color:#eaf2fc; font-size:12px; font-weight:600; margin-bottom:9px; }
+.ops-pdf-option { display:flex; align-items:center; gap:10px; padding:12px; border:1px solid #354b63; border-radius:12px; background:#152639; margin-top:7px; cursor:pointer; }
+.ops-pdf-option:has(input:checked) { border-color:#38bdf8; background:#0f3347; }
+.ops-pdf-option input { accent-color:#22d3ee; flex-shrink:0; width:16px; height:16px; }
+.ops-pdf-option>svg { flex-shrink:0; color:#9bdff8; }
+.ops-pdf-dialog .ops-pdf-option strong { color:#eaf2fc; font-size:12px; font-weight:600; display:block; }
+.ops-pdf-option small { font-size:11px; color:#adbed0; margin-top:3px; display:block; line-height:1.5; }
+.ops-pdf-theme-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ops-pdf-paper { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.ops-pdf-paper select { background:#152639; color:#eaf2fc; border:1px solid #354b63; border-radius:9px; min-height:40px; padding:8px; font-size:12px; max-width:70%; }
+.ops-pdf-note { color:#a9bdd2; font-size:11px; line-height:1.7; margin:16px 0 0; }
+.ops-pdf-error { color:#fecaca; background:#7f1d1d40; border:1px solid #ef444455; border-radius:10px; padding:10px; font-size:12px; margin-top:14px; }
+.ops-pdf-progress { display:flex; align-items:center; gap:9px; color:#a5e9fa; font-size:12px; margin-top:14px; }
+.ops-pdf-dialog footer { display:flex; justify-content:space-between; gap:12px; padding:16px 24px; border-top:1px solid #273b51; }
+.ops-pdf-dialog button:disabled,.ops-pdf-dialog fieldset:disabled { opacity:.5; }
+.ops-pdf-dialog button:focus-visible,.ops-pdf-dialog input:focus-visible,.ops-pdf-dialog select:focus-visible { outline:2px solid #7dd3fc; outline-offset:3px; }
+@media(max-width:450px) { .ops-pdf-theme-options { grid-template-columns:1fr; } .ops-pdf-options { padding:14px 18px; } .ops-pdf-dialog header,.ops-pdf-dialog footer { padding:16px 18px; } }
+
+/* Export-only clone: live table styles and values remain untouched. */
+.ops-pdf-host { position:fixed; left:-100000px; top:0; pointer-events:none; z-index:-1; }
+.ops-pdf-capture { background:#071426; color:#e2e8f0; font-family:var(--font-outfit),var(--font-geist-sans),sans-serif; }
+.ops-pdf-capture * { box-sizing:border-box; }
+.ops-pdf-capture .ops-classic { min-width:0; }
+.ops-pdf-capture .ops-classic th,.ops-pdf-capture .ops-sticky-col { position:static; backdrop-filter:none; }
+.ops-pdf-capture .ops-classic th { overflow-wrap:anywhere; }
+.ops-pdf-capture .ops-classic-shell { box-shadow:none; }
+.ops-pdf-capture .ops-cell-athlete { min-width:0; }
+.ops-pdf-capture .ops-cell-name { white-space:normal; overflow-wrap:anywhere; }
+.ops-pdf-capture .ops-classic td .inline-flex { flex-wrap:wrap; }
+.ops-pdf-capture .ops-classic tbody tr:hover td { background:transparent; }
+.ops-pdf-page-header { padding:18px 20px; }
+.ops-pdf-page-header h1 { color:#f8fafc; font-size:23px; font-weight:700; line-height:1.35; margin:0 0 6px; overflow-wrap:anywhere; }
+.ops-pdf-page-header p { color:#a9bdd2; font-size:13px; line-height:1.5; margin:3px 0 0; overflow-wrap:anywhere; }
+.ops-pdf-page-footer { padding:14px 20px; color:#a9bdd2; font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+.ops-pdf-capture[data-theme=light] { background:#fff; color:#1e293b; }
+.ops-pdf-capture[data-theme=light] .ops-classic-shell { background:#fff; border-color:#cbd5e1; }
+.ops-pdf-capture[data-theme=light] .ops-classic thead th { color:#475569; background:#edf2f7; border-color:#d6e0eb; }
+.ops-pdf-capture[data-theme=light] .ops-group-row th { color:#334d6b !important; background:#edf2f7 !important; }
+.ops-pdf-capture[data-theme=light] .ops-classic tbody td { color:#1e293b; background:#fff; border-color:#e2e8f0; opacity:1; }
+.ops-pdf-capture[data-theme=light] .ops-classic tbody td { padding-top:6px; padding-bottom:6px; }
+.ops-pdf-capture[data-theme=light] .ops-classic tbody tr:nth-child(even) td { background:#f6f8fb; }
+.ops-pdf-capture[data-theme=light] .ops-cell-name { color:#0f172a; }
+.ops-pdf-capture[data-theme=light] .ops-cell-sub,.ops-pdf-capture[data-theme=light] .ops-t-muted { color:#64748b; }
+.ops-pdf-capture[data-theme=light] .ops-cell-avatar { background:#e2edf5; border-color:#b9d4e3; color:#1e4961; }
+.ops-pdf-capture[data-theme=light] .ops-cell-avatar { width:28px; height:28px; min-width:28px; }
+.ops-pdf-capture[data-theme=light] .ops-cell-avatar img { width:28px; height:28px; }
+.ops-pdf-capture[data-theme=light] .ops-classic a { color:#0f766e; }
+.ops-pdf-capture[data-theme=light] .ops-mono>span { color:#075985; }
+.ops-pdf-capture[data-theme=light] .ops-load-bar { background:#dce5ee; }
+.ops-pdf-capture[data-theme=light] .ops-badge.is-ok { color:#166534; background:#e7f5eb; border-color:#abd4b8; }
+.ops-pdf-capture[data-theme=light] .ops-badge.is-warn { color:#92400e; background:#fff4df; border-color:#ebc78b; }
+.ops-pdf-capture[data-theme=light] .ops-badge.is-danger { color:#991b1b; background:#fdeaea; border-color:#eab0b0; }
+.ops-pdf-capture[data-theme=light] .ops-pdf-page-header h1 { color:#0f172a; }
+.ops-pdf-capture[data-theme=light] .ops-pdf-page-header p,.ops-pdf-capture[data-theme=light] .ops-pdf-page-footer { color:#475569; }

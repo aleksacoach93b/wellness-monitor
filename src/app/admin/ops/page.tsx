@@ -20,6 +20,7 @@ import OpsMonitoringHub, { type OpsTab } from '@/components/admin/ops/OpsMonitor
 import OpsRhrPanel from '@/components/admin/ops/OpsRhrPanel'
 import OpsFocusPanel from '@/components/admin/ops/OpsFocusPanel'
 import OpsWellnessTable from '@/components/admin/ops/OpsWellnessTable'
+import OpsPdfExport from '@/components/admin/ops/OpsPdfExport'
 import OpsColumnBuilder from '@/components/admin/ops/OpsColumnBuilder'
 import OpsCalendar from '@/components/admin/ops/OpsCalendar'
 import OpsBodyMapsSection from '@/components/admin/ops/OpsBodyMapsSection'
@@ -147,6 +148,7 @@ export default function LiveOpsPage() {
   const [nameQuery, setNameQuery] = useState('')
   const [filter, setFilter] = useState<StatusFilter>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('table')
+  const tableHost = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -867,6 +869,11 @@ export default function LiveOpsPage() {
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {viewMode === 'table' && <OpsPdfExport
+            getTable={() => tableHost.current?.querySelector<HTMLTableElement>('table.ops-classic') ?? null}
+            context={{ team: data?.team.name || 'Team', survey: data?.survey?.title || '', date: data?.selectedDate || selectedDate, filter: filter === 'done' ? 'Completed' : filter === 'pending' ? 'Pending' : 'All players', search: nameQuery.trim(), totalPlayers: data?.stats.total ?? 0 }}
+            disabled={!currentDay || loading || refreshing || savingColumns || sortedCards.length === 0}
+          />}
           {viewMode === 'table' ? (
             <OpsColumnBuilder
               columns={tableColumns}
@@ -934,7 +941,7 @@ export default function LiveOpsPage() {
               : 'No players found.'}
         </div>
       ) : viewMode === 'table' ? (
-        <div className="ops-table-stack">
+        <div className="ops-table-stack" ref={tableHost}>
           <OpsWellnessTable
             players={sortedCards}
             columns={tableColumns}

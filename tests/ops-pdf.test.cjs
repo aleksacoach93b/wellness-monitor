@@ -1,0 +1,39 @@
+const { test, after } = require('node:test')
+const assert = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path'), ts = require('typescript')
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ops-pdf-'))
+fs.writeFileSync(path.join(dir, 'layout.cjs'), ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/lib/opsPdfLayout.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)
+const { pdfColumnBands, pdfRowPages, printTextColor, opsPdfFilename } = require(path.join(dir, 'layout.cjs'))
+after(() => fs.rmSync(dir, { recursive: true, force: true }))
+const cols = ['athlete', 'focus', 'rhr', 'bed', 'fatigue', 'metric:custom', 'wake'].map(id => ({ id, width: 200 }))
+test('wide tables repeat identity and preserve every displayed column exactly once', () => {
+  const bands = pdfColumnBands(cols, 600, 'table')
+  assert.deepEqual(bands.map(b => b.map(c => c.id)), [['athlete', 'focus', 'rhr'], ['athlete', 'bed', 'fatigue'], ['athlete', 'metric:custom', 'wake']])
+  assert.deepEqual(bands.flatMap(b => b.slice(1)), cols.slice(1))
+  assert.ok(bands.every(b => b.reduce((n, c) => n + c.width, 0) <= 600))
+})
+test('summary uses only available key columns and retains their order', () => {
+  assert.deepEqual(pdfColumnBands(cols, 1800, 'summary')[0].map(c => c.id), ['athlete', 'focus', 'rhr', 'fatigue'])
+  assert.deepEqual(pdfColumnBands([cols[0]], 1200, 'table'), [[cols[0]]])
+  assert.throws(() => pdfColumnBands(cols.slice(1), 1200, 'table'), /athlete/)
+})
+test('pagination preserves all variable-height rows and never cuts a row', () => {
+  const heights = Array.from({ length: 25 }, (_, i) => i % 4 === 0 ? 100 : 60)
+  const pages = pdfRowPages(heights, 400)
+  assert.deepEqual(pages.flat(), heights.map((_, i) => i))
+  assert.ok(pages.every(p => p.length && p.reduce((n, i) => n + heights[i], 0) <= 400))
+  assert.deepEqual(pdfRowPages([100, 100, 100], 200), [[0, 1], [2]])
+  assert.deepEqual(pdfRowPages([], 200), [])
+  assert.throws(() => pdfRowPages([800], 400), /too tall/)
+})
+test('print colours retain hue with readable contrast against white', () => {
+  for (const value of ['rgb(250, 204, 21)', 'rgb(34, 197, 94)', 'rgba(239, 68, 68, 0.8)', 'rgb(226, 232, 240)', 'rgb(255, 255, 255)', 'rgb(0, 0, 0)']) {
+    const out = printTextColor(value).match(/\d+/g).map(Number).map(v => v / 255).map(s => s <= .04045 ? s / 12.92 : ((s + .055) / 1.055) ** 2.4)
+    const lum = out.reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0)
+    assert.ok(1.05 / (lum + .05) >= 4.5, value)
+  }
+  assert.equal(printTextColor('invalid'), '#243447')
+})
+test('filenames identify selected day, content, and appearance without path characters', () => {
+  assert.equal(opsPdfFilename('2026-10-18', 'dark', 'table'), 'live-ops-2026-10-18-table-dark.pdf')
+  assert.equal(opsPdfFilename('../2026-10-18', 'light', 'summary'), 'live-ops-2026-10-18-summary-light.pdf')
+})

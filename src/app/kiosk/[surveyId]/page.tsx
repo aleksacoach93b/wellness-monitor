@@ -615,25 +615,11 @@ export default function KioskModePage({ params }: { params: Promise<{ surveyId: 
         player.hasResponded ? `${activeTheme.playerCardResponded} opacity-75` : activeTheme.playerCardIdle
       }`}
     >
-      <div
-        className={`absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full sm:right-3 sm:top-3 sm:h-9 sm:w-9 ${
-          player.hasResponded
-            ? 'bg-gradient-to-r from-green-500/90 to-emerald-500/90 border border-green-400/50'
-            : accent
-              ? ''
-              : 'border border-white/20 bg-black/35 text-white'
-        }`}
-        style={!player.hasResponded && accent ? { backgroundColor: accent, color: accentOn } : undefined}
-      >
-        {player.hasResponded ? (
+      {player.hasResponded && (
+        <div className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-green-400/50 bg-gradient-to-r from-green-500/90 to-emerald-500/90 sm:right-3 sm:top-3 sm:h-9 sm:w-9">
           <CheckCircle className="h-4 w-4 text-white sm:h-5 sm:w-5" aria-hidden />
-        ) : (
-          <Play
-            className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${accent ? '' : 'text-white'}`}
-            aria-hidden
-          />
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="flex justify-center mb-3 sm:mb-5">
         <div className="relative">

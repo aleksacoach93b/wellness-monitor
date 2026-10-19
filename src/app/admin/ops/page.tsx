@@ -20,6 +20,7 @@ import OpsMonitoringHub, { type OpsTab } from '@/components/admin/ops/OpsMonitor
 import OpsRhrPanel from '@/components/admin/ops/OpsRhrPanel'
 import OpsFocusPanel from '@/components/admin/ops/OpsFocusPanel'
 import OpsWellnessTable from '@/components/admin/ops/OpsWellnessTable'
+import OpsIndividual from '@/components/admin/ops/OpsIndividual'
 import OpsPdfExport from '@/components/admin/ops/OpsPdfExport'
 import OpsColumnBuilder from '@/components/admin/ops/OpsColumnBuilder'
 import OpsCalendar from '@/components/admin/ops/OpsCalendar'
@@ -448,7 +449,7 @@ export default function LiveOpsPage() {
   useEffect(() => {
     if (!fullscreen) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFullscreen(false)
+      if (e.key === 'Escape' && !document.querySelector('dialog[open]')) setFullscreen(false)
     }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
@@ -784,6 +785,8 @@ export default function LiveOpsPage() {
 
       {selectedSurvey && <OpsMonitoringHub survey={selectedSurvey} date={selectedDate} refreshKey={data?.generatedAt || ''} tab={tab} onTab={setTab} search={nameQuery} onSearch={setNameQuery} />}
 
+      {tab === 'individual' && selectedSurvey && <OpsIndividual key={selectedSurvey.id} surveyId={selectedSurvey.id} endDate={selectedDate} />}
+
       {tab === 'daily' && currentDay && data?.players?.length ? (
         <OpsAlertTicker players={data.players as OpsPlayerCard[]} />
       ) : null}
@@ -1069,7 +1072,7 @@ export default function LiveOpsPage() {
             ) : null}
           </section>
 
-          {fullscreen ? <div className="ops-fullscreen">{cockpit}</div> : cockpit}
+          <div className={fullscreen ? 'ops-fullscreen' : undefined}>{cockpit}</div>
         </>
       )}
     </div>

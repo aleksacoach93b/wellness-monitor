@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  UserRound,
   ShieldCheck,
 } from 'lucide-react'
 import type {
@@ -23,9 +24,10 @@ import type {
 import CSVLinkModal from '@/app/admin/surveys/[id]/results/CSVLinkModal'
 import './ops-monitoring.css'
 export type OpsTab =
-  'daily' | 'measurements' | 'reliability' | 'weekly' | 'settings'
+  'daily' | 'measurements' | 'reliability' | 'weekly' | 'settings' | 'individual'
 const tabs = [
   { id: 'daily', label: 'Daily overview', icon: Activity },
+  { id: 'individual', label: 'Individual player', icon: UserRound },
   { id: 'measurements', label: 'Measurements', icon: Focus },
   { id: 'reliability', label: 'Reliability', icon: ShieldCheck },
   { id: 'weekly', label: 'Weekly report', icon: CalendarDays },
@@ -254,7 +256,7 @@ export default function OpsMonitoringHub({
           </button>
         </div>
       )}
-      {!data && loading && tab !== 'settings' && (
+      {!data && loading && tab !== 'settings' && tab !== 'individual' && (
         <div className="opsm-loading" role="status">
           <Loader2 className="animate-spin" size={20} />
           Loading team monitoring…

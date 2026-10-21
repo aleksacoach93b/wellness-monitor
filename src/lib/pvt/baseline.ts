@@ -1,5 +1,6 @@
 import { median } from './protocol'
-export type PvtSummary = { medianRT: number | null; responseSpeed: number | null; responses: number; slowResponses: number; slowPercent: number | null; falseStarts: number; quality: string; flags: string[]; repeatRequired?: boolean; repeatReasons?: string[] }
+import type { FocusAnalysis } from './analysis'
+export type PvtSummary = { analysis?: FocusAnalysis; medianRT: number | null; responseSpeed: number | null; responses: number; slowResponses: number; slowPercent: number | null; falseStarts: number; quality: string; flags: string[]; repeatRequired?: boolean; repeatReasons?: string[] }
 export type PvtSessionRow = {
   id: string; responseId?: string | null; questionId?: string | null; playerId: string; surveyId: string; localDate: string; startedAt: string;
   finishedAt: string | null; durationSeconds: number; protocolVersion: string; practice: boolean;

@@ -144,6 +144,7 @@ export async function GET(request: NextRequest) {
           userAgent: true,
           context: true,
           summary: true,
+          raw: true,
         },
         orderBy: { startedAt: "desc" },
         take: 10001,

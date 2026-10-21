@@ -1073,6 +1073,7 @@ export default function OpsIndividual({
                         <th>Quality</th>
                         <th>Saved</th>
                         <th>Practice</th>
+                        <th>Analysis</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1089,6 +1090,7 @@ export default function OpsIndividual({
                           <td>{a.quality}</td>
                           <td>{a.saved ? "Yes" : "No"}</td>
                           <td>{a.practice ? "Yes" : "No"}</td>
+                          <td><a href={`/admin/pvt/session/${encodeURIComponent(a.id)}`} target="_blank" rel="noreferrer">Inspect session ↗</a></td>
                         </tr>
                       ))}
                     </tbody>

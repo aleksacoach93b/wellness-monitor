@@ -408,3 +408,17 @@ test("free text retains JSON-looking content instead of being mistaken for a mea
     value,
   );
 });
+
+test('Focus mean, CV and slow-response series use original trials from the selected valid setup only', () => {
+  const s=session('focus-analysis','r')
+  s.raw={trials:[200,300,400,500].map((rtMs,i)=>({kind:'response',onsetMs:1000+i*5000,atMs:1000+i*5000+rtMs,rtMs,waitMs:1000})),elapsedMs:30000,maxFrameGapMs:16,interruption:null}
+  const r=build([response('r','2026-10-17T08:01:00Z',[answer(fq,{kind:'PVT',attemptId:s.id})])],[s])
+  const group=r.groups.find(g=>g.kind==='focus').id, data=individualSeries(r,'',group)
+  assert.equal(data.series.focusMean.find(p=>p.date==='2026-10-17').value,350)
+  assert.equal(data.series.focusSlow.find(p=>p.date==='2026-10-17').value,50)
+  assert.ok(data.series.focusCV.find(p=>p.date==='2026-10-17').value>30)
+  assert.ok(!JSON.stringify(r).includes('onsetMs'))
+  assert.equal(individualSeries(r,'','wrong-setup').stats.find(x=>x.id==='focusCV').n,0)
+  const old=build([response('r','2026-10-17T08:01:00Z',[answer(fq,{kind:'PVT',attemptId:s.id})])],[{...s,raw:null}])
+  assert.equal(individualSeries(old,'',group).stats.find(x=>x.id==='focusCV').n,0)
+})

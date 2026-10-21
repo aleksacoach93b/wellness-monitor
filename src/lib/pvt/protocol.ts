@@ -1,3 +1,4 @@
+import { analyzeFocus } from './analysis'
 /** Handheld adaptation. Timing must be bench-validated before clinical/selection use. */
 export const PVT_VERSION = 'handheld-pvt-v5'
 export const PVT_START_VERSIONS = [PVT_VERSION] as const
@@ -84,6 +85,7 @@ export function summarizePvt(result: PvtResult, duration: number, version = PVT_
     slowResponses: slow,
     slowPercent: times.length ? slow / times.length * 100 : null,
     falseStarts,
+    analysis: analyzeFocus(result, duration, SLOW_RESPONSE_MS),
     repeatRequired: repeatReasons.length > 0,
     repeatReasons,
     quality: repeatReasons.length ? 'INVALID' : flags.length ? 'REVIEW' : 'OK',

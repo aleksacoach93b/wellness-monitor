@@ -6,6 +6,9 @@ export const PVT_EXPORT_FIELDS = [
   'Status', 'Protocol', 'Test date', 'Started at UTC', 'Completed at UTC',
   'Response speed 1/s', 'Slow responses count (exploratory)', 'Slow responses percent (exploratory)',
   'Quality flags', 'Position', 'Caffeine 0 or 1', 'Minutes since waking', 'Question ID',
+  'Mean RT ms', 'RT SD ms', 'RT CV percent', 'P10 RT ms', 'P90 RT ms', 'Fastest RT ms', 'Slowest RT ms',
+  'Measured responses', 'Omissions', 'Unfinished final signals', 'First half responses', 'Second half responses',
+  'First half median RT ms', 'Second half median RT ms', 'Second vs first half change percent (exploratory)', 'Analysis version',
 ] as const
 export type PvtExportSession = {
   id: string; responseId: string | null; playerId: string; questionId: string | null;
@@ -29,6 +32,7 @@ export function pvtExportValues(raw: string, session?: PvtExportSession): Record
   const a = parsePvtAnswer(raw)
   const summary = record(session?.summary)
   const context = record(session?.context)
+  const analysis = record(summary.analysis)
   const flags = session ? summary.flags : a?.flags
   return {
     'Duration s': session?.durationSeconds ?? a?.durationSeconds ?? null,
@@ -50,5 +54,21 @@ export function pvtExportValues(raw: string, session?: PvtExportSession): Record
     'Caffeine 0 or 1': typeof context.caffeine === 'boolean' ? Number(context.caffeine) : null,
     'Minutes since waking': number(context.minutesAwake),
     'Question ID': session?.questionId ?? null,
+    'Mean RT ms': number(analysis.meanRT),
+    'RT SD ms': number(analysis.sdRT),
+    'RT CV percent': number(analysis.cvRT),
+    'P10 RT ms': number(analysis.p10RT),
+    'P90 RT ms': number(analysis.p90RT),
+    'Fastest RT ms': number(analysis.minRT),
+    'Slowest RT ms': number(analysis.maxRT),
+    'Measured responses': number(analysis.validResponses),
+    Omissions: number(analysis.omissions),
+    'Unfinished final signals': number(analysis.censored),
+    'First half responses': number(analysis.firstHalfResponses),
+    'Second half responses': number(analysis.lastHalfResponses),
+    'First half median RT ms': number(analysis.firstHalfMedian),
+    'Second half median RT ms': number(analysis.lastHalfMedian),
+    'Second vs first half change percent (exploratory)': number(analysis.halfDeltaPercent),
+    'Analysis version': text(analysis.version),
   }
 }

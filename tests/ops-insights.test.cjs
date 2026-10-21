@@ -14,6 +14,7 @@ for (const name of [
   'rhr/observationProtocol',
   'pvt/options',
   'pvt/protocol',
+  'pvt/analysis',
 ]) {
   const out = path.join(dir, name + '.js')
   fs.mkdirSync(path.dirname(out), { recursive: true })

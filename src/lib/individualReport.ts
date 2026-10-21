@@ -10,6 +10,7 @@ import {
 import { getMuscleName } from "./muscleNames";
 import { zonedDay, shiftDay, recentDays } from "./opsDates";
 import { finite } from "./individualStats";
+import { focusAnalysisFromRaw } from "./pvt/analysis";
 export type IndividualQuestion = {
   id: string;
   text: string;
@@ -30,6 +31,7 @@ export type IndividualResponse = {
   }[];
 };
 export type IndividualFocus = {
+  raw?: unknown;
   id: string;
   playerId: string;
   surveyId: string;
@@ -53,6 +55,12 @@ export type IndividualMetric = {
   color: string;
 };
 export type IndividualReading = {
+  attemptId?: string;
+  focusMetrics?: {
+    meanRT: number | null;
+    cvRT: number | null;
+    slowPercent: number | null;
+  };
   questionId: string;
   kind: "rhr" | "focus";
   group: string;
@@ -116,6 +124,7 @@ export type IndividualReport = {
     reason: string | null;
   }[];
   attempts: {
+    id: string;
     date: string;
     time: string;
     duration: number;
@@ -351,6 +360,13 @@ export function buildIndividualReport(args: {
             value !== null &&
             s.localDate === date;
           readings.push({
+            attemptId: s.id,
+            focusMetrics: (() => {
+              const a = focusAnalysisFromRaw(s.raw, s.durationSeconds);
+              return a
+                ? { meanRT: a.meanRT, cvRT: a.cvRT, slowPercent: a.slowPercent }
+                : undefined;
+            })(),
             questionId: a.questionId,
             kind: "focus",
             group,
@@ -488,6 +504,7 @@ export function buildIndividualReport(args: {
       .map((s) => {
         const summary = object(s.summary);
         return {
+          id: s.id,
           date: s.localDate,
           time: s.startedAt.toISOString(),
           duration: s.durationSeconds,

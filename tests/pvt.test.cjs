@@ -5,7 +5,7 @@ const os = require('node:os')
 const path = require('node:path')
 const ts = require('typescript')
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pvt-unit-'))
-for (const name of ['protocol', 'engine', 'baseline', 'server', 'options', 'export', 'visual']) {
+for (const name of ['protocol', 'engine', 'baseline', 'server', 'options', 'export', 'visual', 'analysis', 'monitoring']) {
   const source = fs.readFileSync(path.join(__dirname, '../src/lib/pvt', name + '.ts'), 'utf8')
   fs.writeFileSync(path.join(dir, name + '.js'), ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText)
 }
@@ -278,4 +278,69 @@ test('60-second attempts require ten responses and invalid records never build a
   assert.ok(pvtRepeatReasons(result,60).includes('few-responses'))
   const current=row('2026-10-15')
   assert.equal(baselineFor(current,[row('2026-10-01',{summary:{quality:'OK',medianRT:150,repeatRequired:true}})]).days,0)
+})
+
+const { analyzeFocus, focusAnalysisFromRaw, rtQuantile } = require(path.join(dir, 'analysis.js'))
+const { focusMonitoring } = require(path.join(dir, 'monitoring.js'))
+function variableRecord(times, duration = 30) {
+  return {trials:times.map((rtMs,i)=>({kind:'response',onsetMs:1000+i*(duration*1000-2000)/Math.max(1,times.length-1),atMs:1000+i*(duration*1000-2000)/Math.max(1,times.length-1)+rtMs,rtMs,waitMs:1000})),elapsedMs:duration*1000,maxFrameGapMs:16.7,interruption:null}
+}
+test('descriptive RT metrics match hand calculations and preserve slow measured responses', () => {
+  const a=analyzeFocus(variableRecord([100,200,300,400,500]),30)
+  assert.equal(a.meanRT,300);assert.equal(a.sdRT,Math.sqrt(25000));assert.equal(a.cvRT,Math.sqrt(25000)/3)
+  assert.equal(a.p10RT,140);assert.equal(a.p90RT,460);assert.equal(a.slowResponses,2);assert.equal(a.slowPercent,40)
+  assert.equal(a.validResponses,5);assert.equal(a.minRT,100);assert.equal(a.maxRT,500)
+  assert.equal(analyzeFocus(variableRecord([250,4000]),60).maxRT,4000)
+  assert.equal(rtQuantile([1,NaN],.5),null);assert.equal(rtQuantile([1,2],Infinity),null)
+})
+test('empty, sparse and constant responses distinguish missing data from measured zero variability', () => {
+  const empty=analyzeFocus(variableRecord([]),30)
+  for(const key of ['meanRT','sdRT','cvRT','p10RT','p90RT','slowPercent','halfDeltaPercent']) assert.equal(empty[key],null)
+  assert.equal(analyzeFocus(variableRecord([250]),30).sdRT,null)
+  const a=analyzeFocus(variableRecord([250,250,250]),30)
+  assert.equal(a.cvRT,0);assert.equal(a.slowPercent,0)
+})
+test('timeouts, early taps and final censored signals cannot become measured reaction times', () => {
+  const raw=variableRecord([250,500])
+  raw.trials.push({kind:'timeout',onsetMs:20000,atMs:23000,rtMs:3000,waitMs:1000},{kind:'false-start',onsetMs:null,atMs:25000,rtMs:null,waitMs:null},{kind:'censored',onsetMs:29900,atMs:30000,rtMs:100,waitMs:1000})
+  const a=analyzeFocus(raw,30)
+  assert.equal(a.meanRT,375);assert.equal(a.validResponses,2);assert.equal(a.omissions,1);assert.equal(a.censored,1)
+})
+test('half comparisons use stimulus onset, minimum three per half and explicit positive/negative directions', () => {
+  for(const duration of [30,60]) {
+    const raw=variableRecord([200,200,200,400,400,400],duration)
+    const a=analyzeFocus(raw,duration)
+    assert.equal(a.firstHalfResponses,3);assert.equal(a.lastHalfResponses,3);assert.equal(a.halfDeltaPercent,100)
+    assert.equal(analyzeFocus(variableRecord([400,400,400,200,200,200],duration),duration).halfDeltaPercent,-50)
+    assert.equal(analyzeFocus(variableRecord([200,200,400,400],duration),duration).halfDeltaPercent,null)
+  }
+})
+test('historical analysis leaves original input untouched and malformed records unavailable', () => {
+  const r=variableRecord([250,500]);const before=JSON.stringify(r)
+  assert.equal(focusAnalysisFromRaw(r,30).meanRT,375);assert.equal(JSON.stringify(r),before)
+  for(const raw of [null,{}, {trials:[null]}, {...r,trials:[{...r.trials[0],rtMs:NaN}]}, {...r,trials:[{...r.trials[0],atMs:1}]}]) assert.equal(focusAnalysisFromRaw(raw,30),null)
+})
+test('monitoring compares first eligible per prior day only, never best repeat or incompatible/future data', () => {
+  const current={...row('2026-10-15'),raw:variableRecord([300,300,300,300,300,300])}
+  const prior=Array.from({length:7},(_,i)=>({...row(`2026-10-0${i+1}`,{id:'first-'+i}),raw:variableRecord([250,250,250,250,250,250])}))
+  const repeat={...prior[0],id:'repeat',startedAt:prior[0].localDate+'T09:00:00Z',raw:variableRecord([100,100,100,100,100,100])}
+  const wrong=[{...prior[0],localDate:'2026-10-10',deviceId:'wrong'},{...prior[0],localDate:'2026-10-11',practice:true},{...prior[0],localDate:'2026-10-12',durationSeconds:30},{...prior[0],localDate:'2026-10-13',context:{posture:'standing',caffeine:false}},current]
+  const out=focusMonitoring(current,[repeat,...prior,...wrong])
+  assert.equal(out.referenceDays,7);assert.equal(out.comparisons.find(c=>c.metric==='meanRT').reference,250)
+  assert.ok(Math.abs(out.comparisons.find(c=>c.metric==='meanRT').changePercent-20)<1e-9)
+  assert.equal(out.comparisons.find(c=>c.metric==='cvRT').reference,0)
+  assert.equal(out.comparisons.find(c=>c.metric==='cvRT').changePercent,null)
+  assert.equal(focusMonitoring(current,prior.slice(1)).comparisons[0].reference,null)
+  assert.equal(focusMonitoring(current,prior,true).comparisons[0].reference,null)
+  assert.ok(focusMonitoring({...current,status:'INVALID'},prior).comparisons.every(c=>c.difference===null))
+})
+test('extra analytics never change existing completion rules or scores, and appended export metrics retain zeros', () => {
+  const {pvtExportValues,PVT_EXPORT_FIELDS}=require(path.join(dir,'export.js'))
+  assert.deepEqual(PVT_EXPORT_FIELDS.slice(0,6),['Duration s','Median RT ms','Responses','Early taps','Quality','Attempt ID'])
+  for(const duration of [30,60]) {
+    const raw=run(duration,720),s=summarizePvt(raw,duration)
+    assert.equal(s.medianRT,720);assert.equal(s.repeatRequired,false);assert.equal(s.analysis.meanRT,720)
+    const v=pvtExportValues(JSON.stringify({kind:'PVT',attemptId:'a'}),{id:'a',summary:s,context:{},durationSeconds:duration})
+    assert.equal(v['RT CV percent'],0);assert.equal(v.Omissions,0);assert.equal(v['Mean RT ms'],720)
+  }
 })

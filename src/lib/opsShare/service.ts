@@ -31,6 +31,10 @@ export async function consumeShareLimit(
     RETURNING "attempts"`;
   return rows[0].attempts <= limit;
 }
+/** Release the reserved failure slot only after a fully successful login. */
+export async function releaseShareLimit(key: string) {
+  await prisma.$executeRaw`UPDATE "ops_share_auth_windows" SET "attempts" = GREATEST("attempts" - 1, 0) WHERE "key" = ${shareHash(key)}`;
+}
 export async function isBlocked(teamId: string, ip: string) {
   return (
     ip !== "Unavailable" &&

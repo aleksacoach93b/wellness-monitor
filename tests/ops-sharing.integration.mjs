@@ -471,6 +471,12 @@ try {
   );
   await settings(nextPassword);
   await db.opsShareAuthWindow.deleteMany();
+  for (let i = 0; i < 12; i++)
+    check(
+      (await login(testing, nextPassword)).status === 200,
+      "successful logins on a shared network do not consume failure slots",
+    );
+  await db.opsShareAuthWindow.deleteMany();
   const attempts = await Promise.all(
     Array.from({ length: 12 }, () => login(testing, "wrong-password")),
   );

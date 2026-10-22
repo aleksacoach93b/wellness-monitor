@@ -13,6 +13,7 @@ import {
 import {
   auditShare,
   consumeShareLimit,
+  releaseShareLimit,
   finishShareRead,
   isBlocked,
   liveLink,
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest, context: Context) {
       return response;
     }
     const meta = viewerMeta(request);
-    if (!(await consumeShareLimit("login-ip:" + meta.ip, 30, 900)))
+    if (!(await consumeShareLimit("login-ip:" + meta.ip, 120, 900)))
       return json(
         { error: "Too many attempts. Try again in 15 minutes." },
         429,
@@ -179,6 +180,7 @@ export async function POST(request: NextRequest, context: Context) {
       },
       detail,
     );
+    await releaseShareLimit(`login-team-ip:${link.teamId}:${meta.ip}`);
     const response = json({
       ok: true,
       label: link.label,

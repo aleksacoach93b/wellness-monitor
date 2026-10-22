@@ -98,9 +98,9 @@ function mapMetric(row: {
   }
 }
 
-export async function listOpsMetrics(teamId: string): Promise<OpsMetricDTO[]> {
+export async function listOpsMetrics(teamId: string, readOnly = false): Promise<OpsMetricDTO[]> {
   try {
-    await ensureOpsSchema()
+    if (!readOnly) await ensureOpsSchema()
     const rows = await prisma.opsMetric.findMany({
       where: { teamId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],

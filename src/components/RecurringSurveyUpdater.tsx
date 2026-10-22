@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 
 export default function RecurringSurveyUpdater() {
   useEffect(() => {
+    if (window.location.pathname.startsWith('/staff/live-ops/')) return
     // Update recurring surveys every minute
     const interval = setInterval(async () => {
       try {

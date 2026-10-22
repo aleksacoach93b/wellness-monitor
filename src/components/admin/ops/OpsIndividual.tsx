@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { useOpsAccess } from "@/components/opsShare/OpsAccess";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
@@ -44,6 +45,7 @@ export default function OpsIndividual({
   surveyId: string;
   endDate: string;
 }) {
+  const { readOnly, apiBase, request } = useOpsAccess();
   const [roster, setRoster] = useState<Roster | null>(null),
     [playerId, setPlayerId] = useState(""),
     [range, setRange] = useState({ from: shiftDay(endDate, -27), to: endDate }),
@@ -83,7 +85,7 @@ export default function OpsIndividual({
     setPlayerId("");
     setReport(null);
     setRosterError("");
-    fetch(`/api/ops/individual?surveyId=${encodeURIComponent(surveyId)}`, {
+    request(`${apiBase}/individual?surveyId=${encodeURIComponent(surveyId)}`, {
       signal: ac.signal,
       cache: "no-store",
     })
@@ -99,7 +101,7 @@ export default function OpsIndividual({
       active = false;
       ac.abort();
     };
-  }, [surveyId, rosterRetry]);
+  }, [surveyId, rosterRetry, apiBase, request]);
   useEffect(() => {
     if (!playerId) return;
     const ac = new AbortController();
@@ -109,7 +111,7 @@ export default function OpsIndividual({
     setError("");
     setSelectedDay("");
     const params = new URLSearchParams({ surveyId, playerId, ...range });
-    fetch(`/api/ops/individual?${params}`, {
+    request(`${apiBase}/individual?${params}`, {
       signal: ac.signal,
       cache: "no-store",
     })
@@ -132,7 +134,7 @@ export default function OpsIndividual({
       active = false;
       ac.abort();
     };
-  }, [surveyId, playerId, range, retry]);
+  }, [surveyId, playerId, range, retry, apiBase, request]);
   const report =
     loadedReport?.player.id === playerId &&
     loadedReport.survey.id === surveyId &&
@@ -207,7 +209,7 @@ export default function OpsIndividual({
     setRange({ from, to });
   };
   const exportPdf = async () => {
-    if (!report || !analysis || exportLock.current) return;
+    if (readOnly || !report || !analysis || exportLock.current) return;
     exportLock.current = true;
     setExporting(true);
     setExportError("");
@@ -300,7 +302,7 @@ export default function OpsIndividual({
             </p>
           </div>
         </div>
-        {exportChoices}
+        {!readOnly && exportChoices}
       </header>
       <div className="ip-controls">
         <label>
@@ -1073,7 +1075,7 @@ export default function OpsIndividual({
                         <th>Quality</th>
                         <th>Saved</th>
                         <th>Practice</th>
-                        <th>Analysis</th>
+                        {!readOnly && <th>Analysis</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -1090,7 +1092,7 @@ export default function OpsIndividual({
                           <td>{a.quality}</td>
                           <td>{a.saved ? "Yes" : "No"}</td>
                           <td>{a.practice ? "Yes" : "No"}</td>
-                          <td><a href={`/admin/pvt/session/${encodeURIComponent(a.id)}`} target="_blank" rel="noreferrer">Inspect session ↗</a></td>
+                          {!readOnly && <td><a href={`/admin/pvt/session/${encodeURIComponent(a.id)}`} target="_blank" rel="noreferrer">Inspect session ↗</a></td>}
                         </tr>
                       ))}
                     </tbody>

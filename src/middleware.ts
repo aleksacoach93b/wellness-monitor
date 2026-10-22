@@ -15,6 +15,8 @@ function isAdminUiPath(pathname: string): boolean {
 
 /** APIs that stay reachable without admin cookie (kiosk / Power BI / invite accept) */
 function isAlwaysPublicApi(pathname: string, method: string): boolean {
+  // Staff sharing authenticates with its own revocable viewer session, never admin rights.
+  if (/^\/api\/live-ops-share\/[A-Za-z0-9_-]{43}\/(login|logout|status|today|calendar|insights|individual|table-preferences)$/.test(pathname)) return true
   if (pathname === '/api/auth/login') return true
   if (pathname === '/api/auth/logout') return true
   if (/^\/api\/auth\/invite\/[^/]+$/.test(pathname)) return true
@@ -52,6 +54,16 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const method = request.method
+  if (pathname.startsWith('/staff/live-ops/')) {
+    const res = NextResponse.next()
+    res.headers.set('Cache-Control', 'private, no-store, max-age=0')
+    res.headers.set('Referrer-Policy', 'no-referrer')
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
+    res.headers.set('X-Frame-Options', 'DENY')
+    res.headers.set('Content-Security-Policy', "frame-ancestors 'none'")
+    res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+    return res
+  }
   const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value
   const session = token ? await verifyAdminSessionToken(token) : null
 

@@ -1,4 +1,5 @@
 'use client'
+import { useOpsAccess } from '@/components/opsShare/OpsAccess'
 
 import Image from 'next/image'
 import type { OpsPlayerCard } from '@/components/admin/ops/WellnessFlipCard'
@@ -98,7 +99,7 @@ function statusBadge(w: OpsPlayerCard['wellness'], pending: boolean) {
   )
 }
 
-function renderCell(id: OpsColumnId, p: OpsPlayerCard) {
+function renderCell(id: OpsColumnId, p: OpsPlayerCard, readOnly = false) {
   const w = p.wellness
   const pending = p.status === 'pending' || !w
   const name = `${p.firstName} ${p.lastName}`
@@ -134,7 +135,7 @@ function renderCell(id: OpsColumnId, p: OpsPlayerCard) {
     case 'focus':
       return (
         <td key={id} className="ops-mono whitespace-nowrap">
-          {p.focus?.medianRT != null && Number.isFinite(p.focus.medianRT) ? (
+          {p.focus?.medianRT != null && Number.isFinite(p.focus.medianRT) ? readOnly ? <span className="font-semibold text-teal-400">{Math.round(p.focus.medianRT)} ms</span> : (
             <a
               href={`/admin/pvt?playerId=${p.id}&surveyId=${p.focus.surveyId}&questionId=${p.focus.questionId || ''}`}
               className="font-semibold text-teal-400 hover:underline"
@@ -286,6 +287,7 @@ export default function OpsWellnessTable({
   /** Custom derived metrics with showInTable */
   metricColumns?: OpsMetricColumn[]
 }) {
+  const { readOnly } = useOpsAccess()
   const visible = enabledColumns(columns)
   const spans = groupSpans(visible)
   if (metricColumns.length) {
@@ -342,7 +344,7 @@ export default function OpsWellnessTable({
                     w?.statusText === 'ALERT' ? 'is-alert' : ''
                   }`}
                 >
-                  {visible.map((col) => renderCell(col.id, p))}
+                  {visible.map((col) => renderCell(col.id, p, readOnly))}
                   {metricColumns.map((col) => {
                     const cell = derivedByKey.get(col.key)
                     return (

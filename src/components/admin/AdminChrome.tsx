@@ -31,6 +31,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/ops', label: 'Live Ops', icon: Activity },
+  { href: '/admin/ops/sharing', label: 'Staff access', icon: ShieldCheck },
   { href: '/admin/pvt', label: 'PVT · Attention', icon: Activity },
   { href: '/', label: 'Surveys', icon: ClipboardList },
   { href: '/admin/players', label: 'Players', icon: Users },

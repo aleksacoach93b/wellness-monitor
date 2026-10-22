@@ -2,9 +2,9 @@ const {test,after}=require('node:test'), assert=require('node:assert/strict'), f
 const React=require('react'),{renderToStaticMarkup}=require('react-dom/server')
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ops-table-'))
 fs.symlinkSync(path.join(__dirname,'../node_modules'),path.join(dir,'node_modules'),'dir')
-for(const [file,name] of [['src/lib/opsTableColumns.ts','opsTableColumns'],['src/components/admin/ops/OpsWellnessTable.tsx','OpsWellnessTable']]){
+for(const [file,name] of [['src/components/opsShare/OpsAccess.tsx','OpsAccess'],['src/lib/opsTableColumns.ts','opsTableColumns'],['src/components/admin/ops/OpsWellnessTable.tsx','OpsWellnessTable']]){
  const source=fs.readFileSync(path.join(__dirname,'..',file),'utf8')
- const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText.replace('require("@/lib/opsTableColumns")','require("./opsTableColumns")')
+ const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText.replace('require("@/lib/opsTableColumns")','require("./opsTableColumns")').replace('require("@/components/opsShare/OpsAccess")','require("./OpsAccess")')
  fs.writeFileSync(path.join(dir,name+'.js'),js)
 }
 after(()=>fs.rmSync(dir,{recursive:true,force:true}))
@@ -17,3 +17,5 @@ const player={id:'fixture',firstName:'Test',lastName:'Player',image:null,status:
 const render=p=>renderToStaticMarkup(React.createElement(Table,{players:[p],columns:legacy}))
 test('table shows only Focus median and the saved HR alongside it',()=>{const html=render(player),text=html.replace(/<[^>]*>/g,'');assert.match(html,/>Focus test<\/th><th[^>]*[^]*?>RHR<\/th>/);assert.match(text,/273 ms68 bpm/);for(const detail of ['reference days','In wellness CSV','Awaiting wellness','30s · OK'])assert.equal(text.includes(detail),false)})
 test('missing measurements remain blank rather than showing fabricated zeros',()=>{const html=render({...player,focus:null,restingHr:[]});assert.equal(html.includes('0 ms'),false);assert.equal(html.includes('0 bpm'),false);assert.ok(html.includes('ops-t-muted'))})
+
+test('staff table preserves numbers but exposes no administrator links',()=>{const {OpsAccessContext}=require(path.join(dir,'OpsAccess.js'));const html=renderToStaticMarkup(React.createElement(OpsAccessContext.Provider,{value:{readOnly:true,apiBase:'/api/live-ops-share/example',request:fetch}},React.createElement(Table,{players:[player],columns:legacy})));assert.match(html,/273 ms/);assert.match(html,/68/);assert.equal(html.includes('/admin/'),false)})

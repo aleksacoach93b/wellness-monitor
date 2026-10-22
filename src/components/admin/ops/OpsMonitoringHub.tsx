@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useOpsAccess } from '@/components/opsShare/OpsAccess'
 import {
   Activity,
   ArrowRight,
@@ -127,6 +128,7 @@ export default function OpsMonitoringHub({
   search: string
   onSearch: (s: string) => void
 }) {
+  const { readOnly, apiBase, request } = useOpsAccess()
   const [loaded, setLoaded] = useState<{
       surveyId: string
       data: OpsInsights
@@ -145,8 +147,8 @@ export default function OpsMonitoringHub({
     let active = true
     setLoading(true)
     setError('')
-    void fetch(
-      `/api/ops/insights?${new URLSearchParams({ surveyId: survey.id, date })}`,
+    void request(
+      `${apiBase}/insights?${new URLSearchParams({ surveyId: survey.id, date })}`,
       { cache: 'no-store', signal: controller.signal },
     )
       .then(async (res) => {
@@ -165,7 +167,7 @@ export default function OpsMonitoringHub({
       active = false
       controller.abort()
     }
-  }, [survey.id, date, refreshKey, retry])
+  }, [survey.id, date, refreshKey, retry, request, apiBase])
   const rows = (data?.today || [])
     .filter((p) =>
       `${p.firstName} ${p.lastName}`
@@ -217,7 +219,7 @@ export default function OpsMonitoringHub({
     <div className="opsm-hub">
       <div className="opsm-topline">
         <nav className="opsm-tabs" aria-label="Live Ops sections">
-          {tabs.map((t) => (
+          {tabs.filter(t => !readOnly || t.id !== 'settings').map((t) => (
             <button
               type="button"
               key={t.id}
@@ -230,7 +232,7 @@ export default function OpsMonitoringHub({
             </button>
           ))}
         </nav>
-        <CSVLinkModal surveyId={survey.id} surveyTitle={survey.title} />
+        {!readOnly && <CSVLinkModal surveyId={survey.id} surveyTitle={survey.title} />}
       </div>
       {(tab === 'daily' || tab === 'measurements') && (
         <div className="opsm-search">
@@ -621,14 +623,14 @@ export default function OpsMonitoringHub({
                 {data.timezone}
               </p>
             </div>
-            <button
+            {!readOnly && <button
               className="opsm-print"
               type="button"
               onClick={() => window.print()}
             >
               <Printer size={16} />
               Print / save PDF
-            </button>
+            </button>}
           </div>
           {!data.available.focus && (
             <p role="status" className="opsm-error">

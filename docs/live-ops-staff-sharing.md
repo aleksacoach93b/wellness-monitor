@@ -58,7 +58,7 @@ separate migration and one-time replacement of Power BI source URLs.
   can delay the next check. Revocation blocks subsequent server reads, but
   cannot erase information someone already saw, downloaded or photographed.
 - Same-origin checks protect mutations. Database-backed atomic attempt/read
-  limits work across server instances. Stream lengths and credential lengths
+  limits work across server instances. Fully successful logins release their reserved failure slot, so normal staff logins on a shared network do not exhaust the wrong-password allowance. Stream lengths and credential lengths
   are bounded. Responses use private/no-store, no-referrer, noindex and deny
   framing headers. No cross-origin data access is enabled.
 

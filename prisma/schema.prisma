@@ -46,6 +46,9 @@ model Team {
   opsRules            OpsRule[]
   opsInterventions    OpsIntervention[]
   opsMetrics          OpsMetric[]
+  opsShareSettings OpsShareSettings?
+  opsShareEvents OpsShareEvent[]
+  opsShareBlockedIps OpsShareBlockedIp[]
 
   @@map("teams")
 }
@@ -486,4 +489,84 @@ model SurveySubmissionReceipt {
   createdAt DateTime @default(now())
   @@index([surveyId, playerId, createdAt])
   @@map("survey_submission_receipts")
+}
+
+/// Staff viewing is separate from admin and kiosk authentication.
+model OpsShareSettings {
+  teamId String @id
+  ownerAdminId String
+  enabled Boolean @default(false)
+  passwordHash String @default("")
+  version Int @default(1)
+  sessionHours Int @default(4)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  links OpsShareLink[]
+  @@map("ops_share_settings")
+}
+model OpsShareLink {
+  id String @id @default(cuid())
+  teamId String
+  token String @unique
+  label String
+  enabled Boolean @default(true)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  settings OpsShareSettings @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
+  sessions OpsShareSession[]
+  @@index([teamId, createdAt])
+  @@map("ops_share_links")
+}
+model OpsShareSession {
+  id String @id @default(cuid())
+  linkId String
+  tokenHash String @unique
+  version Int
+  ip String
+  userAgent String
+  device String
+  browser String
+  platform String
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  link OpsShareLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  @@index([linkId, createdAt])
+  @@map("ops_share_sessions")
+}
+/// No passwords, cookies, share tokens or wellness payloads in the access journal.
+model OpsShareEvent {
+  id String @id @default(cuid())
+  teamId String
+  linkId String?
+  sessionId String?
+  label String
+  kind String
+  resource String
+  ip String
+  userAgent String
+  device String
+  browser String
+  platform String
+  createdAt DateTime @default(now())
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  @@index([teamId, createdAt, id])
+  @@map("ops_share_events")
+}
+model OpsShareBlockedIp {
+  teamId String
+  ip String
+  createdAt DateTime @default(now())
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  @@id([teamId, ip])
+  @@map("ops_share_blocked_ips")
+}
+model OpsShareAuthWindow {
+  key String @id
+  attempts Int @default(1)
+  expiresAt DateTime
+  @@index([expiresAt])
+  @@map("ops_share_auth_windows")
 }

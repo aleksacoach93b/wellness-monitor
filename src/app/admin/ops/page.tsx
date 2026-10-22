@@ -985,6 +985,7 @@ export default function LiveOpsPage() {
               Updated {formatTime(data.generatedAt)}
             </span>
           ) : null}
+          <Link href="/admin/ops/sharing" className="admin-btn admin-btn-primary">Share with staff</Link>
           <button
             type="button"
             onClick={() => setFullscreen(true)}
